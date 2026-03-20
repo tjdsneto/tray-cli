@@ -1,6 +1,9 @@
 # Local brainstorming / specs (not published)
 scratch/
 
+# Go build artifact when built from repo root
+/tray
+
 # Dolt database files (added by bd init)
 .dolt/
 *.db
