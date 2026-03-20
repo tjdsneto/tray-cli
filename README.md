@@ -22,3 +22,9 @@ Supabase (later commands): `TRAY_SUPABASE_URL`, `TRAY_SUPABASE_ANON_KEY`.
 | `-o markdown` / `-o md` | Markdown tables — easy to paste into chats and for models to read |
 
 `--json` is shorthand for `-o json` and cannot be combined with another `-o` value.
+
+### Architecture
+
+- **`internal/backend`** — `Backend` interface + domain types (`Tray`, `Item`, `Session`, …). Commands depend on this, not on PostgREST paths.
+- **`internal/backend` (Supabase implementation)** — `NewSupabase` / `DialSupabase` map those operations to the Supabase Data API. Other backends could implement the same interface later.
+- **`internal/supabase`** — low-level HTTP client (`apikey` + `Authorization` headers only).
