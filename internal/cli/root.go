@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/tjdsneto/tray-cli/internal/output"
 )
 
 // Execute runs the tray root command.
@@ -24,6 +25,7 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	root.PersistentFlags().StringVar(&configDirFlag, "config-dir", "", "override config directory (default: $XDG_CONFIG_HOME/tray or ~/.config/tray)")
+	output.RegisterPersistentFlags(root.PersistentFlags())
 
 	root.AddCommand(
 		cmdLogin(),
