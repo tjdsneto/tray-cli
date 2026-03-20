@@ -4,6 +4,8 @@ CLI-first **tray** (shared inbox-tray / attention queue): **Go** client, **Supab
 
 ## Dev
 
+You need **[Go 1.22+](https://go.dev/dl/)** on your `PATH` (e.g. `brew install go` on macOS). `./run.sh` and `./build.sh` also look under `/opt/homebrew/bin` and `/usr/local/go/bin` if `go` is missing from PATH.
+
 ```bash
 go test ./...
 cp .env.example .env   # then edit with your Supabase URL + anon key
