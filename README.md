@@ -6,14 +6,17 @@ CLI-first **tray** (shared inbox-tray / attention queue): **Go** client, **Supab
 
 ```bash
 go test ./...
-go run ./cmd/tray --help
+cp .env.example .env   # then edit with your Supabase URL + anon key
+./run.sh --help
 ```
+
+Or set `TRAY_SUPABASE_URL` and `TRAY_SUPABASE_ANON_KEY` in the environment and use `go run ./cmd/tray` (without embeds unless you pass the same `-ldflags` as in [`run.sh`](run.sh)).
+
+**Release-style binary:** `./build.sh` writes `./tray` with Supabase settings embedded from `.env` (or from already-exported env vars). CI can set the same variables and invoke `go build -ldflags "..."` the same way.
 
 Config directory: `$XDG_CONFIG_HOME/tray` or `~/.config/tray`, or override with `TRAY_CONFIG_DIR`.
 
-Supabase: `TRAY_SUPABASE_URL` (e.g. `https://xxxx.supabase.co`), `TRAY_SUPABASE_ANON_KEY`.
-
-**Env files:** On startup, `tray` loads `.env` from the **current working directory**, then `~/.config/tray/.env` (or `$TRAY_CONFIG_DIR/.env` when set). Later files only set variables that are not already defined. See [`.env.example`](.env.example). You do not need to `export` manually for every shell session if you use one of those files.
+**Supabase:** `TRAY_SUPABASE_URL` (e.g. `https://xxxx.supabase.co`), `TRAY_SUPABASE_ANON_KEY`. At runtime, **environment variables override** values embedded at build time. See [`.env.example`](.env.example).
 
 **Login (token flow):** `tray login --token '<access_jwt>'` — validates via `GET /auth/v1/user` and writes `credentials.json` under the config directory.
 
