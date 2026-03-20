@@ -20,7 +20,9 @@ Config directory (see `internal/config/paths.go`): override with **`TRAY_CONFIG_
 
 **Supabase:** `TRAY_SUPABASE_URL` (e.g. `https://xxxx.supabase.co`), `TRAY_SUPABASE_ANON_KEY`. At runtime, **environment variables override** values embedded at build time. See [`.env.example`](.env.example).
 
-**Login (token flow):** `tray login --token '<access_jwt>'` — validates via `GET /auth/v1/user` and writes `credentials.json` under the config directory.
+**Login:** Run `./run.sh login` (or `tray login`) to **open the browser** and sign in with OAuth (GitHub by default; use `--provider google`, etc.). Supabase must have that provider enabled and **Redirect URLs** must allow local callbacks, e.g. `http://127.0.0.1:*/**` (or the exact URL printed by the CLI). Tokens are written to `credentials.json` under the config directory.
+
+**Login (manual token):** `tray login --token '<access_jwt>'` — validates via `GET /auth/v1/user` and writes credentials (no browser).
 
 **Trays:** `./run.sh create <name>` creates a tray; `./run.sh ls` lists trays you can access (owned and joined). Use the same `./run.sh` pattern so Supabase URL/key are embedded, or export env vars and run `tray` directly.
 
