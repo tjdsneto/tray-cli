@@ -25,6 +25,7 @@ Supabase (later commands): `TRAY_SUPABASE_URL`, `TRAY_SUPABASE_ANON_KEY`.
 
 ### Architecture
 
-- **`internal/backend`** — `Backend` interface + domain types (`Tray`, `Item`, `Session`, …). Commands depend on this, not on PostgREST paths.
-- **`internal/backend` (Supabase implementation)** — `NewSupabase` / `DialSupabase` map those operations to the Supabase Data API. Other backends could implement the same interface later.
-- **`internal/supabase`** — low-level HTTP client (`apikey` + `Authorization` headers only).
+- **`internal/domain`** — types (`Tray`, `Item`, `Session`, …) and **service interfaces**: `TrayService`, `ItemService`. The CLI depends on these, not on HTTP paths.
+- **`internal/domain.Services`** — bundles `Trays` + `Items` for a single injection point.
+- **`internal/adapters/postgrest`** — PostgREST (Supabase Data API) implementations of those services; `postgrest.Dial` / `postgrest.NewServices`. A future Firebase adapter would live alongside as another implementation.
+- **`internal/supabase`** — tiny HTTP client (`apikey` + `Authorization` only).
