@@ -20,6 +20,8 @@ Config directory: `$XDG_CONFIG_HOME/tray` or `~/.config/tray`, or override with 
 
 **Login (token flow):** `tray login --token '<access_jwt>'` — validates via `GET /auth/v1/user` and writes `credentials.json` under the config directory.
 
+**Trays:** `./run.sh create <name>` creates a tray; `./run.sh ls` lists trays you can access (owned and joined). Use the same `./run.sh` pattern so Supabase URL/key are embedded, or export env vars and run `tray` directly.
+
 ### Output (list-style commands)
 
 | Flag | Purpose |

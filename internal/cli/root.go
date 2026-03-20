@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -9,7 +10,7 @@ import (
 
 // Execute runs the tray root command.
 func Execute() error {
-	return NewRootCmd().Execute()
+	return NewRootCmd().ExecuteContext(context.Background())
 }
 
 // NewRootCmd builds the full CLI tree (stubs until each feature lands).

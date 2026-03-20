@@ -7,11 +7,11 @@ import (
 
 // Tray is a named inbox owned by one user.
 type Tray struct {
-	ID          string
-	OwnerID     string
-	Name        string
-	InviteToken *string
-	CreatedAt   time.Time
+	ID          string    `json:"id"`
+	OwnerID     string    `json:"owner_id"`
+	Name        string    `json:"name"`
+	InviteToken *string   `json:"invite_token,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // TrayMember is a user allowed to add (and read) items on someone else's tray.
