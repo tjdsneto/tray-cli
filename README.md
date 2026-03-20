@@ -13,6 +13,8 @@ Config directory: `$XDG_CONFIG_HOME/tray` or `~/.config/tray`, or override with 
 
 Supabase: `TRAY_SUPABASE_URL` (e.g. `https://xxxx.supabase.co`), `TRAY_SUPABASE_ANON_KEY`.
 
+**Env files:** On startup, `tray` loads `.env` from the **current working directory**, then `~/.config/tray/.env` (or `$TRAY_CONFIG_DIR/.env` when set). Later files only set variables that are not already defined. See [`.env.example`](.env.example). You do not need to `export` manually for every shell session if you use one of those files.
+
 **Login (token flow):** `tray login --token '<access_jwt>'` — validates via `GET /auth/v1/user` and writes `credentials.json` under the config directory.
 
 ### Output (list-style commands)
