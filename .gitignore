@@ -4,6 +4,11 @@ scratch/
 # Go build artifact when built from repo root
 /tray
 
+# Local env (secrets)
+.env
+.env.*
+!.env.example
+
 # Dolt database files (added by bd init)
 .dolt/
 *.db
