@@ -104,27 +104,39 @@ func ExchangePKCE(ctx context.Context, projectURL, anonKey, authCode, codeVerifi
 }
 
 // LoginWithOAuth runs the browser OAuth + PKCE flow and returns tokens from Supabase Auth.
-// If onListening is non-nil, it is called with the exact redirect_to URL (add to Supabase allow list).
-func LoginWithOAuth(ctx context.Context, projectURL, anonKey, provider string, httpClient *http.Client, onListening func(redirectURL string)) (accessToken, refreshToken, userID, email string, err error) {
+// If provider is non-empty, the browser opens that provider’s authorize URL directly.
+// If provider is empty, the browser opens a local page listing providers to choose from (same PKCE session).
+// If onListening is non-nil, it is called with redirect_to, the picker URL, and the direct provider (if any).
+func LoginWithOAuth(ctx context.Context, projectURL, anonKey, provider string, httpClient *http.Client, onListening func(redirectURL string, pickURL string, directProvider string)) (accessToken, refreshToken, userID, email string, err error) {
 	verifier, challenge, err := NewCodeVerifier()
 	if err != nil {
 		return "", "", "", "", err
 	}
-	redirectTo, wait, srv, err := OAuthCallbackServer()
+	redirectTo, pickURL, wait, srv, err := OAuthCallbackServer(projectURL, challenge)
 	if err != nil {
 		return "", "", "", "", err
 	}
 	defer func() { _ = srv.Shutdown(context.Background()) }()
+
+	direct := strings.TrimSpace(provider)
 	if onListening != nil {
-		onListening(redirectTo)
+		onListening(redirectTo, pickURL, direct)
 	}
-	authURL, err := AuthorizeURL(projectURL, provider, redirectTo, challenge)
-	if err != nil {
-		return "", "", "", "", err
+
+	if direct != "" {
+		authURL, err := AuthorizeURL(projectURL, direct, redirectTo, challenge)
+		if err != nil {
+			return "", "", "", "", err
+		}
+		if err := OpenURL(authURL); err != nil {
+			return "", "", "", "", fmt.Errorf("auth: open browser: %w", err)
+		}
+	} else {
+		if err := OpenURL(pickURL); err != nil {
+			return "", "", "", "", fmt.Errorf("auth: open browser: %w", err)
+		}
 	}
-	if err := OpenURL(authURL); err != nil {
-		return "", "", "", "", fmt.Errorf("auth: open browser: %w", err)
-	}
+
 	waitCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	code, cbErr := wait(waitCtx)
@@ -141,16 +153,21 @@ func LoginWithOAuth(ctx context.Context, projectURL, anonKey, provider string, h
 	return tok.AccessToken, tok.RefreshToken, tok.User.ID, tok.User.Email, nil
 }
 
-// OAuthCallbackServer listens on 127.0.0.1:0, returns the redirect URL to pass as redirect_to,
-// and waits for the browser redirect with ?code= or ?error=.
-// The caller must call Shutdown on srv when finished (LoginWithOAuth does this).
-func OAuthCallbackServer() (redirectTo string, wait func(context.Context) (code string, oauthErr error), srv *http.Server, err error) {
+// OAuthCallbackServer listens on 127.0.0.1:0, serves a provider picker at / and callback at /callback.
+func OAuthCallbackServer(projectURL, codeChallenge string) (redirectTo string, pickURL string, wait func(context.Context) (code string, oauthErr error), srv *http.Server, err error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("auth: listen: %w", err)
+		return "", "", nil, nil, fmt.Errorf("auth: listen: %w", err)
 	}
 	addr := ln.Addr().(*net.TCPAddr)
 	redirect := fmt.Sprintf("http://127.0.0.1:%d/callback", addr.Port)
+	picker := fmt.Sprintf("http://127.0.0.1:%d/", addr.Port)
+
+	links, err := buildPickerLinks(projectURL, redirect, codeChallenge)
+	if err != nil {
+		_ = ln.Close()
+		return "", "", nil, nil, err
+	}
 
 	ch := make(chan struct {
 		code string
@@ -158,6 +175,19 @@ func OAuthCallbackServer() (redirectTo string, wait func(context.Context) (code 
 	}, 1)
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		html, err := renderPickerPage(links)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = io.WriteString(w, html)
+	})
 	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -203,7 +233,7 @@ func OAuthCallbackServer() (redirectTo string, wait func(context.Context) (code 
 		}
 	}
 
-	return redirect, waitFn, srv, nil
+	return redirect, picker, waitFn, srv, nil
 }
 
 func oauthDoneHTML(ok bool) string {

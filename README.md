@@ -20,7 +20,7 @@ Config directory (see `internal/config/paths.go`): override with **`TRAY_CONFIG_
 
 **Supabase:** `TRAY_SUPABASE_URL` (e.g. `https://xxxx.supabase.co`), `TRAY_SUPABASE_ANON_KEY`. At runtime, **environment variables override** values embedded at build time. See [`.env.example`](.env.example).
 
-**Login:** Run `./run.sh login --provider google` (or `github`, etc.) to **open the browser** and sign in with OAuth. You can set a default with **`TRAY_OAUTH_PROVIDER`** in `.env` instead of passing `--provider` each time. In **Supabase** → Authentication → URL Configuration, allow local redirects (e.g. `http://127.0.0.1:*/**` or the exact URL the CLI prints). **Google / GitHub OAuth apps** (outside Supabase): **Authorized redirect URI** must be **`https://<project-ref>.supabase.co/auth/v1/callback`** only — no wildcards, no `127.0.0.1`. Tokens are written to `credentials.json` under the config directory.
+**Login:** Run `./run.sh login` to open a **local web page** where you pick Google, GitHub, etc. (enable each in Supabase). Use `./run.sh login --provider google` or **`TRAY_OAUTH_PROVIDER`** in `.env` to skip the picker. In **Supabase** → Authentication → URL Configuration, allow local redirects (e.g. `http://127.0.0.1:*/**`). **Google / GitHub OAuth apps**: **Authorized redirect URI** = **`https://<project-ref>.supabase.co/auth/v1/callback`** (not localhost). Tokens are written to `credentials.json` under the config directory.
 
 **Login (manual token):** `tray login --token '<access_jwt>'` — validates via `GET /auth/v1/user` and writes credentials (no browser).
 
