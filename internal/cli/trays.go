@@ -21,7 +21,7 @@ func cmdCreate() *cobra.Command {
 func runCreate(cmd *cobra.Command, args []string) error {
 	name := strings.TrimSpace(args[0])
 	if name == "" {
-		return fmt.Errorf("tray name cannot be empty")
+		return fmt.Errorf("give your tray a name — for example: `tray create inbox`")
 	}
 	svcs, sess, err := requireAuth()
 	if err != nil {

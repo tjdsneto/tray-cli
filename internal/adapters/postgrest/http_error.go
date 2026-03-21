@@ -24,56 +24,76 @@ func httpAPIError(method, path, statusLine string, statusCode int, raw []byte) e
 	_ = json.Unmarshal(raw, &j)
 	code := strings.TrimSpace(j.Code)
 	msg := sanitizeOneLine(strings.TrimSpace(j.Message))
+	msgLower := strings.ToLower(msg)
 
 	switch statusCode {
 	case http.StatusBadRequest: // 400
 		if msg != "" {
-			return fmt.Errorf("invalid request: %s", msg)
+			return fmt.Errorf("that request wasn't valid: %s", msg)
 		}
-		return fmt.Errorf("invalid request (%s)", statusLine)
+		return fmt.Errorf("that request wasn't valid (%s)", statusLine)
 	case http.StatusUnauthorized: // 401
-		return fmt.Errorf("session expired or invalid; run tray login")
+		return fmt.Errorf("your session expired or isn't valid — run `tray login` and try again")
 	case http.StatusForbidden: // 403
 		if msg != "" {
-			return fmt.Errorf("not allowed: %s", msg)
+			return fmt.Errorf("you're not allowed to do that: %s", msg)
 		}
-		return fmt.Errorf("not allowed")
+		return fmt.Errorf("you're not allowed to do that (permission denied)")
 	case http.StatusConflict: // 409 — unique violations, etc.
-		if code == "23505" || strings.Contains(strings.ToLower(msg), "duplicate") {
-			return fmt.Errorf("that name is already in use (pick another)")
+		if isDuplicateConflict(code, msgLower) {
+			return duplicateConflictMessage(path)
 		}
 		if msg != "" {
-			return fmt.Errorf("conflict: %s", msg)
+			return fmt.Errorf("that conflicts with existing data: %s", msg)
 		}
-		return fmt.Errorf("request conflict (%s)", statusLine)
+		return fmt.Errorf("that conflicts with existing data (%s)", statusLine)
 	case http.StatusNotFound: // 404
 		if msg != "" {
-			return fmt.Errorf("not found: %s", msg)
+			return fmt.Errorf("nothing matched that request: %s", msg)
 		}
-		return fmt.Errorf("not found")
+		return fmt.Errorf("nothing matched that request (not found)")
 	case http.StatusUnprocessableEntity: // 422
 		if msg != "" {
-			return fmt.Errorf("invalid data: %s", msg)
+			return fmt.Errorf("that data couldn't be saved: %s", msg)
 		}
-		return fmt.Errorf("invalid data (%s)", statusLine)
+		return fmt.Errorf("that data couldn't be saved (%s)", statusLine)
 	case http.StatusInternalServerError:
+		if isDuplicateConflict(code, msgLower) {
+			return duplicateConflictMessage(path)
+		}
 		switch code {
 		case "42P17":
 			return fmt.Errorf(
-				"server access rules failed (database policy). Apply the latest Supabase migration from this repo (e.g. supabase db push) or ask a project admin",
+				"the server blocked this action (database access rules). Ask your admin to apply the latest migrations from this repo, or run supabase db push if you manage the project",
 			)
 		case "42501":
-			return fmt.Errorf("permission denied")
+			return fmt.Errorf("permission denied on the server")
 		}
 		if msg != "" {
-			return fmt.Errorf("server error: %s", msg)
+			return fmt.Errorf("something went wrong on the server: %s", msg)
 		}
-		return fmt.Errorf("server error (%s)", statusLine)
+		return fmt.Errorf("something went wrong on the server (%s)", statusLine)
 	default:
 		if msg != "" {
-			return fmt.Errorf("request failed: %s", msg)
+			return fmt.Errorf("request didn't succeed: %s", msg)
 		}
-		return fmt.Errorf("request failed (%s)", statusLine)
+		return fmt.Errorf("request didn't succeed (%s)", statusLine)
+	}
+}
+
+func isDuplicateConflict(pgCode, msgLower string) bool {
+	if pgCode == "23505" {
+		return true
+	}
+	return strings.Contains(msgLower, "duplicate") || strings.Contains(msgLower, "unique constraint")
+}
+
+func duplicateConflictMessage(path string) error {
+	switch {
+	case strings.Contains(path, "/rest/v1/trays"):
+		return fmt.Errorf("you already have a tray with that name — choose another name, or run `tray ls` to see your trays")
+	default:
+		return fmt.Errorf("that value is already taken — try a different name or pick another option")
 	}
 }
 

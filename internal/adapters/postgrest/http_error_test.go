@@ -26,4 +26,13 @@ func TestHTTPAPIError_userFacing(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "secret")
 	})
+
+	t.Run("duplicate tray name", func(t *testing.T) {
+		t.Setenv(config.EnvDebug, "")
+		raw := []byte(`{"code":"23505","message":"duplicate key value violates unique constraint trays_owner_name_unique"}`)
+		err := httpAPIError("POST", "/rest/v1/trays", "409 Conflict", http.StatusConflict, raw)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "already have a tray")
+		require.Contains(t, err.Error(), "tray ls")
+	})
 }
