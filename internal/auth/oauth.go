@@ -15,6 +15,19 @@ import (
 	"time"
 )
 
+// listenLocalhostCallback binds 127.0.0.1:0 (OS picks a free port). Retries a few times if the port bind races.
+func listenLocalhostCallback() (net.Listener, error) {
+	var lastErr error
+	for range 3 {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err == nil {
+			return ln, nil
+		}
+		lastErr = err
+	}
+	return nil, lastErr
+}
+
 // AuthorizeURL builds the Supabase Auth OAuth URL (PKCE / S256).
 func AuthorizeURL(projectURL, provider, redirectTo, codeChallenge string) (string, error) {
 	base, err := authV1Base(projectURL)
@@ -155,9 +168,9 @@ func LoginWithOAuth(ctx context.Context, projectURL, anonKey, provider string, h
 
 // OAuthCallbackServer listens on 127.0.0.1:0, serves a provider picker at / and callback at /callback.
 func OAuthCallbackServer(projectURL, codeChallenge string) (redirectTo string, pickURL string, wait func(context.Context) (code string, oauthErr error), srv *http.Server, err error) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := listenLocalhostCallback()
 	if err != nil {
-		return "", "", nil, nil, fmt.Errorf("auth: listen: %w", err)
+		return "", "", nil, nil, fmt.Errorf("auth: could not start local callback (needed for sign-in): %w\n\nIf this keeps failing, check firewall/VPN or use: tray login --token <jwt>", err)
 	}
 	addr := ln.Addr().(*net.TCPAddr)
 	redirect := fmt.Sprintf("http://127.0.0.1:%d/callback", addr.Port)

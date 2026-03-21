@@ -13,6 +13,7 @@ import (
 
 var loginToken string
 var loginProvider string
+var loginVerbose bool
 
 func cmdLogin() *cobra.Command {
 	c := &cobra.Command{
@@ -39,6 +40,7 @@ The provider redirects there; Supabase then redirects your browser to localhost 
 	}
 	c.Flags().StringVar(&loginToken, "token", "", "skip OAuth and use this user access token (JWT)")
 	c.Flags().StringVar(&loginProvider, "provider", "", "skip the provider picker and sign in with this id (e.g. google); optional if you use "+config.EnvOAuthProvider+" or the web picker")
+	c.Flags().BoolVarP(&loginVerbose, "verbose", "v", false, "print detailed one-time Supabase / Google Cloud OAuth setup hints")
 	return c
 }
 
@@ -63,14 +65,22 @@ func effectiveOAuthProvider() string {
 
 func runLoginOAuth(cmd *cobra.Command, url, key string) error {
 	provider := effectiveOAuthProvider()
-	if provider != "" {
-		fmt.Fprintf(cmd.OutOrStdout(), "OAuth sign-in (provider=%s).\n", provider)
+	if loginVerbose {
+		if provider != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "OAuth sign-in (provider=%s).\n", provider)
+		} else {
+			fmt.Fprintf(cmd.OutOrStdout(), "OAuth sign-in — pick a provider in the browser.\n")
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "One-time setup:\n")
+		fmt.Fprintf(cmd.OutOrStdout(), "  • Supabase → Authentication → URL Configuration → Redirect URLs: allow local callbacks, e.g. http://127.0.0.1:*/**\n")
+		fmt.Fprintf(cmd.OutOrStdout(), "  • Google/GitHub OAuth app → Authorized redirect URI (use Supabase’s URL, not localhost):\n    %s\n\n", supabaseAuthCallbackURL(url))
 	} else {
-		fmt.Fprintf(cmd.OutOrStdout(), "OAuth sign-in — pick a provider in the browser.\n")
+		if provider != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "Signing in with %s…\n", provider)
+		} else {
+			fmt.Fprintf(cmd.OutOrStdout(), "Opening sign-in in your browser…\n")
+		}
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "Supabase → Authentication → URL Configuration → Redirect URLs (allow the CLI callback), e.g.:\n  http://127.0.0.1:*/**\n")
-	fmt.Fprintf(cmd.OutOrStdout(), "Google/GitHub/etc. OAuth app: authorized redirect must be Supabase’s callback (no wildcards, not localhost):\n  %s\n", supabaseAuthCallbackURL(url))
-	fmt.Fprintln(cmd.OutOrStdout())
 
 	accessToken, refreshToken, userID, email, err := auth.LoginWithOAuth(
 		cmd.Context(),
@@ -79,9 +89,12 @@ func runLoginOAuth(cmd *cobra.Command, url, key string) error {
 		provider,
 		nil,
 		func(callbackURL string, pickURL string, direct string) {
-			fmt.Fprintf(cmd.OutOrStdout(), "Listening: callback %s\n", callbackURL)
+			if !loginVerbose {
+				return
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Local callback (for this session only): %s\n", callbackURL)
 			if direct != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Opening authorize URL for %s…\n", direct)
+				fmt.Fprintf(cmd.OutOrStdout(), "Opening provider sign-in…\n")
 			} else {
 				fmt.Fprintf(cmd.OutOrStdout(), "Opening provider picker: %s\n", pickURL)
 			}
