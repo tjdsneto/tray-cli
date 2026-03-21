@@ -12,6 +12,8 @@ type Tray struct {
 	Name        string    `json:"name"`
 	InviteToken *string   `json:"invite_token,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
+	// ItemCount is the number of items visible to the current user (from PostgREST embed).
+	ItemCount int `json:"item_count"`
 }
 
 // TrayMember is a user allowed to add (and read) items on someone else's tray.

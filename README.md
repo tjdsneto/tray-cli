@@ -50,7 +50,7 @@ During OAuth, the CLI starts a **short-lived local HTTP server** on `127.0.0.1` 
 
 `--json` is shorthand for `-o json` and cannot be combined with another `-o` value.
 
-For **trays**, the default table lists **name** and **created** only. Tray **IDs** (UUIDs) appear in **`-o json`** for scripts and integrations.
+For **trays**, the default table shows **name**, **item count**, and **created** (in your **local timezone**; set the **`TZ`** environment variable if needed). After `create` or `ls`, the CLI prints **next-step hints** (`tray add …`, `tray invite …`). Tray **IDs** (UUIDs) and **`item_count`** appear in **`-o json`** for scripts.
 
 ### Architecture
 

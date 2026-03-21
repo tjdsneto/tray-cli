@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/tjdsneto/tray-cli/internal/domain"
@@ -42,7 +43,10 @@ func (s *trayService) Create(ctx context.Context, sess domain.Session, name stri
 }
 
 func (s *trayService) ListMine(ctx context.Context, sess domain.Session) ([]domain.Tray, error) {
-	path := "/rest/v1/trays?select=id,owner_id,name,invite_token,created_at&order=name.asc"
+	q := url.Values{}
+	q.Set("select", "id,owner_id,name,invite_token,created_at,items(count)")
+	q.Set("order", "name.asc")
+	path := "/rest/v1/trays?" + q.Encode()
 	var rows []trayRow
 	if err := s.pg.doJSON(ctx, sess, http.MethodGet, path, nil, &rows, nil); err != nil {
 		return nil, err

@@ -23,11 +23,17 @@ func parseCreatedTray(raw []byte) (*trayRow, error) {
 }
 
 type trayRow struct {
-	ID          string  `json:"id"`
-	OwnerID     string  `json:"owner_id"`
-	Name        string  `json:"name"`
-	InviteToken *string `json:"invite_token"`
-	CreatedAt   string  `json:"created_at"`
+	ID          string           `json:"id"`
+	OwnerID     string           `json:"owner_id"`
+	Name        string           `json:"name"`
+	InviteToken *string          `json:"invite_token"`
+	CreatedAt   string           `json:"created_at"`
+	Items       []trayItemsCount `json:"items,omitempty"`
+}
+
+// trayItemsCount is PostgREST embed shape: items(count) → [{"count": n}].
+type trayItemsCount struct {
+	Count int `json:"count"`
 }
 
 func trayFromRow(r trayRow) (*domain.Tray, error) {
@@ -35,12 +41,17 @@ func trayFromRow(r trayRow) (*domain.Tray, error) {
 	if err != nil {
 		return nil, fmt.Errorf("postgrest: tray created_at: %w", err)
 	}
+	n := 0
+	if len(r.Items) > 0 {
+		n = r.Items[0].Count
+	}
 	return &domain.Tray{
 		ID:          r.ID,
 		OwnerID:     r.OwnerID,
 		Name:        r.Name,
 		InviteToken: r.InviteToken,
 		CreatedAt:   t,
+		ItemCount:   n,
 	}, nil
 }
 

@@ -15,3 +15,15 @@ func TestParseCreatedTray_arrayOrObject(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "y", row.ID)
 }
+
+func TestTrayFromRow_itemCount(t *testing.T) {
+	tr, err := trayFromRow(trayRow{
+		ID:        "id1",
+		OwnerID:   "o",
+		Name:      "t",
+		CreatedAt: "2026-01-02T15:04:05Z",
+		Items:     []trayItemsCount{{Count: 7}},
+	})
+	require.NoError(t, err)
+	require.Equal(t, 7, tr.ItemCount)
+}

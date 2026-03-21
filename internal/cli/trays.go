@@ -35,7 +35,8 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	return output.WriteTrays(cmd.OutOrStdout(), []domain.Tray{*tray}, format)
+	showHints := format == output.FormatTable
+	return output.WriteTrays(cmd.OutOrStdout(), []domain.Tray{*tray}, format, showHints)
 }
 
 func cmdLs() *cobra.Command {
@@ -60,7 +61,8 @@ func runLs(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	return output.WriteTrays(cmd.OutOrStdout(), trays, format)
+	showHints := format == output.FormatTable
+	return output.WriteTrays(cmd.OutOrStdout(), trays, format, showHints)
 }
 
 func cmdInvite() *cobra.Command {

@@ -16,8 +16,12 @@ func TestTrayService_ListMine(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/rest/v1/trays", r.URL.Path)
 		require.Equal(t, http.MethodGet, r.Method)
+		require.Contains(t, r.URL.RawQuery, "items")
 		_ = json.NewEncoder(w).Encode([]trayRow{
-			{ID: "a", OwnerID: "u1", Name: "work", CreatedAt: "2026-03-20T12:00:00Z"},
+			{
+				ID: "a", OwnerID: "u1", Name: "work", CreatedAt: "2026-03-20T12:00:00Z",
+				Items: []trayItemsCount{{Count: 3}},
+			},
 		})
 	}))
 	t.Cleanup(srv.Close)
@@ -30,6 +34,7 @@ func TestTrayService_ListMine(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, trays, 1)
 	require.Equal(t, "work", trays[0].Name)
+	require.Equal(t, 3, trays[0].ItemCount)
 }
 
 func TestTrayService_Join(t *testing.T) {
