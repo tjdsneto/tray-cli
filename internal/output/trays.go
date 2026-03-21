@@ -23,17 +23,17 @@ func WriteTrays(w io.Writer, trays []domain.Tray, f Format) error {
 			_, err := fmt.Fprintln(w, "_No trays._")
 			return err
 		}
-		_, err := fmt.Fprintf(w, "| %s | %s | %s |\n", "Name", "ID", "Created")
+		_, err := fmt.Fprintf(w, "| %s | %s |\n", "Name", "Created")
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(w, "| %s | %s | %s |\n", "---", "---", "---")
+		_, err = fmt.Fprintf(w, "| %s | %s |\n", "---", "---")
 		if err != nil {
 			return err
 		}
 		for _, t := range trays {
 			name := strings.ReplaceAll(t.Name, "|", "\\|")
-			_, err := fmt.Fprintf(w, "| %s | `%s` | %s |\n", name, t.ID, t.CreatedAt.UTC().Format(time.RFC3339))
+			_, err := fmt.Fprintf(w, "| %s | %s |\n", name, t.CreatedAt.UTC().Format(time.RFC3339))
 			if err != nil {
 				return err
 			}
@@ -45,12 +45,12 @@ func WriteTrays(w io.Writer, trays []domain.Tray, f Format) error {
 			return err
 		}
 		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-		_, err := fmt.Fprintln(tw, "NAME\tID\tCREATED")
+		_, err := fmt.Fprintln(tw, "NAME\tCREATED")
 		if err != nil {
 			return err
 		}
 		for _, t := range trays {
-			_, err := fmt.Fprintf(tw, "%s\t%s\t%s\n", t.Name, t.ID, t.CreatedAt.UTC().Format(time.RFC3339))
+			_, err := fmt.Fprintf(tw, "%s\t%s\n", t.Name, t.CreatedAt.UTC().Format(time.RFC3339))
 			if err != nil {
 				return err
 			}

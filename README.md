@@ -50,6 +50,8 @@ During OAuth, the CLI starts a **short-lived local HTTP server** on `127.0.0.1` 
 
 `--json` is shorthand for `-o json` and cannot be combined with another `-o` value.
 
+For **trays**, the default table lists **name** and **created** only. Tray **IDs** (UUIDs) appear in **`-o json`** for scripts and integrations.
+
 ### Architecture
 
 - **`internal/domain`** — types (`Tray`, `Item`, `Session`, …) and **service interfaces**: `TrayService`, `ItemService`. The CLI depends on these, not on HTTP paths.

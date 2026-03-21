@@ -15,8 +15,17 @@ func TestWriteTrays_table(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, WriteTrays(&buf, trays, FormatTable))
 	require.Contains(t, buf.String(), "NAME")
+	require.Contains(t, buf.String(), "CREATED")
 	require.Contains(t, buf.String(), "a")
-	require.Contains(t, buf.String(), "111")
+	require.NotContains(t, buf.String(), "111")
+}
+
+func TestWriteTrays_json_includesID(t *testing.T) {
+	ts := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
+	trays := []domain.Tray{{Name: "a", ID: "full-uuid-here", CreatedAt: ts}}
+	var buf bytes.Buffer
+	require.NoError(t, WriteTrays(&buf, trays, FormatJSON))
+	require.Contains(t, buf.String(), "full-uuid-here")
 }
 
 func TestWriteTrays_empty(t *testing.T) {
