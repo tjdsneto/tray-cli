@@ -84,7 +84,11 @@ func ExchangePKCE(ctx context.Context, projectURL, anonKey, authCode, codeVerifi
 	defer resp.Body.Close()
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return zero, fmt.Errorf("auth: token exchange %s: %s", resp.Status, strings.TrimSpace(string(respBody)))
+		msg := strings.TrimSpace(string(respBody))
+		if strings.Contains(msg, "provider is not enabled") {
+			msg += "\n\nHint: Supabase → Authentication → Providers → enable Google (or your chosen provider), save Client ID and Secret from Google Cloud, then retry."
+		}
+		return zero, fmt.Errorf("auth: token exchange %s: %s", resp.Status, msg)
 	}
 	var out pkceTokenResponse
 	if err := json.Unmarshal(respBody, &out); err != nil {

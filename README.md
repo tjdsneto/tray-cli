@@ -24,6 +24,8 @@ Config directory (see `internal/config/paths.go`): override with **`TRAY_CONFIG_
 
 **Login (manual token):** `tray login --token '<access_jwt>'` — validates via `GET /auth/v1/user` and writes credentials (no browser).
 
+**Troubleshooting OAuth:** If you see `Unsupported provider: provider is not enabled`, open **Supabase Dashboard → Authentication → Providers**, turn **Google** on, and paste the **Client ID** and **Client secret** from Google Cloud (same OAuth client whose redirect URI is `https://<project-ref>.supabase.co/auth/v1/callback`). Then run `tray login --provider google` again. The CLI cannot enable providers; it must be done in the dashboard.
+
 **Trays:** `./run.sh create <name>` creates a tray; `./run.sh ls` lists trays you can access (owned and joined). Use the same `./run.sh` pattern so Supabase URL/key are embedded, or export env vars and run `tray` directly.
 
 ### Output (list-style commands)
