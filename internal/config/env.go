@@ -9,6 +9,7 @@ const (
 	EnvSupabaseURL      = "TRAY_SUPABASE_URL"
 	EnvSupabaseAnonKey  = "TRAY_SUPABASE_ANON_KEY"
 	EnvOAuthProvider    = "TRAY_OAUTH_PROVIDER"
+	EnvDebug            = "TRAY_DEBUG"
 )
 
 // Set at link time via -ldflags -X (see build.sh / run.sh and CI).
@@ -36,4 +37,9 @@ func SupabaseAnonKey() string {
 // OAuthProvider returns TRAY_OAUTH_PROVIDER (optional default for tray login --provider).
 func OAuthProvider() string {
 	return strings.TrimSpace(os.Getenv(EnvOAuthProvider))
+}
+
+// Debug is true when TRAY_DEBUG=1 (verbose API errors and diagnostics).
+func Debug() bool {
+	return strings.TrimSpace(os.Getenv(EnvDebug)) == "1"
 }

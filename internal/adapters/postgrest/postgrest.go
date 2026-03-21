@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/tjdsneto/tray-cli/internal/domain"
 	supabasehttp "github.com/tjdsneto/tray-cli/internal/supabase"
@@ -55,7 +54,7 @@ func (p *client) request(ctx context.Context, sess domain.Session, method, path 
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("postgrest: %s %s: %s: %s", method, path, resp.Status, strings.TrimSpace(string(raw)))
+		return nil, httpAPIError(method, path, resp.Status, resp.StatusCode, raw)
 	}
 	return raw, nil
 }

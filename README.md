@@ -36,6 +36,10 @@ During OAuth, the CLI starts a **short-lived local HTTP server** on `127.0.0.1` 
 
 **Trays:** `./run.sh create <name>` creates a tray; `./run.sh ls` lists trays you can access (owned and joined). Use the same `./run.sh` pattern so Supabase URL/key are embedded, or export env vars and run `tray` directly.
 
+**Database:** SQL migrations live under [`supabase/migrations/`](supabase/migrations/). Link the repo to your Supabase project and run **`supabase db push`** (or paste SQL in the dashboard) so row-level security matches the CLI. If `create` fails with a policy / recursion error, your remote DB is usually missing a newer migration.
+
+**Verbose API errors:** set **`TRAY_DEBUG=1`** when running `tray` to print full PostgREST response bodies. By default, errors are shortened for end users.
+
 ### Output (list-style commands)
 
 | Flag | Purpose |
