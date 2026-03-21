@@ -2,6 +2,8 @@
 
 CLI-first **tray** (shared inbox-tray / attention queue): **Go** client, **Supabase** backend.
 
+**Output & UX notes:** brainstorming for human-friendly tables, hints, and stderr lives in [`scratch/output-formats.md`](scratch/output-formats.md) (the rest of `scratch/` is ignored by git).
+
 ## Dev
 
 You need **[Go 1.22+](https://go.dev/dl/)** on your `PATH` (e.g. `brew install go` on macOS). `./run.sh` and `./build.sh` also look under `/opt/homebrew/bin` and `/usr/local/go/bin` if `go` is missing from PATH.
