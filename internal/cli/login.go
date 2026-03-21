@@ -22,9 +22,13 @@ func cmdLogin() *cobra.Command {
 
 Requires ` + config.EnvSupabaseURL + ` and ` + config.EnvSupabaseAnonKey + ` (environment) or embeds from ./run.sh and ./build.sh with a repo-root .env.
 
-**Default:** opens your browser for OAuth (PKCE). Enable the provider (e.g. GitHub) under Authentication → Providers, and add a redirect URL such as:
-  http://127.0.0.1:*/**
-(or the exact callback URL printed when the CLI starts listening).
+**Default:** opens your browser for OAuth (PKCE). Enable the provider under Supabase → Authentication → Providers.
+
+Supabase (final redirect to this CLI): under Authentication → URL Configuration → Redirect URLs, allow local callbacks, e.g. http://127.0.0.1:*/** or the exact "Listening for callback" URL printed at runtime.
+
+In Google Cloud / GitHub OAuth settings (etc.): authorized redirect URI must be Supabase’s callback only — no wildcards, no localhost — e.g.:
+  https://<your-project-ref>.supabase.co/auth/v1/callback
+The provider redirects there; Supabase then redirects your browser to localhost with the auth code.
 
 **Manual:** use --token with a user JWT from the Supabase dashboard, curl password grant, or another client.`,
 		Example: `  tray login
@@ -51,7 +55,9 @@ func runLogin(cmd *cobra.Command, _ []string) error {
 
 func runLoginOAuth(cmd *cobra.Command, url, key string) error {
 	fmt.Fprintf(cmd.OutOrStdout(), "OAuth sign-in (provider=%s).\n", loginProvider)
-	fmt.Fprintf(cmd.OutOrStdout(), "Add this to Supabase → Authentication → URL Configuration → Redirect URLs if needed:\n  http://127.0.0.1:*/**\n\n")
+	fmt.Fprintf(cmd.OutOrStdout(), "Supabase → Authentication → URL Configuration → Redirect URLs (allow the CLI callback), e.g.:\n  http://127.0.0.1:*/**\n")
+	fmt.Fprintf(cmd.OutOrStdout(), "Google/GitHub/etc. OAuth app: authorized redirect must be Supabase’s callback (no wildcards, not localhost):\n  %s\n", supabaseAuthCallbackURL(url))
+	fmt.Fprintln(cmd.OutOrStdout())
 
 	accessToken, refreshToken, userID, email, err := auth.LoginWithOAuth(
 		cmd.Context(),
@@ -101,4 +107,8 @@ func runLoginWithToken(url, key string) error {
 	}
 	fmt.Fprintf(os.Stdout, "Logged in as %s (%s)\n", label, user.ID)
 	return nil
+}
+
+func supabaseAuthCallbackURL(projectURL string) string {
+	return strings.TrimRight(strings.TrimSpace(projectURL), "/") + "/auth/v1/callback"
 }
