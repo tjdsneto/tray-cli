@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 
 var loginToken string
 var loginProvider string
+var loginForce bool
 
 func cmdLogin() *cobra.Command {
 	c := &cobra.Command{
@@ -24,8 +26,11 @@ Requires ` + config.EnvSupabaseURL + ` and ` + config.EnvSupabaseAnonKey + ` (en
 
 **OAuth:** without --provider, opens a local page to pick a provider. Use --provider or ` + config.EnvOAuthProvider + ` to skip the picker. Providers must be enabled in Supabase → Authentication → Providers.
 
+If a valid session is already saved, OAuth is skipped unless you pass **--force**.
+
 **Manual:** use --token with a user JWT from the Supabase dashboard or another client.`,
 		Example: `  tray login
+  tray login --force
   tray login --provider google
   TRAY_OAUTH_PROVIDER=github ./run.sh login
   tray login --token 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'`,
@@ -33,6 +38,7 @@ Requires ` + config.EnvSupabaseURL + ` and ` + config.EnvSupabaseAnonKey + ` (en
 	}
 	c.Flags().StringVar(&loginToken, "token", "", "skip OAuth and use this user access token (JWT)")
 	c.Flags().StringVar(&loginProvider, "provider", "", "skip the provider picker and sign in with this id (e.g. google); optional if you use "+config.EnvOAuthProvider+" or the web picker")
+	c.Flags().BoolVar(&loginForce, "force", false, "sign in again even if the current session is already valid")
 	return c
 }
 
@@ -44,6 +50,16 @@ func runLogin(cmd *cobra.Command, _ []string) error {
 	}
 	if strings.TrimSpace(loginToken) != "" {
 		return runLoginWithToken(url, key)
+	}
+	if !loginForce {
+		cred, err := credentials.Load(ConfigDir())
+		if err == nil && strings.TrimSpace(cred.AccessToken) != "" {
+			user, err := auth.FetchUserTimeout(url, key, cred.AccessToken, nil)
+			if err == nil {
+				printAlreadySignedIn(os.Stdout, user.Email)
+				return nil
+			}
+		}
 	}
 	return runLoginOAuth(cmd, url, key)
 }
@@ -104,11 +120,7 @@ func runLoginOAuth(cmd *cobra.Command, url, key string) error {
 	}); err != nil {
 		return err
 	}
-	label := strings.TrimSpace(email)
-	if label == "" {
-		label = userID
-	}
-	fmt.Fprintf(os.Stdout, "Logged in as %s (%s)\n", label, userID)
+	printLoginSuccess(os.Stdout, email)
 	return nil
 }
 
@@ -124,12 +136,24 @@ func runLoginWithToken(url, key string) error {
 	}); err != nil {
 		return err
 	}
-	label := strings.TrimSpace(user.Email)
-	if label == "" {
-		label = user.ID
-	}
-	fmt.Fprintf(os.Stdout, "Logged in as %s (%s)\n", label, user.ID)
+	printLoginSuccess(os.Stdout, user.Email)
 	return nil
+}
+
+func printLoginSuccess(w io.Writer, email string) {
+	if t := strings.TrimSpace(email); t != "" {
+		fmt.Fprintf(w, "Signed in as %s.\n", t)
+		return
+	}
+	fmt.Fprintln(w, "Signed in.")
+}
+
+func printAlreadySignedIn(w io.Writer, email string) {
+	if t := strings.TrimSpace(email); t != "" {
+		fmt.Fprintf(w, "Already signed in as %s.\n", t)
+		return
+	}
+	fmt.Fprintln(w, "Already signed in.")
 }
 
 func supabaseAuthCallbackURL(projectURL string) string {

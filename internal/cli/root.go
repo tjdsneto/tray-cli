@@ -30,6 +30,7 @@ func NewRootCmd() *cobra.Command {
 
 	root.AddCommand(
 		cmdLogin(),
+		cmdStatus(),
 		cmdCreate(),
 		cmdLs(),
 		cmdInvite(),

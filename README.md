@@ -20,7 +20,9 @@ Config directory (see `internal/config/paths.go`): override with **`TRAY_CONFIG_
 
 **Supabase:** `TRAY_SUPABASE_URL` (e.g. `https://xxxx.supabase.co`), `TRAY_SUPABASE_ANON_KEY`. At runtime, **environment variables override** values embedded at build time. See [`.env.example`](.env.example).
 
-**Login:** Run `./run.sh login` to open a **local web page** where you pick Google, GitHub, etc. (enable each in Supabase). Use `./run.sh login --provider google` or **`TRAY_OAUTH_PROVIDER`** in `.env` to skip the picker.
+**Login:** Run `./run.sh login` to open a **local web page** where you pick Google, GitHub, etc. (enable each in Supabase). Use `./run.sh login --provider google` or **`TRAY_OAUTH_PROVIDER`** in `.env` to skip the picker. If you already have a **valid saved session**, the CLI skips the browser until you run **`./run.sh login --force`**.
+
+**Status:** `./run.sh status` checks credentials and validates the session with Supabase (`-o json` for scripts; exit code **0** if signed in, **1** if not).
 
 During OAuth, the CLI starts a **short-lived local HTTP server** on `127.0.0.1` with a **random free port** (`:0`) so the browser can return the auth code—same for all users, including production installs. That is normal; it is not listening on the network.
 
