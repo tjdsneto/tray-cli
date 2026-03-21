@@ -6,6 +6,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestOAuthProvider_FromEnv(t *testing.T) {
+	t.Setenv(EnvOAuthProvider, "google")
+	require.Equal(t, "google", OAuthProvider())
+}
+
 func TestSupabaseURL_PrefersEnvOverEmbedded(t *testing.T) {
 	oldURL, oldKey := EmbeddedSupabaseURL, EmbeddedSupabaseAnonKey
 	t.Cleanup(func() {

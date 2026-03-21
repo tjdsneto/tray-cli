@@ -1,10 +1,14 @@
 package config
 
-import "os"
+import (
+	"os"
+	"strings"
+)
 
 const (
-	EnvSupabaseURL     = "TRAY_SUPABASE_URL"
-	EnvSupabaseAnonKey = "TRAY_SUPABASE_ANON_KEY"
+	EnvSupabaseURL      = "TRAY_SUPABASE_URL"
+	EnvSupabaseAnonKey  = "TRAY_SUPABASE_ANON_KEY"
+	EnvOAuthProvider    = "TRAY_OAUTH_PROVIDER"
 )
 
 // Set at link time via -ldflags -X (see build.sh / run.sh and CI).
@@ -27,4 +31,9 @@ func SupabaseAnonKey() string {
 		return v
 	}
 	return EmbeddedSupabaseAnonKey
+}
+
+// OAuthProvider returns TRAY_OAUTH_PROVIDER (optional default for tray login --provider).
+func OAuthProvider() string {
+	return strings.TrimSpace(os.Getenv(EnvOAuthProvider))
 }
