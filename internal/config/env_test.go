@@ -11,6 +11,15 @@ func TestOAuthProvider_FromEnv(t *testing.T) {
 	require.Equal(t, "google", OAuthProvider())
 }
 
+func TestDevOAuthHintsEnabled_embedded(t *testing.T) {
+	old := EmbeddedDevOAuthHints
+	t.Cleanup(func() { EmbeddedDevOAuthHints = old })
+	EmbeddedDevOAuthHints = ""
+	require.False(t, DevOAuthHintsEnabled())
+	EmbeddedDevOAuthHints = "1"
+	require.True(t, DevOAuthHintsEnabled())
+}
+
 func TestSupabaseURL_PrefersEnvOverEmbedded(t *testing.T) {
 	oldURL, oldKey := EmbeddedSupabaseURL, EmbeddedSupabaseAnonKey
 	t.Cleanup(func() {

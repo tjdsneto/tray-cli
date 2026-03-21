@@ -11,10 +11,15 @@ load_tray_env() {
 	fi
 }
 
-# Prints one -ldflags argument (two -X symbols). Requires TRAY_* from env or .env.
+# Prints one -ldflags argument. Requires TRAY_* from env or .env.
+# Set TRAY_EMBED_DEV_OAUTH_HINTS=1 in .env for maintainer builds only (OAuth redirect diagnostics in tray login).
 tray_ldflags() {
 	local pkg="github.com/tjdsneto/tray-cli/internal/config"
-	printf '%s' "-X ${pkg}.EmbeddedSupabaseURL=${TRAY_SUPABASE_URL-} -X ${pkg}.EmbeddedSupabaseAnonKey=${TRAY_SUPABASE_ANON_KEY-}"
+	local flags="-X ${pkg}.EmbeddedSupabaseURL=${TRAY_SUPABASE_URL-} -X ${pkg}.EmbeddedSupabaseAnonKey=${TRAY_SUPABASE_ANON_KEY-}"
+	if [[ "${TRAY_EMBED_DEV_OAUTH_HINTS-}" == "1" ]]; then
+		flags="${flags} -X ${pkg}.EmbeddedDevOAuthHints=1"
+	fi
+	printf '%s' "${flags}"
 }
 
 # Prepend common install dirs when `go` is missing from PATH (e.g. fresh Terminal, GUI apps).

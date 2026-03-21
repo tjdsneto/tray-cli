@@ -13,7 +13,6 @@ import (
 
 var loginToken string
 var loginProvider string
-var loginVerbose bool
 
 func cmdLogin() *cobra.Command {
 	c := &cobra.Command{
@@ -23,15 +22,9 @@ func cmdLogin() *cobra.Command {
 
 Requires ` + config.EnvSupabaseURL + ` and ` + config.EnvSupabaseAnonKey + ` (environment) or embeds from ./run.sh and ./build.sh with a repo-root .env.
 
-**OAuth:** run without --provider to open a **local web page** where you pick Google, GitHub, etc. Or pass --provider (or ` + config.EnvOAuthProvider + `) to skip the picker and use one provider. Enable each provider under Supabase → Authentication → Providers.
+**OAuth:** without --provider, opens a local page to pick a provider. Use --provider or ` + config.EnvOAuthProvider + ` to skip the picker. Providers must be enabled in Supabase → Authentication → Providers.
 
-Supabase (final redirect to this CLI): under Authentication → URL Configuration → Redirect URLs, allow local callbacks, e.g. http://127.0.0.1:*/** or the exact "Listening for callback" URL printed at runtime.
-
-In Google Cloud / GitHub OAuth settings (etc.): authorized redirect URI must be Supabase’s callback only — no wildcards, no localhost — e.g.:
-  https://<your-project-ref>.supabase.co/auth/v1/callback
-The provider redirects there; Supabase then redirects your browser to localhost with the auth code.
-
-**Manual:** use --token with a user JWT from the Supabase dashboard, curl password grant, or another client.`,
+**Manual:** use --token with a user JWT from the Supabase dashboard or another client.`,
 		Example: `  tray login
   tray login --provider google
   TRAY_OAUTH_PROVIDER=github ./run.sh login
@@ -40,7 +33,6 @@ The provider redirects there; Supabase then redirects your browser to localhost 
 	}
 	c.Flags().StringVar(&loginToken, "token", "", "skip OAuth and use this user access token (JWT)")
 	c.Flags().StringVar(&loginProvider, "provider", "", "skip the provider picker and sign in with this id (e.g. google); optional if you use "+config.EnvOAuthProvider+" or the web picker")
-	c.Flags().BoolVarP(&loginVerbose, "verbose", "v", false, "print detailed one-time Supabase / Google Cloud OAuth setup hints")
 	return c
 }
 
@@ -65,15 +57,16 @@ func effectiveOAuthProvider() string {
 
 func runLoginOAuth(cmd *cobra.Command, url, key string) error {
 	provider := effectiveOAuthProvider()
-	if loginVerbose {
+	dev := config.DevOAuthHintsEnabled()
+	if dev {
 		if provider != "" {
-			fmt.Fprintf(cmd.OutOrStdout(), "OAuth sign-in (provider=%s).\n", provider)
+			fmt.Fprintf(cmd.OutOrStdout(), "[dev embed] OAuth sign-in (provider=%s).\n", provider)
 		} else {
-			fmt.Fprintf(cmd.OutOrStdout(), "OAuth sign-in — pick a provider in the browser.\n")
+			fmt.Fprintf(cmd.OutOrStdout(), "[dev embed] OAuth — pick a provider in the browser.\n")
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "One-time setup:\n")
+		fmt.Fprintf(cmd.OutOrStdout(), "One-time project setup (Supabase / identity provider consoles):\n")
 		fmt.Fprintf(cmd.OutOrStdout(), "  • Supabase → Authentication → URL Configuration → Redirect URLs: allow local callbacks, e.g. http://127.0.0.1:*/**\n")
-		fmt.Fprintf(cmd.OutOrStdout(), "  • Google/GitHub OAuth app → Authorized redirect URI (use Supabase’s URL, not localhost):\n    %s\n\n", supabaseAuthCallbackURL(url))
+		fmt.Fprintf(cmd.OutOrStdout(), "  • Google/GitHub OAuth app → Authorized redirect URI (Supabase callback, not localhost):\n    %s\n\n", supabaseAuthCallbackURL(url))
 	} else {
 		if provider != "" {
 			fmt.Fprintf(cmd.OutOrStdout(), "Signing in with %s…\n", provider)
@@ -89,14 +82,14 @@ func runLoginOAuth(cmd *cobra.Command, url, key string) error {
 		provider,
 		nil,
 		func(callbackURL string, pickURL string, direct string) {
-			if !loginVerbose {
+			if !dev {
 				return
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Local callback (for this session only): %s\n", callbackURL)
+			fmt.Fprintf(cmd.OutOrStdout(), "[dev embed] Local callback (this session): %s\n", callbackURL)
 			if direct != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Opening provider sign-in…\n")
+				fmt.Fprintf(cmd.OutOrStdout(), "[dev embed] Opening provider authorize URL…\n")
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "Opening provider picker: %s\n", pickURL)
+				fmt.Fprintf(cmd.OutOrStdout(), "[dev embed] Opening provider picker: %s\n", pickURL)
 			}
 		},
 	)
