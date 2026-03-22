@@ -63,7 +63,7 @@ func TestTrayService_Create_requiresUserID(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestItemService_stubs(t *testing.T) {
+func TestItemService_Add_notFound(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	t.Cleanup(srv.Close)
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
@@ -72,7 +72,22 @@ func TestItemService_stubs(t *testing.T) {
 	ctx := context.Background()
 	s := domain.Session{AccessToken: "x", UserID: "u"}
 
-	_, err = svc.Add(ctx, s, "t", "title", nil)
+	_, err = svc.Add(ctx, s, "00000000-0000-0000-0000-000000000001", "title", nil)
+	require.Error(t, err)
+}
+
+func TestItemService_UpdateDelete_notImplemented(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	t.Cleanup(srv.Close)
+	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
+	require.NoError(t, err)
+	svc := newItemService(newClient(c))
+	ctx := context.Background()
+	s := domain.Session{AccessToken: "x", UserID: "u"}
+
+	err = svc.Update(ctx, s, "id", domain.ItemPatch{})
+	require.ErrorIs(t, err, domain.ErrNotImplemented)
+	err = svc.Delete(ctx, s, "id")
 	require.ErrorIs(t, err, domain.ErrNotImplemented)
 }
 
