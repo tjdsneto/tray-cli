@@ -40,6 +40,8 @@ During OAuth, the CLI starts a **short-lived local HTTP server** on `127.0.0.1` 
 
 **Items:** **`./run.sh add "title" <tray>`** adds a pending item (tray = name, id, or a **`remote`** alias). **`./run.sh list`** lists items you can see; **`./run.sh list <tray>`** filters to one tray. **`./run.sh contributed`** lists items you filed on *others’* trays.
 
+**Triage (tray owner):** **`./run.sh accept <item-id>`** and **`./run.sh decline <item-id>`** update status (`decline` supports **`--reason`**). Use item ids from **`tray list --format json`**.
+
 **Remote aliases:** **`./run.sh remote add <alias> <invite-url-or-token>`** joins and saves `remotes.json` under your config dir so you can use **`./run.sh add "…" <alias>`** later. **`./run.sh remote ls`** / **`./run.sh remote remove <alias>`** manage that file.
 
 Use the same `./run.sh` pattern so Supabase URL/key are embedded, or export env vars and run `tray` directly.
