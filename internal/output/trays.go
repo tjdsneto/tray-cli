@@ -20,7 +20,7 @@ func WriteTrays(w io.Writer, trays []domain.Tray, f Format, showHints bool) erro
 		return enc.Encode(trays)
 	case FormatMarkdown:
 		if len(trays) == 0 {
-			_, err := fmt.Fprintln(w, "_No trays._")
+			_, err := fmt.Fprint(w, "_No trays yet._\n\n_Create a tray:_ `tray create <name>`\n")
 			return err
 		}
 		_, err := fmt.Fprintf(w, "| %s | %s | %s |\n", "Name", "Items", "Created")
@@ -41,6 +41,10 @@ func WriteTrays(w io.Writer, trays []domain.Tray, f Format, showHints bool) erro
 		return nil
 	default:
 		if len(trays) == 0 {
+			if showHints {
+				_, err := fmt.Fprint(w, "No trays yet.\n\nCreate your first tray:\n  tray create <name>\n")
+				return err
+			}
 			_, err := fmt.Fprintln(w, "No trays.")
 			return err
 		}

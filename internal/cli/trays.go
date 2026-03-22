@@ -36,6 +36,11 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	showHints := format == output.FormatTable
+	if format == output.FormatTable || format == output.FormatMarkdown {
+		if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Created tray %q.\n\n", tray.Name); err != nil {
+			return err
+		}
+	}
 	return output.WriteTrays(cmd.OutOrStdout(), []domain.Tray{*tray}, format, showHints)
 }
 

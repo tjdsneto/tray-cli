@@ -68,7 +68,7 @@ Use the same `./run.sh` pattern so Supabase URL/key are embedded, or export env 
 
 `--json` is shorthand for `--format json` and must not be combined with another explicit format (e.g. `--format markdown`).
 
-For **trays**, the default **human** output shows **name**, **item count**, and **created** (in your **local timezone**; set **`TZ`** if needed). After `create` or `ls`, the CLI prints **next-step hints** (`tray add …`, `tray invite …`). Tray **IDs** (UUIDs) and **`item_count`** appear in **`--format json`** / **`--json`**.
+For **trays**, the default **human** output shows **name**, **item count**, and **created** (in your **local timezone**; set **`TZ`** if needed). An **empty** list suggests **`tray create <name>`**; after **`create`**, human and markdown print a short **“Created tray …”** line before the table (JSON is data-only). After `create` or `ls` with rows, the CLI prints **next-step hints** (`tray add …`, `tray invite …`). Tray **IDs** (UUIDs) and **`item_count`** appear in **`--format json`** / **`--json`**.
 
 ### Architecture
 

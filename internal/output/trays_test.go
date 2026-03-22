@@ -59,6 +59,23 @@ func TestWriteTrays_json_includesID(t *testing.T) {
 func TestWriteTrays_empty(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, WriteTrays(&buf, nil, FormatTable, true))
-	require.Contains(t, buf.String(), "No trays")
-	require.NotContains(t, buf.String(), "Next steps")
+	s := buf.String()
+	require.Contains(t, s, "No trays yet")
+	require.Contains(t, s, "tray create")
+	require.NotContains(t, s, "Next steps")
+}
+
+func TestWriteTrays_empty_noHints(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, WriteTrays(&buf, nil, FormatTable, false))
+	require.Contains(t, buf.String(), "No trays.")
+	require.NotContains(t, buf.String(), "tray create")
+}
+
+func TestWriteTrays_markdown_empty(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, WriteTrays(&buf, nil, FormatMarkdown, false))
+	s := buf.String()
+	require.Contains(t, s, "No trays yet")
+	require.Contains(t, s, "tray create")
 }
