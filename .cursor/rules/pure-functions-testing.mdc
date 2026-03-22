@@ -1,0 +1,13 @@
+---
+description: Prefer pure functions for testable design when it stays sensible
+alwaysApply: true
+---
+
+# Pure functions for unit tests
+
+Unless it would push the design too far from the simplest or clearest approach, **prefer abstractions that isolate pure functions** (deterministic inputs → outputs, no I/O) so behavior can be covered with fast, focused unit tests.
+
+- Put URL/query builders, request body maps, decoders, string normalizers, and validation in **pure helpers**; keep HTTP, filesystem, and cobra wiring in **thin wrappers**.
+- **Do not** twist the domain model or add layers of indirection only for purity—when a bit of I/O-bound code is obviously clearer, keep it.
+
+See also: [`docs/testing.md`](docs/testing.md).

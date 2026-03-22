@@ -18,6 +18,8 @@ Or set `TRAY_SUPABASE_URL` and `TRAY_SUPABASE_ANON_KEY` in the environment and u
 
 **Testing:** [`docs/testing.md`](docs/testing.md) — `make test`, coverage reports.
 
+**AI coding rules:** [`CLAUDE.md`](CLAUDE.md) and [`.cursor/rules/`](.cursor/rules/) — keep them aligned when you change either.
+
 **Release-style binary:** `./build.sh` writes `./tray` with Supabase settings embedded from `.env` (or from already-exported env vars). CI can set the same variables and invoke `go build -ldflags "..."` the same way.
 
 Config directory (see `internal/config/paths.go`): override with **`TRAY_CONFIG_DIR`**; otherwise **Windows** uses `%APPDATA%\tray`, **macOS/Linux** use `$XDG_CONFIG_HOME/tray` if set, else `~/.config/tray`.

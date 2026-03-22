@@ -1,0 +1,15 @@
+---
+description: Keep Cursor rules and CLAUDE.md aligned when either changes
+alwaysApply: true
+---
+
+# Cursor rules ↔ Claude `CLAUDE.md` parity
+
+This repo maintains two instruction surfaces for AI assistants:
+
+| Surface | Location |
+|--------|----------|
+| **Cursor** | [`.cursor/rules/*.mdc`](.cursor/rules/) |
+| **Claude** (project context) | [`CLAUDE.md`](../CLAUDE.md) at the repo root |
+
+**When you create, update, or remove project-wide AI guidance in one place, apply the same change to the other** so instructions stay consistent. If something is intentionally specific to one tool, state that in **both** places in a one-line note so neither assistant assumes parity where there is none.
