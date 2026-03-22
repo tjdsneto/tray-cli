@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -31,4 +32,40 @@ func pickTrayOrError(matches []domain.Tray, name string) (domain.Tray, error) {
 	default:
 		return domain.Tray{}, fmt.Errorf("multiple trays match %q — rename one in the dashboard or use a more specific name", strings.TrimSpace(name))
 	}
+}
+
+// trayNameMap builds tray id → name for display (ListMine output).
+func trayNameMap(trays []domain.Tray) map[string]string {
+	m := make(map[string]string, len(trays))
+	for i := range trays {
+		m[trays[i].ID] = trays[i].Name
+	}
+	return m
+}
+
+// resolveTrayRef resolves a tray id or name to a tray id. aliases maps lowercased alias → tray uuid (optional; used by remote).
+func resolveTrayRef(ctx context.Context, svcs domain.Services, sess domain.Session, ref string, aliases map[string]string) (string, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return "", fmt.Errorf("empty tray reference")
+	}
+	if aliases != nil {
+		if id, ok := aliases[strings.ToLower(ref)]; ok && strings.TrimSpace(id) != "" {
+			return strings.TrimSpace(id), nil
+		}
+	}
+	trays, err := svcs.Trays.ListMine(ctx, sess)
+	if err != nil {
+		return "", err
+	}
+	for i := range trays {
+		if trays[i].ID == ref {
+			return ref, nil
+		}
+	}
+	t, err := pickTrayOrError(findTraysByNameFold(trays, ref), ref)
+	if err != nil {
+		return "", err
+	}
+	return t.ID, nil
 }

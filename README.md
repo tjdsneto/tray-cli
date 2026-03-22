@@ -36,7 +36,13 @@ During OAuth, the CLI starts a **short-lived local HTTP server** on `127.0.0.1` 
 
 **Troubleshooting OAuth:** If you see `Unsupported provider: provider is not enabled`, open **Supabase Dashboard → Authentication → Providers**, turn **Google** on, and paste the **Client ID** and **Client secret** from Google Cloud (same OAuth client whose redirect URI is `https://<project-ref>.supabase.co/auth/v1/callback`). Then run `tray login --provider google` again. The CLI cannot enable providers; it must be done in the dashboard.
 
-**Trays:** `./run.sh create <name>` creates a tray; `./run.sh ls` lists trays; **`./run.sh join …`** joins with an invite token or link; **`./run.sh invite <tray-name>`** shows or creates an invite token (owner only; **`--rotate`** issues a new token). Use the same `./run.sh` pattern so Supabase URL/key are embedded, or export env vars and run `tray` directly.
+**Trays:** `./run.sh create <name>` creates a tray; `./run.sh ls` lists trays; **`./run.sh join …`** joins with an invite token or link; **`./run.sh invite <tray-name>`** shows or creates an invite token (owner only; **`--rotate`** issues a new token).
+
+**Items:** **`./run.sh add "title" <tray>`** adds a pending item (tray = name, id, or a **`remote`** alias). **`./run.sh list`** lists items you can see; **`./run.sh list <tray>`** filters to one tray. **`./run.sh contributed`** lists items you filed on *others’* trays.
+
+**Remote aliases:** **`./run.sh remote add <alias> <invite-url-or-token>`** joins and saves `remotes.json` under your config dir so you can use **`./run.sh add "…" <alias>`** later. **`./run.sh remote ls`** / **`./run.sh remote remove <alias>`** manage that file.
+
+Use the same `./run.sh` pattern so Supabase URL/key are embedded, or export env vars and run `tray` directly.
 
 **Database:** SQL migrations live under [`supabase/migrations/`](supabase/migrations/). Link the repo to your Supabase project and run **`supabase db push`** (or paste SQL in the dashboard) so row-level security matches the CLI. If `create` fails with a policy / recursion error, your remote DB is usually missing a newer migration.
 

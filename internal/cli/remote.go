@@ -5,32 +5,27 @@ import "github.com/spf13/cobra"
 func cmdRemote() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "remote",
-		Short: "Manage local aliases for others' trays",
+		Short: "Manage local aliases for trays (join + remember a short name)",
 	}
 
 	root.AddCommand(
 		&cobra.Command{
 			Use:   "add <alias> <invite-url-or-token>",
-			Short: "Add a remote alias",
+			Short: "Join a tray via invite and save a local alias",
+			Long:  `Runs the same join as tray join, then stores alias → tray id in ~/.config/tray/remotes.json (or TRAY_CONFIG_DIR).`,
 			Args:  cobra.ExactArgs(2),
-			RunE: func(cmd *cobra.Command, args []string) error {
-				return stub("remote add")
-			},
+			RunE:  runRemoteAdd,
 		},
 		&cobra.Command{
 			Use:   "ls",
 			Short: "List remotes",
-			RunE: func(cmd *cobra.Command, args []string) error {
-				return stub("remote ls")
-			},
+			RunE:  runRemoteLs,
 		},
 		&cobra.Command{
 			Use:   "remove <alias>",
 			Short: "Remove a remote alias",
 			Args:  cobra.ExactArgs(1),
-			RunE: func(cmd *cobra.Command, args []string) error {
-				return stub("remote remove")
-			},
+			RunE:  runRemoteRemove,
 		},
 	)
 
