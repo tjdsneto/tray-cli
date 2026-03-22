@@ -12,9 +12,11 @@ func TestParse(t *testing.T) {
 		in   string
 		want Format
 	}{
+		{"human", FormatTable},
 		{"table", FormatTable},
 		{"TABLE", FormatTable},
 		{"json", FormatJSON},
+		{"machine", FormatJSON},
 		{"markdown", FormatMarkdown},
 		{"md", FormatMarkdown},
 	} {
@@ -24,6 +26,18 @@ func TestParse(t *testing.T) {
 	}
 	_, err := Parse("xml")
 	require.Error(t, err)
+}
+
+func TestFormatFromCmd_defaultHuman(t *testing.T) {
+	root := &cobra.Command{Use: "tray"}
+	RegisterPersistentFlags(root.PersistentFlags())
+	sub := &cobra.Command{Use: "ls"}
+	root.AddCommand(sub)
+
+	require.NoError(t, root.ParseFlags(nil))
+	f, err := FormatFromCmd(sub)
+	require.NoError(t, err)
+	require.Equal(t, FormatTable, f)
 }
 
 func TestFormatFromCmd_jsonShorthand(t *testing.T) {
@@ -38,13 +52,49 @@ func TestFormatFromCmd_jsonShorthand(t *testing.T) {
 	require.Equal(t, FormatJSON, f)
 }
 
-func TestFormatFromCmd_jsonConflictsWithOutput(t *testing.T) {
+func TestFormatFromCmd_formatJson(t *testing.T) {
 	root := &cobra.Command{Use: "tray"}
 	RegisterPersistentFlags(root.PersistentFlags())
 	sub := &cobra.Command{Use: "ls"}
 	root.AddCommand(sub)
 
-	require.NoError(t, root.ParseFlags([]string{"-o", "markdown", "--json"}))
+	require.NoError(t, root.ParseFlags([]string{"--format", "json"}))
+	f, err := FormatFromCmd(sub)
+	require.NoError(t, err)
+	require.Equal(t, FormatJSON, f)
+}
+
+func TestFormatFromCmd_machineAlias(t *testing.T) {
+	root := &cobra.Command{Use: "tray"}
+	RegisterPersistentFlags(root.PersistentFlags())
+	sub := &cobra.Command{Use: "ls"}
+	root.AddCommand(sub)
+
+	require.NoError(t, root.ParseFlags([]string{"--format", "machine"}))
+	f, err := FormatFromCmd(sub)
+	require.NoError(t, err)
+	require.Equal(t, FormatJSON, f)
+}
+
+func TestFormatFromCmd_deprecatedOutput(t *testing.T) {
+	root := &cobra.Command{Use: "tray"}
+	RegisterPersistentFlags(root.PersistentFlags())
+	sub := &cobra.Command{Use: "ls"}
+	root.AddCommand(sub)
+
+	require.NoError(t, root.ParseFlags([]string{"-o", "json"}))
+	f, err := FormatFromCmd(sub)
+	require.NoError(t, err)
+	require.Equal(t, FormatJSON, f)
+}
+
+func TestFormatFromCmd_jsonConflictsWithFormat(t *testing.T) {
+	root := &cobra.Command{Use: "tray"}
+	RegisterPersistentFlags(root.PersistentFlags())
+	sub := &cobra.Command{Use: "ls"}
+	root.AddCommand(sub)
+
+	require.NoError(t, root.ParseFlags([]string{"--format", "markdown", "--json"}))
 	_, err := FormatFromCmd(sub)
 	require.Error(t, err)
 }

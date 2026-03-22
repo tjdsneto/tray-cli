@@ -17,36 +17,35 @@ const (
 	FormatMarkdown
 )
 
-// String returns the canonical CLI token for f.
+// String returns the canonical CLI token for f (for help and errors).
 func (f Format) String() string {
 	switch f {
 	case FormatTable:
-		return "table"
+		return "human"
 	case FormatJSON:
 		return "json"
 	case FormatMarkdown:
 		return "markdown"
 	default:
-		return "table"
+		return "human"
 	}
 }
 
-// Parse normalizes s (e.g. "md" → markdown).
+// Parse normalizes s (e.g. "md" → markdown, "machine" → json).
 func Parse(s string) (Format, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
-	case "", "table", "text":
+	case "", "human", "table", "text":
 		return FormatTable, nil
-	case "json":
+	case "json", "machine":
 		return FormatJSON, nil
 	case "markdown", "md":
 		return FormatMarkdown, nil
 	default:
-		return 0, fmt.Errorf("unknown output format %q (use table, json, or markdown)", s)
+		return 0, fmt.Errorf("unknown --format %q (use human, json, machine, markdown, or md)", s)
 	}
 }
 
-// FormatFromCmd reads persistent -o/--output and --json from the command root.
-// --json is shorthand for -o json; it conflicts with an explicit -o that is not json.
+// FormatFromCmd reads persistent --format, deprecated -o/--output, and --json from the command root.
 func FormatFromCmd(cmd *cobra.Command) (Format, error) {
 	root := cmd.Root()
 	fs := root.PersistentFlags()
@@ -55,16 +54,22 @@ func FormatFromCmd(cmd *cobra.Command) (Format, error) {
 	if err != nil {
 		return 0, err
 	}
-	out, err := fs.GetString("output")
+	out, err := fs.GetString("format")
 	if err != nil {
 		return 0, err
 	}
 
 	if jsonShort {
-		if of := fs.Lookup("output"); of != nil && of.Changed {
-			o, _ := Parse(out)
-			if o != FormatJSON {
-				return 0, fmt.Errorf("cannot combine --json with -o %s", out)
+		ff := fs.Lookup("format")
+		fo := fs.Lookup("output")
+		explicit := (ff != nil && ff.Changed) || (fo != nil && fo.Changed)
+		if explicit {
+			p, err := Parse(out)
+			if err != nil {
+				return 0, err
+			}
+			if p != FormatJSON {
+				return 0, fmt.Errorf("cannot combine --json with --format %s", out)
 			}
 		}
 		return FormatJSON, nil
@@ -73,8 +78,13 @@ func FormatFromCmd(cmd *cobra.Command) (Format, error) {
 	return Parse(out)
 }
 
-// RegisterPersistentFlags adds -o/--output and --json to fs (typically the root command).
+// RegisterPersistentFlags adds --format (default human), deprecated -o/--output (same meaning), and --json.
 func RegisterPersistentFlags(fs *pflag.FlagSet) {
-	fs.StringP("output", "o", "table", "output format: table (human), json (machines), markdown or md (AI-friendly tables)")
-	fs.Bool("json", false, "shorthand for -o json")
+	v := new(string)
+	*v = "human"
+	const usage = `how to print: "human" (default, friendly tables and hints), "json" or "machine" (stable for scripts), "markdown" or "md" (paste-friendly tables)`
+	fs.StringVar(v, "format", "human", usage)
+	fs.StringVarP(v, "output", "o", "human", "deprecated: use --format instead")
+	_ = fs.MarkDeprecated("output", "use --format instead")
+	fs.Bool("json", false, "shorthand for --format json (machine-readable output)")
 }

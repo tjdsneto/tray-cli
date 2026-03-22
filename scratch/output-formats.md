@@ -18,10 +18,12 @@ If this file doesn’t show up in `git status` on your machine, check **`.git/in
 
 | Surface | Notes |
 |--------|--------|
-| **Default table** | `NAME`, `ITEMS`, `CREATED` (local TZ); tray list / create |
-| **JSON** | Stable fields for scripts (`id`, `item_count`, …) |
-| **Markdown** | Tables for pasting into docs/chats |
-| **After `create` / `ls` (table)** | “Next steps” block with `tray add`, `tray invite` |
+| **CLI default** | `--format human` — friendly tables, local TZ, hints where implemented |
+| **`--format json` / `machine` / `--json`** | Machine-readable JSON (`id`, `item_count`, …) |
+| **`--format markdown`** | Paste-friendly tables |
+| **Legacy** | `-o` / `--output` deprecated; same values as `--format` |
+| **Tray table columns** | `NAME`, `ITEMS`, `CREATED` |
+| **After `create` / `ls` (human)** | “Next steps” block with `tray add`, `tray invite` |
 | **Errors** | `tray: …` on stderr; duplicate tray → suggests `tray ls` |
 | **Debug** | `TRAY_DEBUG=1` restores raw PostgREST lines |
 

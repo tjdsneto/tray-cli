@@ -24,7 +24,7 @@ Config directory (see `internal/config/paths.go`): override with **`TRAY_CONFIG_
 
 **Login:** Run `./run.sh login` to open a **local web page** where you pick Google, GitHub, etc. (enable each in Supabase). Use `./run.sh login --provider google` or **`TRAY_OAUTH_PROVIDER`** in `.env` to skip the picker. If you already have a **valid saved session**, the CLI skips the browser until you run **`./run.sh login --force`**.
 
-**Status:** `./run.sh status` checks credentials and validates the session with Supabase (`-o json` for scripts; exit code **0** if signed in, **1** if not).
+**Status:** `./run.sh status` checks credentials and validates the session with Supabase (`--format json` for scripts; exit code **0** if signed in, **1** if not).
 
 During OAuth, the CLI starts a **short-lived local HTTP server** on `127.0.0.1` with a **random free port** (`:0`) so the browser can return the auth code—same for all users, including production installs. That is normal; it is not listening on the network.
 
@@ -44,15 +44,19 @@ During OAuth, the CLI starts a **short-lived local HTTP server** on `127.0.0.1` 
 
 ### Output (list-style commands)
 
+**Default is human-friendly:** tables, local dates, and contextual hints where we’ve added them.
+
 | Flag | Purpose |
 |------|---------|
-| `-o table` (default) | Columnar text for humans |
-| `-o json` or `--json` | Stable JSON for scripts / tools |
-| `-o markdown` / `-o md` | Markdown tables — easy to paste into chats and for models to read |
+| **`--format human`** (default) | Friendly tables and hints — what you want for day-to-day use |
+| **`--format json`**, **`--format machine`**, or **`--json`** | Stable, machine-readable JSON for scripts and automation |
+| **`--format markdown`** / **`md`** | Markdown tables — easy to paste into chats and for models to read |
 
-`--json` is shorthand for `-o json` and cannot be combined with another `-o` value.
+**Deprecated but still works:** `-o` / `--output` (same values as `--format`). Prefer **`--format`**.
 
-For **trays**, the default table shows **name**, **item count**, and **created** (in your **local timezone**; set the **`TZ`** environment variable if needed). After `create` or `ls`, the CLI prints **next-step hints** (`tray add …`, `tray invite …`). Tray **IDs** (UUIDs) and **`item_count`** appear in **`-o json`** for scripts.
+`--json` is shorthand for `--format json` and must not be combined with another explicit format (e.g. `--format markdown`).
+
+For **trays**, the default **human** output shows **name**, **item count**, and **created** (in your **local timezone**; set **`TZ`** if needed). After `create` or `ls`, the CLI prints **next-step hints** (`tray add …`, `tray invite …`). Tray **IDs** (UUIDs) and **`item_count`** appear in **`--format json`** / **`--json`**.
 
 ### Architecture
 
