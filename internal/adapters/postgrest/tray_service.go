@@ -80,7 +80,24 @@ func (s *trayService) Delete(ctx context.Context, sess domain.Session, trayID st
 }
 
 func (s *trayService) SetInviteToken(ctx context.Context, sess domain.Session, trayID string, inviteToken *string) error {
-	return domain.ErrNotImplemented
+	if strings.TrimSpace(sess.UserID) == "" {
+		return fmt.Errorf("postgrest: session missing UserID (set after login)")
+	}
+	tid := strings.TrimSpace(trayID)
+	if tid == "" {
+		return fmt.Errorf("postgrest: empty tray id")
+	}
+	q := url.Values{}
+	q.Set("id", "eq."+tid)
+	path := "/rest/v1/trays?" + q.Encode()
+	var body map[string]any
+	if inviteToken != nil {
+		body = map[string]any{"invite_token": *inviteToken}
+	} else {
+		body = map[string]any{"invite_token": nil}
+	}
+	_, err := s.pg.request(ctx, sess, http.MethodPatch, path, body, nil)
+	return err
 }
 
 func (s *trayService) ListMembers(ctx context.Context, sess domain.Session, trayID string) ([]domain.TrayMember, error) {

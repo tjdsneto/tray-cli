@@ -65,17 +65,6 @@ func runLs(cmd *cobra.Command, args []string) error {
 	return output.WriteTrays(cmd.OutOrStdout(), trays, format, showHints)
 }
 
-func cmdInvite() *cobra.Command {
-	return &cobra.Command{
-		Use:   "invite <tray>",
-		Short: "Show or generate shareable invite for a tray",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return stub("invite")
-		},
-	}
-}
-
 func cmdJoin() *cobra.Command {
 	return &cobra.Command{
 		Use:   "join <url-or-token>",
