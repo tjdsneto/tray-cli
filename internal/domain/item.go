@@ -22,6 +22,7 @@ type Item struct {
 
 // ListItemsQuery filters items for a tray (all optional zero values mean "no filter").
 type ListItemsQuery struct {
+	ItemID       string // optional: single item by id
 	TrayID       string
 	Status       string
 	UpdatedAfter *time.Time

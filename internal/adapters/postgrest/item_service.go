@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/tjdsneto/tray-cli/internal/domain"
 )
@@ -61,6 +62,9 @@ func (s *itemService) Add(ctx context.Context, sess domain.Session, trayID, titl
 func (s *itemService) List(ctx context.Context, sess domain.Session, q domain.ListItemsQuery) ([]domain.Item, error) {
 	u := url.Values{}
 	u.Set("select", itemSelect)
+	if strings.TrimSpace(q.ItemID) != "" {
+		u.Set("id", "eq."+strings.TrimSpace(q.ItemID))
+	}
 	if strings.TrimSpace(q.TrayID) != "" {
 		u.Set("tray_id", "eq."+strings.TrimSpace(q.TrayID))
 	}
@@ -116,7 +120,45 @@ func (s *itemService) ListOutbox(ctx context.Context, sess domain.Session) ([]do
 }
 
 func (s *itemService) Update(ctx context.Context, sess domain.Session, itemID string, patch domain.ItemPatch) error {
-	return domain.ErrNotImplemented
+	if strings.TrimSpace(sess.UserID) == "" {
+		return fmt.Errorf("postgrest: session missing UserID (set after login)")
+	}
+	id := strings.TrimSpace(itemID)
+	if id == "" {
+		return fmt.Errorf("postgrest: empty item id")
+	}
+	body, err := itemPatchBody(patch)
+	if err != nil {
+		return err
+	}
+	q := url.Values{}
+	q.Set("id", "eq."+id)
+	path := "/rest/v1/items?" + q.Encode()
+	_, err = s.pg.request(ctx, sess, http.MethodPatch, path, body, nil)
+	return err
+}
+
+func itemPatchBody(p domain.ItemPatch) (map[string]any, error) {
+	body := map[string]any{}
+	if p.Status != nil {
+		body["status"] = strings.TrimSpace(*p.Status)
+	}
+	if p.DeclineReason != nil {
+		body["decline_reason"] = strings.TrimSpace(*p.DeclineReason)
+	}
+	if p.CompletionMessage != nil {
+		body["completion_message"] = strings.TrimSpace(*p.CompletionMessage)
+	}
+	if p.DueDate != nil {
+		body["due_date"] = strings.TrimSpace(*p.DueDate)
+	}
+	if p.SnoozeUntil != nil {
+		body["snooze_until"] = p.SnoozeUntil.UTC().Format(time.RFC3339Nano)
+	}
+	if len(body) == 0 {
+		return nil, fmt.Errorf("postgrest: empty item patch")
+	}
+	return body, nil
 }
 
 func (s *itemService) Delete(ctx context.Context, sess domain.Session, itemID string) error {
