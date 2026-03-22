@@ -43,7 +43,31 @@ func trayNameMap(trays []domain.Tray) map[string]string {
 	return m
 }
 
-// resolveTrayRef resolves a tray id or name to a tray id. aliases maps lowercased alias → tray uuid (optional; used by remote).
+// trayIDFromRef resolves a tray reference using only in-memory data (pure; easy to unit test).
+// aliases maps lowercased alias → tray uuid (optional; used by remote).
+func trayIDFromRef(ref string, aliases map[string]string, trays []domain.Tray) (string, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return "", fmt.Errorf("empty tray reference")
+	}
+	if aliases != nil {
+		if id, ok := aliases[strings.ToLower(ref)]; ok && strings.TrimSpace(id) != "" {
+			return strings.TrimSpace(id), nil
+		}
+	}
+	for i := range trays {
+		if trays[i].ID == ref {
+			return ref, nil
+		}
+	}
+	t, err := pickTrayOrError(findTraysByNameFold(trays, ref), ref)
+	if err != nil {
+		return "", err
+	}
+	return t.ID, nil
+}
+
+// resolveTrayRef resolves a tray id or name to a tray id. Remote aliases hit without calling the API.
 func resolveTrayRef(ctx context.Context, svcs domain.Services, sess domain.Session, ref string, aliases map[string]string) (string, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
@@ -58,14 +82,5 @@ func resolveTrayRef(ctx context.Context, svcs domain.Services, sess domain.Sessi
 	if err != nil {
 		return "", err
 	}
-	for i := range trays {
-		if trays[i].ID == ref {
-			return ref, nil
-		}
-	}
-	t, err := pickTrayOrError(findTraysByNameFold(trays, ref), ref)
-	if err != nil {
-		return "", err
-	}
-	return t.ID, nil
+	return trayIDFromRef(ref, nil, trays)
 }

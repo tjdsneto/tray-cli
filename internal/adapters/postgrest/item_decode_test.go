@@ -27,7 +27,7 @@ func TestItemFromRow_snoozeUntil(t *testing.T) {
 		Title: "x", Status: "snoozed",
 		SnoozeUntil: &s,
 		CreatedAt:   "2026-03-20T12:00:00Z",
-		UpdatedAt:     "2026-03-20T12:00:00Z",
+		UpdatedAt:   "2026-03-20T12:00:00Z",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, it.SnoozeUntil)
@@ -48,4 +48,21 @@ func TestParseCreatedItem_object(t *testing.T) {
 func TestParseCreatedItem_bad(t *testing.T) {
 	_, err := parseCreatedItem([]byte(`{}`))
 	require.Error(t, err)
+}
+
+func TestOutboxDomainItems_filtersOwnerAndNilTray(t *testing.T) {
+	t.Parallel()
+	rows := []itemRowWithTray{
+		{itemRow: itemRow{ID: "1", TrayID: "t1", SourceUserID: "me", Title: "a", Status: "pending", CreatedAt: "2026-03-20T12:00:00Z", UpdatedAt: "2026-03-20T12:00:00Z"}, Trays: nil},
+		{itemRow: itemRow{ID: "2", TrayID: "t2", SourceUserID: "me", Title: "b", Status: "pending", CreatedAt: "2026-03-20T12:00:00Z", UpdatedAt: "2026-03-20T12:00:00Z"}, Trays: &struct {
+			OwnerID string `json:"owner_id"`
+		}{OwnerID: "me"}},
+		{itemRow: itemRow{ID: "3", TrayID: "t3", SourceUserID: "me", Title: "c", Status: "pending", CreatedAt: "2026-03-20T12:00:00Z", UpdatedAt: "2026-03-20T12:00:00Z"}, Trays: &struct {
+			OwnerID string `json:"owner_id"`
+		}{OwnerID: "owner"}},
+	}
+	out, err := outboxDomainItems(rows, "me")
+	require.NoError(t, err)
+	require.Len(t, out, 1)
+	require.Equal(t, "3", out[0].ID)
 }

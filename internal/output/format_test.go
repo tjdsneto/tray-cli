@@ -95,6 +95,23 @@ func TestFormatFromCmd_deprecatedOutput(t *testing.T) {
 	require.Equal(t, FormatJSON, f)
 }
 
+func TestFormatFromFlags_jsonShorthand(t *testing.T) {
+	f, err := FormatFromFlags(true, "human", false, false)
+	require.NoError(t, err)
+	require.Equal(t, FormatJSON, f)
+}
+
+func TestFormatFromFlags_jsonWithExplicitFormat(t *testing.T) {
+	f, err := FormatFromFlags(true, "json", true, false)
+	require.NoError(t, err)
+	require.Equal(t, FormatJSON, f)
+}
+
+func TestFormatFromFlags_jsonConflictsWithMarkdown(t *testing.T) {
+	_, err := FormatFromFlags(true, "markdown", true, false)
+	require.Error(t, err)
+}
+
 func TestFormatFromCmd_jsonConflictsWithFormat(t *testing.T) {
 	root := &cobra.Command{Use: "tray"}
 	RegisterPersistentFlags(root.PersistentFlags())

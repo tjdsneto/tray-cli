@@ -79,6 +79,26 @@ func parseItemRows(raw []byte) ([]domain.Item, error) {
 	return out, nil
 }
 
+// outboxDomainItems keeps items the viewer filed on trays they do not own (pure filter + map).
+func outboxDomainItems(rows []itemRowWithTray, viewerUserID string) ([]domain.Item, error) {
+	me := strings.TrimSpace(viewerUserID)
+	var out []domain.Item
+	for _, row := range rows {
+		if row.Trays == nil || strings.TrimSpace(row.Trays.OwnerID) == "" {
+			continue
+		}
+		if row.Trays.OwnerID == me {
+			continue
+		}
+		it, err := itemFromRow(row.itemRow)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, it)
+	}
+	return out, nil
+}
+
 func parseCreatedItem(raw []byte) (domain.Item, error) {
 	var rows []itemRow
 	if err := json.Unmarshal(raw, &rows); err == nil && len(rows) > 0 {

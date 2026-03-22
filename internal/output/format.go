@@ -45,6 +45,25 @@ func Parse(s string) (Format, error) {
 	}
 }
 
+// FormatFromFlags resolves --format / --output / --json without cobra (pure; unit-test friendly).
+// formatChanged and outputChanged correspond to pflag "Changed" for --format and -o/--output.
+func FormatFromFlags(jsonShort bool, formatOutput string, formatChanged, outputChanged bool) (Format, error) {
+	if jsonShort {
+		explicit := formatChanged || outputChanged
+		if explicit {
+			p, err := Parse(formatOutput)
+			if err != nil {
+				return 0, err
+			}
+			if p != FormatJSON {
+				return 0, fmt.Errorf("cannot combine --json with --format %s", formatOutput)
+			}
+		}
+		return FormatJSON, nil
+	}
+	return Parse(formatOutput)
+}
+
 // FormatFromCmd reads persistent --format, deprecated -o/--output, and --json from the command root.
 func FormatFromCmd(cmd *cobra.Command) (Format, error) {
 	root := cmd.Root()
@@ -59,23 +78,16 @@ func FormatFromCmd(cmd *cobra.Command) (Format, error) {
 		return 0, err
 	}
 
-	if jsonShort {
-		ff := fs.Lookup("format")
-		fo := fs.Lookup("output")
-		explicit := (ff != nil && ff.Changed) || (fo != nil && fo.Changed)
-		if explicit {
-			p, err := Parse(out)
-			if err != nil {
-				return 0, err
-			}
-			if p != FormatJSON {
-				return 0, fmt.Errorf("cannot combine --json with --format %s", out)
-			}
-		}
-		return FormatJSON, nil
+	ff := fs.Lookup("format")
+	fo := fs.Lookup("output")
+	var formatChanged, outputChanged bool
+	if ff != nil {
+		formatChanged = ff.Changed
 	}
-
-	return Parse(out)
+	if fo != nil {
+		outputChanged = fo.Changed
+	}
+	return FormatFromFlags(jsonShort, out, formatChanged, outputChanged)
 }
 
 // RegisterPersistentFlags adds --format (default human), deprecated -o/--output (same meaning), and --json.

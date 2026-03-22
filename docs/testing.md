@@ -22,4 +22,4 @@ make test-cover-html
 open coverage.html   # macOS
 ```
 
-Coverage is a **signal**, not a goal: prioritize tests for pure logic, decoding, and HTTP adapters (httptest), and integration-style tests only where they add confidence without flaking.
+Coverage is a **signal**, not a goal: prioritize tests for **pure helpers** (URL/query builders, body maps, tray resolution without I/O, format flags without cobra), decoding, and HTTP adapters (`httptest`). Integration-style tests only where they add confidence without flaking.
