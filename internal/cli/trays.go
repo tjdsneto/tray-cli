@@ -81,8 +81,6 @@ func cmdJoin() *cobra.Command {
 		Use:   "join <url-or-token>",
 		Short: "Join a tray via invite URL or token",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return stub("join")
-		},
+		RunE:  runJoin,
 	}
 }
