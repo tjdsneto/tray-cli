@@ -13,3 +13,7 @@ scratch/**
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+# Go coverage (from `make test-cover` or `go test -coverprofile=...`)
+coverage.out
+coverage.html

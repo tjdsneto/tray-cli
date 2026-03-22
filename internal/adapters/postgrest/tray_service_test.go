@@ -63,6 +63,25 @@ func TestTrayService_Create_requiresUserID(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestItemService_List_withItemID(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/rest/v1/items", r.URL.Path)
+		require.Equal(t, http.MethodGet, r.Method)
+		require.Contains(t, r.URL.RawQuery, "id=eq.item-uuid")
+		_ = json.NewEncoder(w).Encode([]any{})
+	}))
+	t.Cleanup(srv.Close)
+	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
+	require.NoError(t, err)
+	svc := newItemService(newClient(c))
+	ctx := context.Background()
+	s := domain.Session{AccessToken: "x", UserID: "u"}
+
+	items, err := svc.List(ctx, s, domain.ListItemsQuery{ItemID: "item-uuid"})
+	require.NoError(t, err)
+	require.Empty(t, items)
+}
+
 func TestItemService_Add_notFound(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	t.Cleanup(srv.Close)

@@ -24,3 +24,18 @@ func TestWriteJoin_human(t *testing.T) {
 	require.Contains(t, s, `Joined tray "inbox"`)
 	require.Contains(t, s, "tray ls")
 }
+
+func TestWriteJoin_markdown(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, WriteJoin(&buf, "tid-1", "my tray", FormatMarkdown))
+	s := buf.String()
+	require.Contains(t, s, "|")
+	require.Contains(t, s, `tid-1`)
+	require.Contains(t, s, "my tray")
+}
+
+func TestWriteJoin_markdown_emptyName(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, WriteJoin(&buf, "tid-1", "", FormatMarkdown))
+	require.Contains(t, buf.String(), "—")
+}

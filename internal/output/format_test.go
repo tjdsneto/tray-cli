@@ -7,6 +7,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestFormat_String(t *testing.T) {
+	require.Equal(t, "human", FormatTable.String())
+	require.Equal(t, "json", FormatJSON.String())
+	require.Equal(t, "markdown", FormatMarkdown.String())
+	require.Equal(t, "human", Format(99).String())
+}
+
 func TestParse(t *testing.T) {
 	for _, tt := range []struct {
 		in   string

@@ -9,12 +9,14 @@ CLI-first **tray** (shared inbox-tray / attention queue): **Go** client, **Supab
 You need **[Go 1.22+](https://go.dev/dl/)** on your `PATH` (e.g. `brew install go` on macOS). `./run.sh` and `./build.sh` also look under `/opt/homebrew/bin` and `/usr/local/go/bin` if `go` is missing from PATH.
 
 ```bash
-go test ./...
+make test              # or: go test ./... -race -count=1
 cp .env.example .env   # then edit with your Supabase URL + anon key
 ./run.sh --help
 ```
 
 Or set `TRAY_SUPABASE_URL` and `TRAY_SUPABASE_ANON_KEY` in the environment and use `go run ./cmd/tray` (without embeds unless you pass the same `-ldflags` as in [`run.sh`](run.sh)).
+
+**Testing:** [`docs/testing.md`](docs/testing.md) — `make test`, coverage reports.
 
 **Release-style binary:** `./build.sh` writes `./tray` with Supabase settings embedded from `.env` (or from already-exported env vars). CI can set the same variables and invoke `go build -ldflags "..."` the same way.
 

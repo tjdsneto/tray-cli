@@ -20,6 +20,15 @@ func TestDevOAuthHintsEnabled_embedded(t *testing.T) {
 	require.True(t, DevOAuthHintsEnabled())
 }
 
+func TestDebug(t *testing.T) {
+	t.Setenv(EnvDebug, "")
+	require.False(t, Debug())
+	t.Setenv(EnvDebug, "1")
+	require.True(t, Debug())
+	t.Setenv(EnvDebug, "0")
+	require.False(t, Debug())
+}
+
 func TestSupabaseURL_PrefersEnvOverEmbedded(t *testing.T) {
 	oldURL, oldKey := EmbeddedSupabaseURL, EmbeddedSupabaseAnonKey
 	t.Cleanup(func() {
