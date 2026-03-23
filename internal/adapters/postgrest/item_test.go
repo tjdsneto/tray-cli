@@ -2,33 +2,35 @@ package postgrest
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tjdsneto/tray-cli/internal/domain"
 )
 
-func TestItemFromRow(t *testing.T) {
+func TestItemRow_ToDomain(t *testing.T) {
 	t.Parallel()
-	it, err := itemFromRow(itemRow{
+	it, err := (itemRow{
 		ID: "i1", TrayID: "t1", SourceUserID: "u1",
 		Title: "x", Status: "pending",
 		CreatedAt: "2026-03-20T12:00:00Z",
 		UpdatedAt: "2026-03-20T12:00:00Z",
-	})
+	}).ToDomain()
 	require.NoError(t, err)
 	require.Equal(t, "i1", it.ID)
 	require.Equal(t, "pending", it.Status)
 }
 
-func TestItemFromRow_snoozeUntil(t *testing.T) {
+func TestItemRow_ToDomain_snoozeUntil(t *testing.T) {
 	t.Parallel()
 	s := "2026-03-21T10:00:00Z"
-	it, err := itemFromRow(itemRow{
+	it, err := (itemRow{
 		ID: "i1", TrayID: "t1", SourceUserID: "u1",
 		Title: "x", Status: "snoozed",
 		SnoozeUntil: &s,
 		CreatedAt:   "2026-03-20T12:00:00Z",
 		UpdatedAt:   "2026-03-20T12:00:00Z",
-	})
+	}).ToDomain()
 	require.NoError(t, err)
 	require.NotNil(t, it.SnoozeUntil)
 }
@@ -65,4 +67,41 @@ func TestOutboxDomainItems_filtersOwnerAndNilTray(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, out, 1)
 	require.Equal(t, "3", out[0].ID)
+}
+
+func TestNewAddItemRequest_ok(t *testing.T) {
+	t.Parallel()
+	due := "2026-03-21"
+	req, err := newAddItemRequest("u1", "t1", "hi", &due)
+	require.NoError(t, err)
+	require.Equal(t, "t1", req.TrayID)
+	require.Equal(t, "u1", req.SourceUserID)
+	require.Equal(t, "hi", req.Title)
+	require.Equal(t, "pending", req.Status)
+	require.NotNil(t, req.DueDate)
+	require.Equal(t, due, *req.DueDate)
+}
+
+func TestNewAddItemRequest_validation(t *testing.T) {
+	t.Parallel()
+	_, err := newAddItemRequest("", "t", "x", nil)
+	require.Error(t, err)
+	_, err = newAddItemRequest("u", "", "x", nil)
+	require.Error(t, err)
+	_, err = newAddItemRequest("u", "t", "", nil)
+	require.Error(t, err)
+}
+
+func TestItemPatchBody_snooze(t *testing.T) {
+	t.Parallel()
+	ts := time.Date(2026, 3, 21, 10, 0, 0, 0, time.UTC)
+	b, err := itemPatchBody(domain.ItemPatch{SnoozeUntil: &ts})
+	require.NoError(t, err)
+	require.Contains(t, b["snooze_until"].(string), "2026-03-21")
+}
+
+func TestItemPatchBody_empty(t *testing.T) {
+	t.Parallel()
+	_, err := itemPatchBody(domain.ItemPatch{})
+	require.Error(t, err)
 }

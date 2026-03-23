@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/tjdsneto/tray-cli/internal/domain"
+	"github.com/tjdsneto/tray-cli/internal/timex"
 )
 
 type trayMemberRow struct {
@@ -16,8 +17,8 @@ type trayMemberRow struct {
 	InvitedVia *string `json:"invited_via"`
 }
 
-func memberFromRow(r trayMemberRow) (domain.TrayMember, error) {
-	ja, err := parseTime(r.JoinedAt)
+func (r trayMemberRow) ToDomain() (domain.TrayMember, error) {
+	ja, err := timex.ParseRFC3339OrNano(r.JoinedAt)
 	if err != nil {
 		return domain.TrayMember{}, fmt.Errorf("postgrest: tray_member joined_at: %w", err)
 	}
@@ -37,7 +38,7 @@ func parseTrayMemberRows(raw []byte) ([]domain.TrayMember, error) {
 	}
 	out := make([]domain.TrayMember, 0, len(rows))
 	for _, r := range rows {
-		m, err := memberFromRow(r)
+		m, err := r.ToDomain()
 		if err != nil {
 			return nil, err
 		}

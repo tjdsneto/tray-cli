@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/tjdsneto/tray-cli/internal/domain"
+	"github.com/tjdsneto/tray-cli/internal/timex"
 )
 
 // itemRowWithTray is used for ListOutbox (embed trays for owner check).
@@ -31,18 +32,18 @@ type itemRow struct {
 	UpdatedAt         string  `json:"updated_at"`
 }
 
-func itemFromRow(r itemRow) (domain.Item, error) {
-	ca, err := parseTime(r.CreatedAt)
+func (r itemRow) ToDomain() (domain.Item, error) {
+	ca, err := timex.ParseRFC3339OrNano(r.CreatedAt)
 	if err != nil {
 		return domain.Item{}, fmt.Errorf("postgrest: item created_at: %w", err)
 	}
-	ua, err := parseTime(r.UpdatedAt)
+	ua, err := timex.ParseRFC3339OrNano(r.UpdatedAt)
 	if err != nil {
 		return domain.Item{}, fmt.Errorf("postgrest: item updated_at: %w", err)
 	}
 	var snooze *time.Time
 	if r.SnoozeUntil != nil && strings.TrimSpace(*r.SnoozeUntil) != "" {
-		t, err := parseTime(strings.TrimSpace(*r.SnoozeUntil))
+		t, err := timex.ParseRFC3339OrNano(strings.TrimSpace(*r.SnoozeUntil))
 		if err != nil {
 			return domain.Item{}, fmt.Errorf("postgrest: item snooze_until: %w", err)
 		}
@@ -70,7 +71,7 @@ func parseItemRows(raw []byte) ([]domain.Item, error) {
 	}
 	out := make([]domain.Item, 0, len(rows))
 	for _, r := range rows {
-		it, err := itemFromRow(r)
+		it, err := r.ToDomain()
 		if err != nil {
 			return nil, err
 		}
@@ -90,7 +91,7 @@ func outboxDomainItems(rows []itemRowWithTray, viewerUserID string) ([]domain.It
 		if row.Trays.OwnerID == me {
 			continue
 		}
-		it, err := itemFromRow(row.itemRow)
+		it, err := row.itemRow.ToDomain()
 		if err != nil {
 			return nil, err
 		}
@@ -102,11 +103,68 @@ func outboxDomainItems(rows []itemRowWithTray, viewerUserID string) ([]domain.It
 func parseCreatedItem(raw []byte) (domain.Item, error) {
 	var rows []itemRow
 	if err := json.Unmarshal(raw, &rows); err == nil && len(rows) > 0 {
-		return itemFromRow(rows[0])
+		return rows[0].ToDomain()
 	}
 	var one itemRow
 	if err := json.Unmarshal(raw, &one); err == nil && one.ID != "" {
-		return itemFromRow(one)
+		return one.ToDomain()
 	}
 	return domain.Item{}, fmt.Errorf("postgrest: parse create item response: %s", strings.TrimSpace(string(raw)))
+}
+
+// addItemRequest is the JSON body for POST /rest/v1/items.
+type addItemRequest struct {
+	TrayID       string  `json:"tray_id"`
+	SourceUserID string  `json:"source_user_id"`
+	Title        string  `json:"title"`
+	Status       string  `json:"status"`
+	DueDate      *string `json:"due_date,omitempty"`
+}
+
+func newAddItemRequest(userID, trayID, title string, dueDate *string) (addItemRequest, error) {
+	if strings.TrimSpace(userID) == "" {
+		return addItemRequest{}, fmt.Errorf("postgrest: session missing UserID (set after login)")
+	}
+	tid := strings.TrimSpace(trayID)
+	if tid == "" {
+		return addItemRequest{}, fmt.Errorf("postgrest: empty tray id")
+	}
+	tit := strings.TrimSpace(title)
+	if tit == "" {
+		return addItemRequest{}, fmt.Errorf("postgrest: empty item title")
+	}
+	req := addItemRequest{
+		TrayID:       tid,
+		SourceUserID: strings.TrimSpace(userID),
+		Title:        tit,
+		Status:       "pending",
+	}
+	if dueDate != nil && strings.TrimSpace(*dueDate) != "" {
+		d := strings.TrimSpace(*dueDate)
+		req.DueDate = &d
+	}
+	return req, nil
+}
+
+func itemPatchBody(p domain.ItemPatch) (map[string]any, error) {
+	body := map[string]any{}
+	if p.Status != nil {
+		body["status"] = strings.TrimSpace(*p.Status)
+	}
+	if p.DeclineReason != nil {
+		body["decline_reason"] = strings.TrimSpace(*p.DeclineReason)
+	}
+	if p.CompletionMessage != nil {
+		body["completion_message"] = strings.TrimSpace(*p.CompletionMessage)
+	}
+	if p.DueDate != nil {
+		body["due_date"] = strings.TrimSpace(*p.DueDate)
+	}
+	if p.SnoozeUntil != nil {
+		body["snooze_until"] = p.SnoozeUntil.UTC().Format(time.RFC3339Nano)
+	}
+	if len(body) == 0 {
+		return nil, fmt.Errorf("postgrest: empty item patch")
+	}
+	return body, nil
 }

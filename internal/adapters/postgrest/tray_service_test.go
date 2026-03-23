@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -64,82 +66,6 @@ func TestTrayService_Create_requiresUserID(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestItemService_List_withItemID(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/rest/v1/items", r.URL.Path)
-		require.Equal(t, http.MethodGet, r.Method)
-		require.Contains(t, r.URL.RawQuery, "id=eq.item-uuid")
-		_ = json.NewEncoder(w).Encode([]any{})
-	}))
-	t.Cleanup(srv.Close)
-	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
-	require.NoError(t, err)
-	svc := newItemService(pghttp.New(c))
-	ctx := context.Background()
-	s := domain.Session{AccessToken: "x", UserID: "u"}
-
-	items, err := svc.List(ctx, s, domain.ListItemsQuery{ItemID: "item-uuid"})
-	require.NoError(t, err)
-	require.Empty(t, items)
-}
-
-func TestItemService_Add_notFound(t *testing.T) {
-	srv := httptest.NewServer(http.NotFoundHandler())
-	t.Cleanup(srv.Close)
-	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
-	require.NoError(t, err)
-	svc := newItemService(pghttp.New(c))
-	ctx := context.Background()
-	s := domain.Session{AccessToken: "x", UserID: "u"}
-
-	_, err = svc.Add(ctx, s, "00000000-0000-0000-0000-000000000001", "title", nil)
-	require.Error(t, err)
-}
-
-func TestItemService_Update_emptyPatch(t *testing.T) {
-	srv := httptest.NewServer(http.NotFoundHandler())
-	t.Cleanup(srv.Close)
-	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
-	require.NoError(t, err)
-	svc := newItemService(pghttp.New(c))
-	ctx := context.Background()
-	s := domain.Session{AccessToken: "x", UserID: "u"}
-
-	err = svc.Update(ctx, s, "00000000-0000-0000-0000-000000000001", domain.ItemPatch{})
-	require.Error(t, err)
-}
-
-func TestItemService_Update_patch(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, http.MethodPatch, r.Method)
-		require.Contains(t, r.URL.RawQuery, "id=eq.")
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	t.Cleanup(srv.Close)
-	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
-	require.NoError(t, err)
-	svc := newItemService(pghttp.New(c))
-	ctx := context.Background()
-	s := domain.Session{AccessToken: "x", UserID: "u"}
-	st := "accepted"
-	err = svc.Update(ctx, s, "00000000-0000-0000-0000-000000000002", domain.ItemPatch{Status: &st})
-	require.NoError(t, err)
-}
-
-func TestItemService_Delete(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, http.MethodDelete, r.Method)
-		require.Contains(t, r.URL.RawQuery, "id=eq.")
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	t.Cleanup(srv.Close)
-	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
-	require.NoError(t, err)
-	svc := newItemService(pghttp.New(c))
-	err = svc.Delete(context.Background(), domain.Session{AccessToken: "x", UserID: "u"}, "00000000-0000-0000-0000-000000000099")
-	require.NoError(t, err)
-}
-
 func TestTrayService_UpdateName(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, http.MethodPatch, r.Method)
@@ -171,4 +97,47 @@ func TestTrayService_ListMembers(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, members, 1)
 	require.Equal(t, "u2", members[0].UserID)
+}
+
+func TestTraysCreatePath(t *testing.T) {
+	t.Parallel()
+	require.Equal(t, "/rest/v1/trays", traysCreatePath())
+}
+
+func TestTraysListMinePath(t *testing.T) {
+	t.Parallel()
+	p := traysListMinePath()
+	require.Contains(t, p, "order=name.asc")
+	require.Contains(t, p, "items%28count%29")
+	q, err := url.ParseQuery(strings.TrimPrefix(p, "/rest/v1/trays?"))
+	require.NoError(t, err)
+	require.Contains(t, q.Get("select"), "owner_id")
+}
+
+func TestJoinTrayRPCPath(t *testing.T) {
+	t.Parallel()
+	require.Equal(t, "/rest/v1/rpc/join_tray", joinTrayRPCPath())
+}
+
+func TestTraysByIDPath(t *testing.T) {
+	t.Parallel()
+	p := traysByIDPath("  uuid-1  ")
+	require.Contains(t, p, "id=eq.uuid-1")
+}
+
+func TestTrayMembersListPath(t *testing.T) {
+	t.Parallel()
+	p := trayMembersListPath("t99")
+	require.Contains(t, p, "tray_id=eq.t99")
+	require.Contains(t, p, "order=joined_at.asc")
+	q, err := url.ParseQuery(strings.TrimPrefix(p, "/rest/v1/tray_members?"))
+	require.NoError(t, err)
+	require.Equal(t, trayMemberSelectColumns, q.Get("select"))
+}
+
+func TestTrayMembersDeletePath(t *testing.T) {
+	t.Parallel()
+	p := trayMembersDeletePath("trayA", "userB")
+	require.Contains(t, p, "tray_id=eq.trayA")
+	require.Contains(t, p, "user_id=eq.userB")
 }

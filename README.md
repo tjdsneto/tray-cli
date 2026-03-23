@@ -75,7 +75,8 @@ For **trays**, the default **human** output shows **name**, **item count**, and 
 - **`internal/domain`** — types (`Tray`, `Item`, `Session`, …) and **service interfaces**: `TrayService`, `ItemService`. The CLI depends on these, not on HTTP paths.
 - **`internal/domain.Services`** — bundles `Trays` + `Items` for a single injection point.
 - **`internal/adapters/postgrest/pghttp`** — generic JSON REST client + HTTP status → user-facing errors (no domain types).
-- **`internal/adapters/postgrest`** — `TrayService` / `ItemService` implementations using `pghttp`; `postgrest.Dial` / `postgrest.NewServices`.
+- **`internal/adapters/postgrest`** — PostgREST / Supabase Data API adapter: `TrayService` / `ItemService` via `pghttp`; row types and mapping in **`item.go`**, **`tray.go`**, **`member.go`**; URL helpers live next to **`item_service.go`** / **`tray_service.go`**.
+- **`internal/timex`** — small time helpers (e.g. RFC3339 parsing for JSON timestamps), shared where useful outside the adapter.
 - **`internal/cli/commands`** — Cobra subcommands (grouped in `register.go`); wired from `internal/cli` with `commands.Deps`.
 - **`internal/cli/trayref`** — pure tray name / id / alias resolution.
 - **`internal/remotesfile`** — `remotes.json` load/save for local tray aliases.

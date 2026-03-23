@@ -16,14 +16,14 @@ func TestParseCreatedTray_arrayOrObject(t *testing.T) {
 	require.Equal(t, "y", row.ID)
 }
 
-func TestTrayFromRow_itemCount(t *testing.T) {
-	tr, err := trayFromRow(trayRow{
+func TestTrayRow_ToDomain_itemCount(t *testing.T) {
+	tr, err := (trayRow{
 		ID:        "id1",
 		OwnerID:   "o",
 		Name:      "t",
 		CreatedAt: "2026-01-02T15:04:05Z",
 		Items:     []trayItemsCount{{Count: 7}},
-	})
+	}).ToDomain()
 	require.NoError(t, err)
 	require.Equal(t, 7, tr.ItemCount)
 }

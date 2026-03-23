@@ -32,7 +32,7 @@ func (s *trayService) Create(ctx context.Context, sess domain.Session, name stri
 	if inviteToken != nil {
 		body["invite_token"] = *inviteToken
 	}
-	raw, err := s.pg.Request(ctx, sess.AccessToken, http.MethodPost, "/rest/v1/trays", body, pghttp.PreferRepresentation())
+	raw, err := s.pg.Request(ctx, sess.AccessToken, http.MethodPost, traysCreatePath(), body, pghttp.PreferRepresentation())
 	if err != nil {
 		return nil, err
 	}
@@ -40,21 +40,18 @@ func (s *trayService) Create(ctx context.Context, sess domain.Session, name stri
 	if err != nil {
 		return nil, err
 	}
-	return trayFromRow(*row)
+	return row.ToDomain()
 }
 
 func (s *trayService) ListMine(ctx context.Context, sess domain.Session) ([]domain.Tray, error) {
-	q := url.Values{}
-	q.Set("select", "id,owner_id,name,invite_token,created_at,items(count)")
-	q.Set("order", "name.asc")
-	path := "/rest/v1/trays?" + q.Encode()
+	path := traysListMinePath()
 	var rows []trayRow
 	if err := s.pg.DoJSON(ctx, sess.AccessToken, http.MethodGet, path, nil, &rows, nil); err != nil {
 		return nil, err
 	}
 	out := make([]domain.Tray, 0, len(rows))
 	for _, r := range rows {
-		t, err := trayFromRow(r)
+		t, err := r.ToDomain()
 		if err != nil {
 			return nil, err
 		}
@@ -64,9 +61,9 @@ func (s *trayService) ListMine(ctx context.Context, sess domain.Session) ([]doma
 }
 
 func (s *trayService) Join(ctx context.Context, sess domain.Session, inviteToken string) (string, error) {
-	body := map[string]string{"p_invite_token": strings.TrimSpace(inviteToken)}
+	body := joinTrayRequest{PInviteToken: strings.TrimSpace(inviteToken)}
 	var trayID string
-	if err := s.pg.DoJSON(ctx, sess.AccessToken, http.MethodPost, "/rest/v1/rpc/join_tray", body, &trayID, nil); err != nil {
+	if err := s.pg.DoJSON(ctx, sess.AccessToken, http.MethodPost, joinTrayRPCPath(), body, &trayID, nil); err != nil {
 		return "", err
 	}
 	return trayID, nil
@@ -105,9 +102,7 @@ func (s *trayService) SetInviteToken(ctx context.Context, sess domain.Session, t
 	if tid == "" {
 		return fmt.Errorf("postgrest: empty tray id")
 	}
-	q := url.Values{}
-	q.Set("id", "eq."+tid)
-	path := "/rest/v1/trays?" + q.Encode()
+	path := traysByIDPath(tid)
 	var body map[string]any
 	if inviteToken != nil {
 		body = map[string]any{"invite_token": *inviteToken}
@@ -142,4 +137,43 @@ func (s *trayService) Leave(ctx context.Context, sess domain.Session, trayID str
 		return fmt.Errorf("postgrest: session missing UserID (set after login)")
 	}
 	return s.RemoveMember(ctx, sess, trayID, sess.UserID)
+}
+
+const trayMemberSelectColumns = "id,tray_id,user_id,joined_at,invited_via"
+
+func traysCreatePath() string {
+	return "/rest/v1/trays"
+}
+
+// traysListMinePath is GET /rest/v1/trays with select and order for the current user's trays.
+func traysListMinePath() string {
+	q := url.Values{}
+	q.Set("select", "id,owner_id,name,invite_token,created_at,items(count)")
+	q.Set("order", "name.asc")
+	return "/rest/v1/trays?" + q.Encode()
+}
+
+func joinTrayRPCPath() string {
+	return "/rest/v1/rpc/join_tray"
+}
+
+func traysByIDPath(trayID string) string {
+	q := url.Values{}
+	q.Set("id", "eq."+strings.TrimSpace(trayID))
+	return "/rest/v1/trays?" + q.Encode()
+}
+
+func trayMembersListPath(trayID string) string {
+	q := url.Values{}
+	q.Set("tray_id", "eq."+strings.TrimSpace(trayID))
+	q.Set("select", trayMemberSelectColumns)
+	q.Set("order", "joined_at.asc")
+	return "/rest/v1/tray_members?" + q.Encode()
+}
+
+func trayMembersDeletePath(trayID, userID string) string {
+	q := url.Values{}
+	q.Set("tray_id", "eq."+strings.TrimSpace(trayID))
+	q.Set("user_id", "eq."+strings.TrimSpace(userID))
+	return "/rest/v1/tray_members?" + q.Encode()
 }
