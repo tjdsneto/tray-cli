@@ -53,3 +53,6 @@ func itemsPatchPath(itemID string) string {
 	q.Set("id", "eq."+id)
 	return "/rest/v1/items?" + q.Encode()
 }
+
+// itemsDeletePath is the DELETE /rest/v1/items path scoped by item id.
+func itemsDeletePath(itemID string) string { return itemsPatchPath(itemID) }

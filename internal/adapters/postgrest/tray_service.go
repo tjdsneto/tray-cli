@@ -72,11 +72,28 @@ func (s *trayService) Join(ctx context.Context, sess domain.Session, inviteToken
 }
 
 func (s *trayService) UpdateName(ctx context.Context, sess domain.Session, trayID, name string) error {
-	return domain.ErrNotImplemented
+	if strings.TrimSpace(sess.UserID) == "" {
+		return fmt.Errorf("postgrest: session missing UserID (set after login)")
+	}
+	tid := strings.TrimSpace(trayID)
+	n := strings.TrimSpace(name)
+	if tid == "" || n == "" {
+		return fmt.Errorf("postgrest: empty tray id or name")
+	}
+	path := traysByIDPath(tid)
+	body := map[string]any{"name": n}
+	_, err := s.pg.request(ctx, sess, http.MethodPatch, path, body, nil)
+	return err
 }
 
 func (s *trayService) Delete(ctx context.Context, sess domain.Session, trayID string) error {
-	return domain.ErrNotImplemented
+	tid := strings.TrimSpace(trayID)
+	if tid == "" {
+		return fmt.Errorf("postgrest: empty tray id")
+	}
+	path := traysByIDPath(tid)
+	_, err := s.pg.request(ctx, sess, http.MethodDelete, path, nil, nil)
+	return err
 }
 
 func (s *trayService) SetInviteToken(ctx context.Context, sess domain.Session, trayID string, inviteToken *string) error {
@@ -101,13 +118,27 @@ func (s *trayService) SetInviteToken(ctx context.Context, sess domain.Session, t
 }
 
 func (s *trayService) ListMembers(ctx context.Context, sess domain.Session, trayID string) ([]domain.TrayMember, error) {
-	return nil, domain.ErrNotImplemented
+	tid := strings.TrimSpace(trayID)
+	if tid == "" {
+		return nil, fmt.Errorf("postgrest: empty tray id")
+	}
+	path := trayMembersListPath(tid)
+	raw, err := s.pg.request(ctx, sess, http.MethodGet, path, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return parseTrayMemberRows(raw)
 }
 
 func (s *trayService) RemoveMember(ctx context.Context, sess domain.Session, trayID, userID string) error {
-	return domain.ErrNotImplemented
+	path := trayMembersDeletePath(trayID, userID)
+	_, err := s.pg.request(ctx, sess, http.MethodDelete, path, nil, nil)
+	return err
 }
 
 func (s *trayService) Leave(ctx context.Context, sess domain.Session, trayID string) error {
-	return domain.ErrNotImplemented
+	if strings.TrimSpace(sess.UserID) == "" {
+		return fmt.Errorf("postgrest: session missing UserID (set after login)")
+	}
+	return s.RemoveMember(ctx, sess, trayID, sess.UserID)
 }

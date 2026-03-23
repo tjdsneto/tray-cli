@@ -40,11 +40,11 @@ During OAuth, the CLI starts a **short-lived local HTTP server** on `127.0.0.1` 
 
 **Troubleshooting OAuth:** If you see `Unsupported provider: provider is not enabled`, open **Supabase Dashboard → Authentication → Providers**, turn **Google** on, and paste the **Client ID** and **Client secret** from Google Cloud (same OAuth client whose redirect URI is `https://<project-ref>.supabase.co/auth/v1/callback`). Then run `tray login --provider google` again. The CLI cannot enable providers; it must be done in the dashboard.
 
-**Trays:** `./run.sh create <name>` creates a tray; `./run.sh ls` lists trays; **`./run.sh join …`** joins with an invite token or link; **`./run.sh invite <tray-name>`** shows or creates an invite token (owner only; **`--rotate`** issues a new token).
+**Trays:** `./run.sh create <name>` creates a tray; **`rename`**, **`delete-tray`** (owner); **`ls`** lists trays; **`join`** uses an invite token or link; **`invite`** / **`rotate-invite`** or **`invite --rotate`** manage invite tokens (owner); **`members`**, **`revoke`**, **`leave`** for membership.
 
-**Items:** **`./run.sh add "title" <tray>`** adds a pending item (tray = name, id, or a **`remote`** alias). **`./run.sh list`** lists items you can see; **`./run.sh list <tray>`** filters to one tray. **`./run.sh contributed`** lists items you filed on *others’* trays.
+**Items:** **`./run.sh add "title" <tray>`** adds a pending item (tray = name, id, or **`remote`** alias). **`list`** / **`list <tray>`**, **`contributed`**, **`remove <item-id>`** (owner deletes any item; contributor can delete own **pending** items).
 
-**Triage (tray owner):** **`./run.sh accept <item-id>`** and **`./run.sh decline <item-id>`** update status (`decline` supports **`--reason`**). Use item ids from **`tray list --format json`**.
+**Triage (tray owner):** **`accept`**, **`decline`** (**`--reason`**), **`snooze`** (**`--until` RFC3339**), **`complete`** (**`--message`**), **`archive`**. Use item ids from **`tray list --format json`**.
 
 **Remote aliases:** **`./run.sh remote add <alias> <invite-url-or-token>`** joins and saves `remotes.json` under your config dir so you can use **`./run.sh add "…" <alias>`** later. **`./run.sh remote ls`** / **`./run.sh remote remove <alias>`** manage that file.
 

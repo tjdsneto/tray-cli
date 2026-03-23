@@ -27,13 +27,17 @@ Others join with: tray join <token> (or a link that contains the token).`,
 }
 
 func runInvite(cmd *cobra.Command, args []string) error {
-	name := strings.TrimSpace(args[0])
-	if name == "" {
-		return fmt.Errorf("which tray should we invite to? — example: `tray invite inbox`")
-	}
 	rotate, err := cmd.Flags().GetBool("rotate")
 	if err != nil {
 		return err
+	}
+	return runInviteCore(cmd, args, rotate)
+}
+
+func runInviteCore(cmd *cobra.Command, args []string, rotate bool) error {
+	name := strings.TrimSpace(args[0])
+	if name == "" {
+		return fmt.Errorf("which tray should we invite to? — example: `tray invite inbox`")
 	}
 
 	svcs, sess, err := requireAuth()
@@ -48,9 +52,13 @@ func runInvite(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	tray, err := pickTrayOrError(findTraysByNameFold(trays, name), name)
+	tid, err := resolveTrayRef(cmd.Context(), svcs, sess, name, trayAliasesOrNil())
 	if err != nil {
 		return err
+	}
+	tray, ok := trayByID(trays, tid)
+	if !ok {
+		return fmt.Errorf("tray not found — run `tray ls`")
 	}
 	if tray.OwnerID != sess.UserID {
 		return fmt.Errorf("only the owner can share invites for %q", tray.Name)

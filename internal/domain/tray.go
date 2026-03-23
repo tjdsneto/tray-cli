@@ -18,11 +18,11 @@ type Tray struct {
 
 // TrayMember is a user allowed to add (and read) items on someone else's tray.
 type TrayMember struct {
-	ID         string
-	TrayID     string
-	UserID     string
-	JoinedAt   time.Time
-	InvitedVia *string
+	ID         string    `json:"id"`
+	TrayID     string    `json:"tray_id"`
+	UserID     string    `json:"user_id"`
+	JoinedAt   time.Time `json:"joined_at"`
+	InvitedVia *string   `json:"invited_via,omitempty"`
 }
 
 // TrayService is tray + membership use-cases (implementations hide storage details).

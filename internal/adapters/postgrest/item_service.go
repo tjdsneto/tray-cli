@@ -80,5 +80,14 @@ func (s *itemService) Update(ctx context.Context, sess domain.Session, itemID st
 }
 
 func (s *itemService) Delete(ctx context.Context, sess domain.Session, itemID string) error {
-	return domain.ErrNotImplemented
+	if strings.TrimSpace(sess.UserID) == "" {
+		return fmt.Errorf("postgrest: session missing UserID (set after login)")
+	}
+	id := strings.TrimSpace(itemID)
+	if id == "" {
+		return fmt.Errorf("postgrest: empty item id")
+	}
+	path := itemsDeletePath(id)
+	_, err := s.pg.request(ctx, sess, http.MethodDelete, path, nil, nil)
+	return err
 }

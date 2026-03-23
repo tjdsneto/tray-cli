@@ -125,22 +125,49 @@ func TestItemService_Update_patch(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestItemService_Delete_notImplemented(t *testing.T) {
-	srv := httptest.NewServer(http.NotFoundHandler())
+func TestItemService_Delete(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodDelete, r.Method)
+		require.Contains(t, r.URL.RawQuery, "id=eq.")
+		w.WriteHeader(http.StatusNoContent)
+	}))
 	t.Cleanup(srv.Close)
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
 	require.NoError(t, err)
 	svc := newItemService(newClient(c))
-	err = svc.Delete(context.Background(), domain.Session{AccessToken: "x", UserID: "u"}, "id")
-	require.ErrorIs(t, err, domain.ErrNotImplemented)
+	err = svc.Delete(context.Background(), domain.Session{AccessToken: "x", UserID: "u"}, "00000000-0000-0000-0000-000000000099")
+	require.NoError(t, err)
 }
 
-func TestTrayService_UpdateName_notImplemented(t *testing.T) {
-	srv := httptest.NewServer(http.NotFoundHandler())
+func TestTrayService_UpdateName(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPatch, r.Method)
+		require.Contains(t, r.URL.RawQuery, "id=eq.")
+		w.WriteHeader(http.StatusNoContent)
+	}))
 	t.Cleanup(srv.Close)
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
 	require.NoError(t, err)
 	svc := newTrayService(newClient(c))
-	err = svc.UpdateName(context.Background(), domain.Session{}, "id", "n")
-	require.ErrorIs(t, err, domain.ErrNotImplemented)
+	err = svc.UpdateName(context.Background(), domain.Session{AccessToken: "x", UserID: "u"}, "00000000-0000-0000-0000-000000000001", "new")
+	require.NoError(t, err)
+}
+
+func TestTrayService_ListMembers(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/rest/v1/tray_members", r.URL.Path)
+		require.Contains(t, r.URL.RawQuery, "tray_id=eq.")
+		_ = json.NewEncoder(w).Encode([]trayMemberRow{{
+			ID: "m1", TrayID: "t1", UserID: "u2",
+			JoinedAt: "2026-03-20T12:00:00Z",
+		}})
+	}))
+	t.Cleanup(srv.Close)
+	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
+	require.NoError(t, err)
+	svc := newTrayService(newClient(c))
+	members, err := svc.ListMembers(context.Background(), domain.Session{AccessToken: "x"}, "t1")
+	require.NoError(t, err)
+	require.Len(t, members, 1)
+	require.Equal(t, "u2", members[0].UserID)
 }
