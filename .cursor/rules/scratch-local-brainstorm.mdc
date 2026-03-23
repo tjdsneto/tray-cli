@@ -1,0 +1,11 @@
+---
+description: scratch/ is local brainstorming and specs only (not in git)
+alwaysApply: true
+---
+
+# Local `scratch/` directory
+
+- **`scratch/`** is for **local brainstorming, notes, and spec drafts** only. It is **not** part of the published repository (treat it as private working material).
+- Do **not** assume collaborators or CI see files under `scratch/`; the **source of truth** for shipped work lives in **committed** paths (e.g. `README.md`, `docs/`, application code).
+- When the user wants ideas from `scratch/` reflected in the product, **promote** content into committed files or code explicitly—do not rely on `scratch/` being available outside this machine.
+- **`scratch/`** is listed in **`.gitignore`** so it is never committed; do not `git add -f` it unless the team explicitly chooses to publish that material.

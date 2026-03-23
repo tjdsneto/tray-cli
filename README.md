@@ -2,7 +2,7 @@
 
 CLI-first **tray** (shared inbox-tray / attention queue): **Go** client, **Supabase** backend.
 
-**Output & UX notes:** brainstorming for human-friendly tables, hints, and stderr lives in [`scratch/output-formats.md`](scratch/output-formats.md) (the rest of `scratch/` is ignored by git).
+**Output & UX notes:** keep a local **`scratch/`** directory (gitignored) for brainstorming—see the **Output** section below and [`docs/testing.md`](docs/testing.md) for what ships in-repo.
 
 ## Dev
 

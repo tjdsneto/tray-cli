@@ -1,6 +1,5 @@
-# Local brainstorming / specs (not published); keep output-formats brainstorm in git
-scratch/**
-!scratch/output-formats.md
+# Local brainstorming / specs (not in the repo)
+scratch/
 
 # Go build artifact when built from repo root
 /tray

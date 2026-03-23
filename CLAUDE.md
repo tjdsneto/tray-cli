@@ -15,6 +15,14 @@ See also: [`docs/testing.md`](docs/testing.md).
 
 ---
 
+## Local `scratch/` directory
+
+The **`scratch/`** directory is **gitignored**—use it for private brainstorming and notes. Nothing under `scratch/` is committed. Promote ideas into `README.md`, `docs/`, or code when they should ship.
+
+(See [`.cursor/rules/scratch-local-brainstorm.mdc`](.cursor/rules/scratch-local-brainstorm.mdc).)
+
+---
+
 ## AI instruction parity (Cursor ↔ Claude)
 
 | Surface | Location |

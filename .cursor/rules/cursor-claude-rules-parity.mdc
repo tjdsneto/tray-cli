@@ -13,3 +13,5 @@ This repo maintains two instruction surfaces for AI assistants:
 | **Claude** (project context) | [`CLAUDE.md`](../CLAUDE.md) at the repo root |
 
 **When you create, update, or remove project-wide AI guidance in one place, apply the same change to the other** so instructions stay consistent. If something is intentionally specific to one tool, state that in **both** places in a one-line note so neither assistant assumes parity where there is none.
+
+Rules that only exist under `.cursor/rules/` (for example `scratch-local-brainstorm.mdc`) should still have a short mirror in **`CLAUDE.md`** when they describe repo-wide conventions.
