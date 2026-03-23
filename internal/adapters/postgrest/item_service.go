@@ -7,14 +7,15 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/tjdsneto/tray-cli/internal/adapters/postgrest/pghttp"
 	"github.com/tjdsneto/tray-cli/internal/domain"
 )
 
 type itemService struct {
-	pg *client
+	pg *pghttp.Client
 }
 
-func newItemService(pg *client) *itemService {
+func newItemService(pg *pghttp.Client) *itemService {
 	return &itemService{pg: pg}
 }
 
@@ -26,7 +27,7 @@ func (s *itemService) Add(ctx context.Context, sess domain.Session, trayID, titl
 		return nil, err
 	}
 	path := itemsCreatePath()
-	raw, err := s.pg.request(ctx, sess, http.MethodPost, path, body, hdrPreferRepresentation())
+	raw, err := s.pg.Request(ctx, sess.AccessToken, http.MethodPost, path, body, pghttp.PreferRepresentation())
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +40,7 @@ func (s *itemService) Add(ctx context.Context, sess domain.Session, trayID, titl
 
 func (s *itemService) List(ctx context.Context, sess domain.Session, q domain.ListItemsQuery) ([]domain.Item, error) {
 	path := itemsListPath(q)
-	raw, err := s.pg.request(ctx, sess, http.MethodGet, path, nil, nil)
+	raw, err := s.pg.Request(ctx, sess.AccessToken, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +52,7 @@ func (s *itemService) ListOutbox(ctx context.Context, sess domain.Session) ([]do
 		return nil, fmt.Errorf("postgrest: session missing UserID (set after login)")
 	}
 	path := itemsOutboxPath(sess.UserID)
-	raw, err := s.pg.request(ctx, sess, http.MethodGet, path, nil, nil)
+	raw, err := s.pg.Request(ctx, sess.AccessToken, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +76,7 @@ func (s *itemService) Update(ctx context.Context, sess domain.Session, itemID st
 		return err
 	}
 	path := itemsPatchPath(id)
-	_, err = s.pg.request(ctx, sess, http.MethodPatch, path, body, nil)
+	_, err = s.pg.Request(ctx, sess.AccessToken, http.MethodPatch, path, body, nil)
 	return err
 }
 
@@ -88,6 +89,6 @@ func (s *itemService) Delete(ctx context.Context, sess domain.Session, itemID st
 		return fmt.Errorf("postgrest: empty item id")
 	}
 	path := itemsDeletePath(id)
-	_, err := s.pg.request(ctx, sess, http.MethodDelete, path, nil, nil)
+	_, err := s.pg.Request(ctx, sess.AccessToken, http.MethodDelete, path, nil, nil)
 	return err
 }

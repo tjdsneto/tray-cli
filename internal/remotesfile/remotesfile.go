@@ -1,4 +1,5 @@
-package cli
+// Package remotesfile persists tray remote aliases (remotes.json) next to credentials.
+package remotesfile
 
 import (
 	"encoding/json"
@@ -7,25 +8,26 @@ import (
 	"strings"
 )
 
-const remotesFileName = "remotes.json"
+const fileName = "remotes.json"
 
-// remotesFile is persisted next to credentials (0600).
-type remotesFile struct {
+// File is the on-disk shape for remotes.json (0600).
+type File struct {
 	Aliases map[string]string `json:"aliases"`
 }
 
-func loadRemotes(configDir string) (remotesFile, error) {
-	p := filepath.Join(configDir, remotesFileName)
+// Load reads remotes.json or returns an empty file if missing.
+func Load(configDir string) (File, error) {
+	p := filepath.Join(configDir, fileName)
 	data, err := os.ReadFile(p)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return remotesFile{Aliases: map[string]string{}}, nil
+			return File{Aliases: map[string]string{}}, nil
 		}
-		return remotesFile{}, err
+		return File{}, err
 	}
-	var f remotesFile
+	var f File
 	if err := json.Unmarshal(data, &f); err != nil {
-		return remotesFile{}, err
+		return File{}, err
 	}
 	if f.Aliases == nil {
 		f.Aliases = map[string]string{}
@@ -33,7 +35,8 @@ func loadRemotes(configDir string) (remotesFile, error) {
 	return f, nil
 }
 
-func saveRemotes(configDir string, f remotesFile) error {
+// Save writes remotes.json atomically.
+func Save(configDir string, f File) error {
 	if f.Aliases == nil {
 		f.Aliases = map[string]string{}
 	}
@@ -44,7 +47,7 @@ func saveRemotes(configDir string, f remotesFile) error {
 	if err != nil {
 		return err
 	}
-	p := filepath.Join(configDir, remotesFileName)
+	p := filepath.Join(configDir, fileName)
 	tmp := p + ".tmp"
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return err
@@ -52,9 +55,9 @@ func saveRemotes(configDir string, f remotesFile) error {
 	return os.Rename(tmp, p)
 }
 
-// loadRemoteAliases returns lowercased alias → tray id for resolveTrayRef.
-func loadRemoteAliases(configDir string) map[string]string {
-	f, err := loadRemotes(configDir)
+// AliasesMap returns lowercased alias → tray id for tray resolution (best-effort empty map on read error).
+func AliasesMap(configDir string) map[string]string {
+	f, err := Load(configDir)
 	if err != nil {
 		return map[string]string{}
 	}

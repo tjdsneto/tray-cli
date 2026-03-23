@@ -1,4 +1,4 @@
-package cli
+package commands
 
 import (
 	"fmt"
@@ -37,7 +37,7 @@ func runJoin(cmd *cobra.Command, args []string) error {
 	if token == "" {
 		return fmt.Errorf("paste an invite token or a link that contains the token")
 	}
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}

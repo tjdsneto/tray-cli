@@ -1,10 +1,11 @@
-package cli
+package commands
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/tjdsneto/tray-cli/internal/cli/trayref"
 	"github.com/tjdsneto/tray-cli/internal/domain"
 	"github.com/tjdsneto/tray-cli/internal/output"
 )
@@ -25,11 +26,11 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("give the item a title — example: tray add \"Fix login\" inbox")
 	}
 	trayRef := strings.TrimSpace(args[1])
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}
-	tid, err := resolveTrayRef(cmd.Context(), svcs, sess, trayRef, trayAliasesOrNil())
+	tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, trayRef, cmdDeps.RemoteAliases())
 	if err != nil {
 		return err
 	}
@@ -45,7 +46,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	m := trayNameMap(trays)
+	m := trayref.TrayNameMap(trays)
 	return output.WriteItems(cmd.OutOrStdout(), []domain.Item{*item}, m, format)
 }
 
@@ -59,13 +60,13 @@ func cmdList() *cobra.Command {
 }
 
 func runList(cmd *cobra.Command, args []string) error {
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}
 	q := domain.ListItemsQuery{OrderCreated: "desc"}
 	if len(args) == 1 {
-		tid, err := resolveTrayRef(cmd.Context(), svcs, sess, strings.TrimSpace(args[0]), trayAliasesOrNil())
+		tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, strings.TrimSpace(args[0]), cmdDeps.RemoteAliases())
 		if err != nil {
 			return err
 		}
@@ -83,7 +84,7 @@ func runList(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	m := trayNameMap(trays)
+	m := trayref.TrayNameMap(trays)
 	return output.WriteItems(cmd.OutOrStdout(), items, m, format)
 }
 
@@ -96,7 +97,7 @@ func cmdContributed() *cobra.Command {
 }
 
 func runContributed(cmd *cobra.Command, args []string) error {
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}
@@ -112,11 +113,6 @@ func runContributed(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	m := trayNameMap(trays)
+	m := trayref.TrayNameMap(trays)
 	return output.WriteItems(cmd.OutOrStdout(), items, m, format)
-}
-
-// trayAliasesOrNil returns remote aliases when implemented; nil means name/id only.
-func trayAliasesOrNil() map[string]string {
-	return loadRemoteAliases(ConfigDir())
 }

@@ -1,4 +1,4 @@
-package cli
+package commands
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/tjdsneto/tray-cli/internal/cli/trayref"
 	"github.com/tjdsneto/tray-cli/internal/domain"
 	"github.com/tjdsneto/tray-cli/internal/output"
 )
@@ -40,7 +41,7 @@ func runInviteCore(cmd *cobra.Command, args []string, rotate bool) error {
 		return fmt.Errorf("which tray should we invite to? — example: `tray invite inbox`")
 	}
 
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}
@@ -52,11 +53,11 @@ func runInviteCore(cmd *cobra.Command, args []string, rotate bool) error {
 	if err != nil {
 		return err
 	}
-	tid, err := resolveTrayRef(cmd.Context(), svcs, sess, name, trayAliasesOrNil())
+	tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, name, cmdDeps.RemoteAliases())
 	if err != nil {
 		return err
 	}
-	tray, ok := trayByID(trays, tid)
+	tray, ok := trayref.TrayByID(trays, tid)
 	if !ok {
 		return fmt.Errorf("tray not found — run `tray ls`")
 	}

@@ -2,70 +2,50 @@ package cli
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/tjdsneto/tray-cli/internal/cli/commands"
 	"github.com/tjdsneto/tray-cli/internal/output"
+	"github.com/tjdsneto/tray-cli/internal/remotesfile"
 )
 
-// Execute runs the tray root command.
+// Execute runs the tray root command. Errors are formatted in cmd/tray/main.go (user-facing line + optional debug).
 func Execute() error {
 	return NewRootCmd().ExecuteContext(context.Background())
 }
 
-// NewRootCmd builds the full CLI tree (stubs until each feature lands).
+// NewRootCmd builds the full CLI tree.
 func NewRootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:           "tray",
-		Short:         "Tray-CLI — shared inbox tray (Supabase backend)",
-		SilenceUsage:  true,
+		Use:   "tray",
+		Short: "Shared inbox for tasks — list, triage, and share work with your team",
+		Long: `Tray keeps attention on a short list of items you and others can add to named trays.
+
+Run "tray help" for commands, or "tray <command> --help" for options.`,
+		// SilenceUsage: when a RunE returns an error, do not print the full command usage block (keeps stderr short).
+		SilenceUsage: true,
+		// SilenceErrors: cobra does not print the raw error; cmd/tray prints a single user-facing line (and debug detail when TRAY_DEBUG=1).
 		SilenceErrors: true,
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = cmd.Help()
 		},
 	}
 
-	root.PersistentFlags().StringVar(&configDirFlag, "config-dir", "", "override config directory (default: $XDG_CONFIG_HOME/tray or ~/.config/tray)")
+	// --config-dir: optional override; default path follows XDG on Unix and APPDATA on Windows (see internal/config/paths if exposed).
+	root.PersistentFlags().StringVar(&configDirFlag, "config-dir", "", "override config directory (default is OS-specific; see documentation)")
+
+	// Registers --format, deprecated -o/--output, and --json on the root (inherited by subcommands).
 	output.RegisterPersistentFlags(root.PersistentFlags())
 
-	root.AddCommand(
-		cmdLogin(),
-		cmdStatus(),
-		cmdCreate(),
-		cmdLs(),
-		cmdRename(),
-		cmdDeleteTray(),
-		cmdInvite(),
-		cmdRotateInvite(),
-		cmdJoin(),
-		cmdAdd(),
-		cmdList(),
-		cmdRemove(),
-		cmdContributed(),
-		cmdRemote(),
-		cmdMembers(),
-		cmdRevoke(),
-		cmdLeave(),
-		cmdNotImplemented("review", "Interactive triage"),
-		cmdAccept(),
-		cmdDecline(),
-		cmdSnooze(),
-		cmdComplete(),
-		cmdArchive(),
-		cmdNotImplemented("listen", "Watch for tray updates"),
-	)
+	commands.Register(root, commands.Deps{
+		RequireAuth: requireAuth,
+		ConfigDir:   ConfigDir,
+		RemoteAliases: func() map[string]string {
+			return remotesfile.AliasesMap(ConfigDir())
+		},
+	})
 
 	return root
 }
 
 var configDirFlag string
-
-func cmdNotImplemented(use, short string) *cobra.Command {
-	return &cobra.Command{
-		Use:   use,
-		Short: short,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("`tray %s` isn't available yet — run `tray help` for supported commands", use)
-		},
-	}
-}

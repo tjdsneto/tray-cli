@@ -1,4 +1,4 @@
-package cli
+package commands
 
 import (
 	"encoding/json"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tjdsneto/tray-cli/internal/output"
+	"github.com/tjdsneto/tray-cli/internal/remotesfile"
 )
 
 func runRemoteAdd(cmd *cobra.Command, args []string) error {
@@ -20,7 +21,7 @@ func runRemoteAdd(cmd *cobra.Command, args []string) error {
 	if tok == "" {
 		return fmt.Errorf("paste an invite token or link that contains it")
 	}
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}
@@ -28,7 +29,7 @@ func runRemoteAdd(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	f, err := loadRemotes(ConfigDir())
+	f, err := remotesfile.Load(cmdDeps.ConfigDir())
 	if err != nil {
 		return err
 	}
@@ -36,7 +37,7 @@ func runRemoteAdd(cmd *cobra.Command, args []string) error {
 		f.Aliases = map[string]string{}
 	}
 	f.Aliases[alias] = trayID
-	if err := saveRemotes(ConfigDir(), f); err != nil {
+	if err := remotesfile.Save(cmdDeps.ConfigDir(), f); err != nil {
 		return err
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Saved alias %q → tray %s (you can use the alias anywhere a tray name goes).\n", alias, trayID)
@@ -44,7 +45,7 @@ func runRemoteAdd(cmd *cobra.Command, args []string) error {
 }
 
 func runRemoteLs(cmd *cobra.Command, args []string) error {
-	f, err := loadRemotes(ConfigDir())
+	f, err := remotesfile.Load(cmdDeps.ConfigDir())
 	if err != nil {
 		return err
 	}
@@ -104,7 +105,7 @@ func runRemoteRemove(cmd *cobra.Command, args []string) error {
 	if key == "" {
 		return fmt.Errorf("which alias should we remove?")
 	}
-	f, err := loadRemotes(ConfigDir())
+	f, err := remotesfile.Load(cmdDeps.ConfigDir())
 	if err != nil {
 		return err
 	}
@@ -119,7 +120,7 @@ func runRemoteRemove(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no remote alias matches %q", args[0])
 	}
 	delete(f.Aliases, found)
-	if err := saveRemotes(ConfigDir(), f); err != nil {
+	if err := remotesfile.Save(cmdDeps.ConfigDir(), f); err != nil {
 		return err
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Removed remote %q.\n", found)

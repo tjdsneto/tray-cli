@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tjdsneto/tray-cli/internal/adapters/postgrest/pghttp"
 	"github.com/tjdsneto/tray-cli/internal/domain"
 	supabasehttp "github.com/tjdsneto/tray-cli/internal/supabase"
 )
@@ -28,7 +29,7 @@ func TestTrayService_ListMine(t *testing.T) {
 
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
 	require.NoError(t, err)
-	svc := newTrayService(newClient(c))
+	svc := newTrayService(pghttp.New(c))
 
 	trays, err := svc.ListMine(context.Background(), domain.Session{AccessToken: "jwt"})
 	require.NoError(t, err)
@@ -46,7 +47,7 @@ func TestTrayService_Join(t *testing.T) {
 
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
 	require.NoError(t, err)
-	svc := newTrayService(newClient(c))
+	svc := newTrayService(pghttp.New(c))
 
 	id, err := svc.Join(context.Background(), domain.Session{AccessToken: "jwt"}, "tok")
 	require.NoError(t, err)
@@ -58,7 +59,7 @@ func TestTrayService_Create_requiresUserID(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
 	require.NoError(t, err)
-	svc := newTrayService(newClient(c))
+	svc := newTrayService(pghttp.New(c))
 	_, err = svc.Create(context.Background(), domain.Session{AccessToken: "j"}, "x", nil)
 	require.Error(t, err)
 }
@@ -73,7 +74,7 @@ func TestItemService_List_withItemID(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
 	require.NoError(t, err)
-	svc := newItemService(newClient(c))
+	svc := newItemService(pghttp.New(c))
 	ctx := context.Background()
 	s := domain.Session{AccessToken: "x", UserID: "u"}
 
@@ -87,7 +88,7 @@ func TestItemService_Add_notFound(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
 	require.NoError(t, err)
-	svc := newItemService(newClient(c))
+	svc := newItemService(pghttp.New(c))
 	ctx := context.Background()
 	s := domain.Session{AccessToken: "x", UserID: "u"}
 
@@ -100,7 +101,7 @@ func TestItemService_Update_emptyPatch(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
 	require.NoError(t, err)
-	svc := newItemService(newClient(c))
+	svc := newItemService(pghttp.New(c))
 	ctx := context.Background()
 	s := domain.Session{AccessToken: "x", UserID: "u"}
 
@@ -117,7 +118,7 @@ func TestItemService_Update_patch(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
 	require.NoError(t, err)
-	svc := newItemService(newClient(c))
+	svc := newItemService(pghttp.New(c))
 	ctx := context.Background()
 	s := domain.Session{AccessToken: "x", UserID: "u"}
 	st := "accepted"
@@ -134,7 +135,7 @@ func TestItemService_Delete(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
 	require.NoError(t, err)
-	svc := newItemService(newClient(c))
+	svc := newItemService(pghttp.New(c))
 	err = svc.Delete(context.Background(), domain.Session{AccessToken: "x", UserID: "u"}, "00000000-0000-0000-0000-000000000099")
 	require.NoError(t, err)
 }
@@ -148,7 +149,7 @@ func TestTrayService_UpdateName(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
 	require.NoError(t, err)
-	svc := newTrayService(newClient(c))
+	svc := newTrayService(pghttp.New(c))
 	err = svc.UpdateName(context.Background(), domain.Session{AccessToken: "x", UserID: "u"}, "00000000-0000-0000-0000-000000000001", "new")
 	require.NoError(t, err)
 }
@@ -165,7 +166,7 @@ func TestTrayService_ListMembers(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
 	require.NoError(t, err)
-	svc := newTrayService(newClient(c))
+	svc := newTrayService(pghttp.New(c))
 	members, err := svc.ListMembers(context.Background(), domain.Session{AccessToken: "x"}, "t1")
 	require.NoError(t, err)
 	require.Len(t, members, 1)

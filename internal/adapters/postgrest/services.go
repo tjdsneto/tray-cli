@@ -3,13 +3,14 @@ package postgrest
 import (
 	"net/http"
 
+	"github.com/tjdsneto/tray-cli/internal/adapters/postgrest/pghttp"
 	"github.com/tjdsneto/tray-cli/internal/domain"
 	supabasehttp "github.com/tjdsneto/tray-cli/internal/supabase"
 )
 
 // NewServices wires PostgREST-backed domain services around a Supabase HTTP client.
 func NewServices(c *supabasehttp.Client) domain.Services {
-	pg := newClient(c)
+	pg := pghttp.New(c)
 	return domain.Services{
 		Trays: newTrayService(pg),
 		Items: newItemService(pg),

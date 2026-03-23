@@ -2,13 +2,21 @@ package cli
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tjdsneto/tray-cli/internal/cli/errs"
 )
 
 func TestUserFacingError_nil(t *testing.T) {
 	require.Equal(t, "", UserFacingError(nil))
+}
+
+func TestUserFacingError_missingBackend(t *testing.T) {
+	s := UserFacingError(fmt.Errorf("dial: %w", errs.MissingBackendConfig))
+	require.Contains(t, s, "isn’t configured")
+	require.NotContains(t, s, "run.sh")
 }
 
 func TestUserFacingError_unknownCommand(t *testing.T) {

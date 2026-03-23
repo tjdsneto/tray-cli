@@ -15,6 +15,15 @@ See also: [`docs/testing.md`](docs/testing.md).
 
 ---
 
+## CLI layout & errors
+
+- **Root** lives in [`internal/cli`](internal/cli) (`Execute`, `NewRootCmd`, `requireAuth`, `ConfigDir`, `UserFacingError`).
+- **Subcommands** live in [`internal/cli/commands`](internal/cli/commands); `commands.Register` groups them (see comments in `register.go`).
+- **Missing server URL/key** uses [`internal/cli/errs`](internal/cli/errs) `MissingBackendConfig` — user-facing text is in `UserFacingError`; **`TRAY_DEBUG=1`** prints the raw error on stderr first (see `cmd/tray/main.go`).
+- **Tray resolution** without extra I/O: [`internal/cli/trayref`](internal/cli/trayref).
+
+---
+
 ## Local `scratch/` directory
 
 The **`scratch/`** directory is **gitignored**—use it for private brainstorming and notes. Nothing under `scratch/` is committed. Promote ideas into `README.md`, `docs/`, or code when they should ship.

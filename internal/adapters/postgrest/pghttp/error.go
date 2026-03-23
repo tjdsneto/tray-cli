@@ -1,4 +1,4 @@
-package postgrest
+package pghttp
 
 import (
 	"encoding/json"
@@ -14,10 +14,10 @@ type supabaseErrJSON struct {
 	Message string `json:"message"`
 }
 
-func httpAPIError(method, path, statusLine string, statusCode int, raw []byte) error {
+func apiError(method, path, statusLine string, statusCode int, raw []byte) error {
 	rawStr := strings.TrimSpace(string(raw))
 	if config.Debug() {
-		return fmt.Errorf("postgrest: %s %s: %s: %s", method, path, statusLine, rawStr)
+		return fmt.Errorf("pghttp: %s %s: %s: %s", method, path, statusLine, rawStr)
 	}
 
 	var j supabaseErrJSON
@@ -27,19 +27,19 @@ func httpAPIError(method, path, statusLine string, statusCode int, raw []byte) e
 	msgLower := strings.ToLower(msg)
 
 	switch statusCode {
-	case http.StatusBadRequest: // 400
+	case http.StatusBadRequest:
 		if msg != "" {
 			return fmt.Errorf("that request wasn't valid: %s", msg)
 		}
 		return fmt.Errorf("that request wasn't valid (%s)", statusLine)
-	case http.StatusUnauthorized: // 401
+	case http.StatusUnauthorized:
 		return fmt.Errorf("your session expired or isn't valid — run `tray login` and try again")
-	case http.StatusForbidden: // 403
+	case http.StatusForbidden:
 		if msg != "" {
 			return fmt.Errorf("you're not allowed to do that: %s", msg)
 		}
 		return fmt.Errorf("you're not allowed to do that (permission denied)")
-	case http.StatusConflict: // 409 — unique violations, etc.
+	case http.StatusConflict:
 		if isDuplicateConflict(code, msgLower) {
 			return duplicateConflictMessage(path)
 		}
@@ -47,12 +47,12 @@ func httpAPIError(method, path, statusLine string, statusCode int, raw []byte) e
 			return fmt.Errorf("that conflicts with existing data: %s", msg)
 		}
 		return fmt.Errorf("that conflicts with existing data (%s)", statusLine)
-	case http.StatusNotFound: // 404
+	case http.StatusNotFound:
 		if msg != "" {
 			return fmt.Errorf("nothing matched that request: %s", msg)
 		}
 		return fmt.Errorf("nothing matched that request (not found)")
-	case http.StatusUnprocessableEntity: // 422
+	case http.StatusUnprocessableEntity:
 		if msg != "" {
 			return fmt.Errorf("that data couldn't be saved: %s", msg)
 		}

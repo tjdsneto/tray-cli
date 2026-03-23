@@ -1,4 +1,4 @@
-package cli
+package commands
 
 import (
 	"encoding/json"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tjdsneto/tray-cli/internal/auth"
+	"github.com/tjdsneto/tray-cli/internal/cli/errs"
 	"github.com/tjdsneto/tray-cli/internal/config"
 	"github.com/tjdsneto/tray-cli/internal/credentials"
 	"github.com/tjdsneto/tray-cli/internal/output"
@@ -16,7 +17,7 @@ func cmdStatus() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show whether you are signed in",
-		Long:  `Checks for saved credentials and validates the session with Supabase. Exit code 0 if signed in, 1 if not.`,
+		Long:  `Checks for saved credentials and validates the session with your server. Exit code 0 if signed in, 1 if not.`,
 		RunE:  runStatus,
 	}
 }
@@ -30,14 +31,14 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	url := config.SupabaseURL()
 	key := config.SupabaseAnonKey()
 	if url == "" || key == "" {
-		return fmt.Errorf("set %s and %s (environment) or build with ./run.sh or ./build.sh and a .env", config.EnvSupabaseURL, config.EnvSupabaseAnonKey)
+		return fmt.Errorf("%w", errs.MissingBackendConfig)
 	}
 	format, err := output.FormatFromCmd(cmd)
 	if err != nil {
 		return err
 	}
 
-	cred, err := credentials.Load(ConfigDir())
+	cred, err := credentials.Load(cmdDeps.ConfigDir())
 	if err != nil {
 		return writeStatusFailure(cmd, format, err)
 	}

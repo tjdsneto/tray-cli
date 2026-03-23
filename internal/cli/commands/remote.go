@@ -1,4 +1,4 @@
-package cli
+package commands
 
 import "github.com/spf13/cobra"
 
@@ -12,7 +12,7 @@ func cmdRemote() *cobra.Command {
 		&cobra.Command{
 			Use:   "add <alias> <invite-url-or-token>",
 			Short: "Join a tray via invite and save a local alias",
-			Long:  `Runs the same join as tray join, then stores alias → tray id in ~/.config/tray/remotes.json (or TRAY_CONFIG_DIR).`,
+			Long:  `Runs the same join as tray join, then stores alias → tray id in remotes.json under your tray config directory.`,
 			Args:  cobra.ExactArgs(2),
 			RunE:  runRemoteAdd,
 		},

@@ -74,7 +74,11 @@ For **trays**, the default **human** output shows **name**, **item count**, and 
 
 - **`internal/domain`** — types (`Tray`, `Item`, `Session`, …) and **service interfaces**: `TrayService`, `ItemService`. The CLI depends on these, not on HTTP paths.
 - **`internal/domain.Services`** — bundles `Trays` + `Items` for a single injection point.
-- **`internal/adapters/postgrest`** — PostgREST (Supabase Data API) implementations of those services; `postgrest.Dial` / `postgrest.NewServices`. A future Firebase adapter would live alongside as another implementation.
+- **`internal/adapters/postgrest/pghttp`** — generic JSON REST client + HTTP status → user-facing errors (no domain types).
+- **`internal/adapters/postgrest`** — `TrayService` / `ItemService` implementations using `pghttp`; `postgrest.Dial` / `postgrest.NewServices`.
+- **`internal/cli/commands`** — Cobra subcommands (grouped in `register.go`); wired from `internal/cli` with `commands.Deps`.
+- **`internal/cli/trayref`** — pure tray name / id / alias resolution.
+- **`internal/remotesfile`** — `remotes.json` load/save for local tray aliases.
 - **`internal/credentials`** — persisted session file (`credentials.json`).
-- **`internal/auth`** — Supabase Auth helpers (e.g. fetch current user).
+- **`internal/auth`** — OAuth and user session helpers for the configured auth server.
 - **`internal/supabase`** — tiny HTTP client (`apikey` + `Authorization` only).

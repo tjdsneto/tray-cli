@@ -7,14 +7,15 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/tjdsneto/tray-cli/internal/adapters/postgrest/pghttp"
 	"github.com/tjdsneto/tray-cli/internal/domain"
 )
 
 type trayService struct {
-	pg *client
+	pg *pghttp.Client
 }
 
-func newTrayService(pg *client) *trayService {
+func newTrayService(pg *pghttp.Client) *trayService {
 	return &trayService{pg: pg}
 }
 
@@ -31,7 +32,7 @@ func (s *trayService) Create(ctx context.Context, sess domain.Session, name stri
 	if inviteToken != nil {
 		body["invite_token"] = *inviteToken
 	}
-	raw, err := s.pg.request(ctx, sess, http.MethodPost, "/rest/v1/trays", body, hdrPreferRepresentation())
+	raw, err := s.pg.Request(ctx, sess.AccessToken, http.MethodPost, "/rest/v1/trays", body, pghttp.PreferRepresentation())
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +49,7 @@ func (s *trayService) ListMine(ctx context.Context, sess domain.Session) ([]doma
 	q.Set("order", "name.asc")
 	path := "/rest/v1/trays?" + q.Encode()
 	var rows []trayRow
-	if err := s.pg.doJSON(ctx, sess, http.MethodGet, path, nil, &rows, nil); err != nil {
+	if err := s.pg.DoJSON(ctx, sess.AccessToken, http.MethodGet, path, nil, &rows, nil); err != nil {
 		return nil, err
 	}
 	out := make([]domain.Tray, 0, len(rows))
@@ -65,7 +66,7 @@ func (s *trayService) ListMine(ctx context.Context, sess domain.Session) ([]doma
 func (s *trayService) Join(ctx context.Context, sess domain.Session, inviteToken string) (string, error) {
 	body := map[string]string{"p_invite_token": strings.TrimSpace(inviteToken)}
 	var trayID string
-	if err := s.pg.doJSON(ctx, sess, http.MethodPost, "/rest/v1/rpc/join_tray", body, &trayID, nil); err != nil {
+	if err := s.pg.DoJSON(ctx, sess.AccessToken, http.MethodPost, "/rest/v1/rpc/join_tray", body, &trayID, nil); err != nil {
 		return "", err
 	}
 	return trayID, nil
@@ -82,7 +83,7 @@ func (s *trayService) UpdateName(ctx context.Context, sess domain.Session, trayI
 	}
 	path := traysByIDPath(tid)
 	body := map[string]any{"name": n}
-	_, err := s.pg.request(ctx, sess, http.MethodPatch, path, body, nil)
+	_, err := s.pg.Request(ctx, sess.AccessToken, http.MethodPatch, path, body, nil)
 	return err
 }
 
@@ -92,7 +93,7 @@ func (s *trayService) Delete(ctx context.Context, sess domain.Session, trayID st
 		return fmt.Errorf("postgrest: empty tray id")
 	}
 	path := traysByIDPath(tid)
-	_, err := s.pg.request(ctx, sess, http.MethodDelete, path, nil, nil)
+	_, err := s.pg.Request(ctx, sess.AccessToken, http.MethodDelete, path, nil, nil)
 	return err
 }
 
@@ -113,7 +114,7 @@ func (s *trayService) SetInviteToken(ctx context.Context, sess domain.Session, t
 	} else {
 		body = map[string]any{"invite_token": nil}
 	}
-	_, err := s.pg.request(ctx, sess, http.MethodPatch, path, body, nil)
+	_, err := s.pg.Request(ctx, sess.AccessToken, http.MethodPatch, path, body, nil)
 	return err
 }
 
@@ -123,7 +124,7 @@ func (s *trayService) ListMembers(ctx context.Context, sess domain.Session, tray
 		return nil, fmt.Errorf("postgrest: empty tray id")
 	}
 	path := trayMembersListPath(tid)
-	raw, err := s.pg.request(ctx, sess, http.MethodGet, path, nil, nil)
+	raw, err := s.pg.Request(ctx, sess.AccessToken, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +133,7 @@ func (s *trayService) ListMembers(ctx context.Context, sess domain.Session, tray
 
 func (s *trayService) RemoveMember(ctx context.Context, sess domain.Session, trayID, userID string) error {
 	path := trayMembersDeletePath(trayID, userID)
-	_, err := s.pg.request(ctx, sess, http.MethodDelete, path, nil, nil)
+	_, err := s.pg.Request(ctx, sess.AccessToken, http.MethodDelete, path, nil, nil)
 	return err
 }
 

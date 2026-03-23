@@ -1,4 +1,5 @@
-package cli
+// Package trayref resolves tray names, ids, and remote aliases without I/O beyond injected list calls.
+package trayref
 
 import (
 	"context"
@@ -8,8 +9,8 @@ import (
 	"github.com/tjdsneto/tray-cli/internal/domain"
 )
 
-// findTraysByNameFold returns trays whose name matches (case-insensitive, trimmed).
-func findTraysByNameFold(trays []domain.Tray, name string) []domain.Tray {
+// FindTraysByNameFold returns trays whose name matches (case-insensitive, trimmed).
+func FindTraysByNameFold(trays []domain.Tray, name string) []domain.Tray {
 	want := strings.TrimSpace(name)
 	if want == "" {
 		return nil
@@ -23,7 +24,8 @@ func findTraysByNameFold(trays []domain.Tray, name string) []domain.Tray {
 	return out
 }
 
-func pickTrayOrError(matches []domain.Tray, name string) (domain.Tray, error) {
+// PickTrayOrError returns the single matching tray or an error if none / ambiguous.
+func PickTrayOrError(matches []domain.Tray, name string) (domain.Tray, error) {
 	switch len(matches) {
 	case 0:
 		return domain.Tray{}, fmt.Errorf("no tray named %q — run `tray ls` to see names you can use", strings.TrimSpace(name))
@@ -34,8 +36,8 @@ func pickTrayOrError(matches []domain.Tray, name string) (domain.Tray, error) {
 	}
 }
 
-// trayNameMap builds tray id → name for display (ListMine output).
-func trayNameMap(trays []domain.Tray) map[string]string {
+// TrayNameMap builds tray id → name for display (ListMine output).
+func TrayNameMap(trays []domain.Tray) map[string]string {
 	m := make(map[string]string, len(trays))
 	for i := range trays {
 		m[trays[i].ID] = trays[i].Name
@@ -43,9 +45,9 @@ func trayNameMap(trays []domain.Tray) map[string]string {
 	return m
 }
 
-// trayIDFromRef resolves a tray reference using only in-memory data (pure; easy to unit test).
+// TrayIDFromRef resolves a tray reference using only in-memory data (pure).
 // aliases maps lowercased alias → tray uuid (optional; used by remote).
-func trayIDFromRef(ref string, aliases map[string]string, trays []domain.Tray) (string, error) {
+func TrayIDFromRef(ref string, aliases map[string]string, trays []domain.Tray) (string, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
 		return "", fmt.Errorf("empty tray reference")
@@ -60,15 +62,15 @@ func trayIDFromRef(ref string, aliases map[string]string, trays []domain.Tray) (
 			return ref, nil
 		}
 	}
-	t, err := pickTrayOrError(findTraysByNameFold(trays, ref), ref)
+	t, err := PickTrayOrError(FindTraysByNameFold(trays, ref), ref)
 	if err != nil {
 		return "", err
 	}
 	return t.ID, nil
 }
 
-// resolveTrayRef resolves a tray id or name to a tray id. Remote aliases hit without calling the API.
-func resolveTrayRef(ctx context.Context, svcs domain.Services, sess domain.Session, ref string, aliases map[string]string) (string, error) {
+// ResolveTrayRef resolves a tray id or name to a tray id. Remote aliases hit without calling the API.
+func ResolveTrayRef(ctx context.Context, svcs domain.Services, sess domain.Session, ref string, aliases map[string]string) (string, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
 		return "", fmt.Errorf("empty tray reference")
@@ -82,5 +84,15 @@ func resolveTrayRef(ctx context.Context, svcs domain.Services, sess domain.Sessi
 	if err != nil {
 		return "", err
 	}
-	return trayIDFromRef(ref, nil, trays)
+	return TrayIDFromRef(ref, nil, trays)
+}
+
+// TrayByID returns the tray with the given id from a ListMine slice.
+func TrayByID(trays []domain.Tray, id string) (domain.Tray, bool) {
+	for i := range trays {
+		if trays[i].ID == id {
+			return trays[i], true
+		}
+	}
+	return domain.Tray{}, false
 }

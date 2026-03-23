@@ -1,4 +1,4 @@
-package cli
+package commands
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tjdsneto/tray-cli/internal/auth"
+	"github.com/tjdsneto/tray-cli/internal/cli/errs"
 	"github.com/tjdsneto/tray-cli/internal/config"
 	"github.com/tjdsneto/tray-cli/internal/credentials"
 )
@@ -20,19 +21,19 @@ func cmdLogin() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "login",
 		Short: "Sign in with OAuth (browser) or a pasted access token",
-		Long: `Signs in to Supabase Auth and stores credentials under the tray config directory.
+		Long: `Signs in with your identity provider (browser) or a pasted access token, and stores credentials under the tray config directory.
 
-Requires ` + config.EnvSupabaseURL + ` and ` + config.EnvSupabaseAnonKey + ` (environment) or embeds from ./run.sh and ./build.sh with a repo-root .env.
+Requires ` + config.EnvSupabaseURL + ` and ` + config.EnvSupabaseAnonKey + ` in the environment (or values embedded in your build). See the project README if you are packaging or developing the CLI.
 
-**OAuth:** without --provider, opens a local page to pick a provider. Use --provider or ` + config.EnvOAuthProvider + ` to skip the picker. Providers must be enabled in Supabase → Authentication → Providers.
+**OAuth:** without --provider, opens a local page to pick a provider. Use --provider or ` + config.EnvOAuthProvider + ` to skip the picker. Your server admin must enable each provider you use.
 
 If a valid session is already saved, OAuth is skipped unless you pass **--force**.
 
-**Manual:** use --token with a user JWT from the Supabase dashboard or another client.`,
+**Manual:** use --token with a user JWT from your auth dashboard or another client.`,
 		Example: `  tray login
   tray login --force
   tray login --provider google
-  TRAY_OAUTH_PROVIDER=github ./run.sh login
+  TRAY_OAUTH_PROVIDER=github tray login
   tray login --token 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'`,
 		RunE: runLogin,
 	}
@@ -46,13 +47,13 @@ func runLogin(cmd *cobra.Command, _ []string) error {
 	url := config.SupabaseURL()
 	key := config.SupabaseAnonKey()
 	if url == "" || key == "" {
-		return fmt.Errorf("set %s and %s (environment) or build with ./run.sh or ./build.sh and a .env", config.EnvSupabaseURL, config.EnvSupabaseAnonKey)
+		return fmt.Errorf("%w", errs.MissingBackendConfig)
 	}
 	if strings.TrimSpace(loginToken) != "" {
 		return runLoginWithToken(url, key)
 	}
 	if !loginForce {
-		cred, err := credentials.Load(ConfigDir())
+		cred, err := credentials.Load(cmdDeps.ConfigDir())
 		if err == nil && strings.TrimSpace(cred.AccessToken) != "" {
 			user, err := auth.FetchUserTimeout(url, key, cred.AccessToken, nil)
 			if err == nil {
@@ -112,7 +113,7 @@ func runLoginOAuth(cmd *cobra.Command, url, key string) error {
 	if err != nil {
 		return err
 	}
-	dir := ConfigDir()
+	dir := cmdDeps.ConfigDir()
 	if err := credentials.Save(dir, credentials.File{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -129,7 +130,7 @@ func runLoginWithToken(url, key string) error {
 	if err != nil {
 		return err
 	}
-	dir := ConfigDir()
+	dir := cmdDeps.ConfigDir()
 	if err := credentials.Save(dir, credentials.File{
 		AccessToken: loginToken,
 		UserID:      user.ID,

@@ -1,4 +1,4 @@
-package cli
+package commands
 
 import (
 	"fmt"
@@ -23,7 +23,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	if name == "" {
 		return fmt.Errorf("give your tray a name — for example: `tray create inbox`")
 	}
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func cmdLs() *cobra.Command {
 }
 
 func runLs(cmd *cobra.Command, args []string) error {
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}

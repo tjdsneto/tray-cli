@@ -1,10 +1,11 @@
-package cli
+package commands
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/tjdsneto/tray-cli/internal/cli/trayref"
 )
 
 func cmdRename() *cobra.Command {
@@ -17,7 +18,7 @@ func cmdRename() *cobra.Command {
 }
 
 func runRename(cmd *cobra.Command, args []string) error {
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}
@@ -30,11 +31,11 @@ func runRename(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	tid, err := resolveTrayRef(cmd.Context(), svcs, sess, oldRef, trayAliasesOrNil())
+	tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, oldRef, cmdDeps.RemoteAliases())
 	if err != nil {
 		return err
 	}
-	tray, ok := trayByID(trays, tid)
+	tray, ok := trayref.TrayByID(trays, tid)
 	if !ok {
 		return fmt.Errorf("tray not found — run `tray ls`")
 	}
@@ -58,7 +59,7 @@ func cmdDeleteTray() *cobra.Command {
 }
 
 func runDeleteTray(cmd *cobra.Command, args []string) error {
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}
@@ -67,11 +68,11 @@ func runDeleteTray(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	tid, err := resolveTrayRef(cmd.Context(), svcs, sess, ref, trayAliasesOrNil())
+	tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, ref, cmdDeps.RemoteAliases())
 	if err != nil {
 		return err
 	}
-	tray, ok := trayByID(trays, tid)
+	tray, ok := trayref.TrayByID(trays, tid)
 	if !ok {
 		return fmt.Errorf("tray not found — run `tray ls`")
 	}

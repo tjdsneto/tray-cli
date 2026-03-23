@@ -1,4 +1,4 @@
-package cli
+package commands
 
 import (
 	"fmt"
@@ -37,7 +37,7 @@ func runSnooze(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("parse --until: %w", err)
 	}
 	id := strings.TrimSpace(args[0])
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func runComplete(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func cmdArchive() *cobra.Command {
 
 func runArchive(cmd *cobra.Command, args []string) error {
 	id := strings.TrimSpace(args[0])
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}

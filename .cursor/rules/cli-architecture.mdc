@@ -1,0 +1,13 @@
+---
+description: Where CLI wiring, commands, and user-facing errors live
+alwaysApply: true
+---
+
+# CLI structure
+
+- **Root:** `internal/cli` — `Execute`, `NewRootCmd`, `requireAuth`, `ConfigDir`, `UserFacingError`.
+- **Subcommands:** `internal/cli/commands` — `commands.Register` groups cobra commands (see `register.go` comments).
+- **Missing backend config:** sentinel `errs.MissingBackendConfig`; friendly copy in `UserFacingError`; raw chain when `TRAY_DEBUG=1` (`cmd/tray/main.go`).
+- **Pure tray resolution:** `internal/cli/trayref`.
+
+Mirror: [`CLAUDE.md`](../CLAUDE.md) (CLI layout section).

@@ -1,4 +1,4 @@
-package cli
+package commands
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ func runRemove(cmd *cobra.Command, args []string) error {
 	if id == "" {
 		return fmt.Errorf("pass the item id from `tray list --format json`")
 	}
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}

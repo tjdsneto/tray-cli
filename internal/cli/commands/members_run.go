@@ -1,11 +1,11 @@
-package cli
+package commands
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/tjdsneto/tray-cli/internal/domain"
+	"github.com/tjdsneto/tray-cli/internal/cli/trayref"
 	"github.com/tjdsneto/tray-cli/internal/output"
 )
 
@@ -19,12 +19,12 @@ func cmdMembers() *cobra.Command {
 }
 
 func runMembers(cmd *cobra.Command, args []string) error {
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}
 	name := strings.TrimSpace(args[0])
-	tid, err := resolveTrayRef(cmd.Context(), svcs, sess, name, trayAliasesOrNil())
+	tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, name, cmdDeps.RemoteAliases())
 	if err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func cmdRevoke() *cobra.Command {
 }
 
 func runRevoke(cmd *cobra.Command, args []string) error {
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}
@@ -62,11 +62,11 @@ func runRevoke(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	tid, err := resolveTrayRef(cmd.Context(), svcs, sess, trayName, trayAliasesOrNil())
+	tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, trayName, cmdDeps.RemoteAliases())
 	if err != nil {
 		return err
 	}
-	tray, ok := trayByID(trays, tid)
+	tray, ok := trayref.TrayByID(trays, tid)
 	if !ok {
 		return fmt.Errorf("tray not found — run `tray ls`")
 	}
@@ -80,15 +80,6 @@ func runRevoke(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-func trayByID(trays []domain.Tray, id string) (domain.Tray, bool) {
-	for i := range trays {
-		if trays[i].ID == id {
-			return trays[i], true
-		}
-	}
-	return domain.Tray{}, false
-}
-
 func cmdLeave() *cobra.Command {
 	return &cobra.Command{
 		Use:   "leave <tray>",
@@ -99,7 +90,7 @@ func cmdLeave() *cobra.Command {
 }
 
 func runLeave(cmd *cobra.Command, args []string) error {
-	svcs, sess, err := requireAuth()
+	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}
@@ -108,11 +99,11 @@ func runLeave(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	tid, err := resolveTrayRef(cmd.Context(), svcs, sess, trayName, trayAliasesOrNil())
+	tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, trayName, cmdDeps.RemoteAliases())
 	if err != nil {
 		return err
 	}
-	tray, ok := trayByID(trays, tid)
+	tray, ok := trayref.TrayByID(trays, tid)
 	if !ok {
 		return fmt.Errorf("tray not found — run `tray ls`")
 	}
