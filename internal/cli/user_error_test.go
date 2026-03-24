@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"testing"
@@ -38,4 +39,20 @@ func TestUserFacingError_unknownShorthand(t *testing.T) {
 func TestUserFacingError_passthrough(t *testing.T) {
 	s := UserFacingError(errors.New("something else broke"))
 	require.Equal(t, "something else broke", s)
+}
+
+func TestWriteUserError_noDebug(t *testing.T) {
+	var b bytes.Buffer
+	WriteUserError(&b, errors.New("boom"), false)
+	s := b.String()
+	require.Contains(t, s, "tray: boom")
+	require.NotContains(t, s, "[debug]")
+}
+
+func TestWriteUserError_withDebug(t *testing.T) {
+	var b bytes.Buffer
+	WriteUserError(&b, errors.New("boom"), true)
+	s := b.String()
+	require.Contains(t, s, "tray [debug] boom")
+	require.Contains(t, s, "tray: boom")
 }

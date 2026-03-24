@@ -2,6 +2,8 @@ package cli
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"strings"
 
 	"github.com/tjdsneto/tray-cli/internal/cli/errs"
@@ -25,4 +27,15 @@ func UserFacingError(err error) string {
 		return "That option isn't recognized — try `tray help` or `tray <command> --help`.\n\n(" + s + ")"
 	}
 	return s
+}
+
+// WriteUserError writes one stable user-facing line and optional debug diagnostics.
+func WriteUserError(w io.Writer, err error, debug bool) {
+	if err == nil {
+		return
+	}
+	if debug {
+		fmt.Fprintf(w, "tray [debug] %v\n", err)
+	}
+	fmt.Fprintf(w, "tray: %s\n", UserFacingError(err))
 }
