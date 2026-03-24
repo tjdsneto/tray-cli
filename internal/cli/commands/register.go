@@ -26,5 +26,5 @@ func Register(root *cobra.Command, deps Deps) {
 	root.AddCommand(cmdReview())
 	root.AddCommand(cmdAccept(), cmdDecline())
 	root.AddCommand(cmdSnooze(), cmdComplete(), cmdArchive())
-	root.AddCommand(cmdNotImplemented("listen", "Watch for tray updates"))
+	root.AddCommand(cmdListen())
 }
