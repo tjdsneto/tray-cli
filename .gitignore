@@ -1,8 +1,12 @@
-# Local brainstorming / specs (not in the repo)
+# Local brainstorming / specs — never commit anything under scratch/ (no exceptions).
+# Promote notes into README.md, docs/, or code. Do not `git add -f` here.
 scratch/
 
 # Go build artifact when built from repo root
 /tray
+
+# Release tarballs from scripts/build-release.sh
+/dist/
 
 # Local env (secrets)
 .env

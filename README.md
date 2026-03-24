@@ -4,6 +4,24 @@ CLI-first **tray** (shared inbox-tray / attention queue): **Go** client, **Supab
 
 **Output & UX notes:** keep a local **`scratch/`** directory (gitignored) for brainstorming—see the **Output** section below and [`docs/testing.md`](docs/testing.md) for what ships in-repo.
 
+## Install
+
+**From GitHub Releases** (after maintainers publish `tray_*.tar.gz` assets — see [`docs/distribution.md`](docs/distribution.md)):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tjdsneto/tray-cli/main/scripts/install.sh | bash
+```
+
+**With Go** (builds from source; needs Go 1.22+):
+
+```bash
+go install github.com/tjdsneto/tray-cli/cmd/tray@latest
+```
+
+More detail: [`docs/distribution.md`](docs/distribution.md) (versioning, `publish-release`, and release tarballs).
+
+**Version in git:** releases are **git tags** (`v1.2.3`); there is no checked-in `VERSION` file. `main` is unreleased until tagged. See **“Where is the current version”** in [`docs/distribution.md`](docs/distribution.md).
+
 ## Dev
 
 You need **[Go 1.22+](https://go.dev/dl/)** on your `PATH` (e.g. `brew install go` on macOS). `./run.sh` and `./build.sh` also look under `/opt/homebrew/bin` and `/usr/local/go/bin` if `go` is missing from PATH.
