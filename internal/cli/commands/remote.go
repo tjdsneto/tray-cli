@@ -17,6 +17,15 @@ func cmdRemote() *cobra.Command {
 			RunE:  runRemoteAdd,
 		},
 		&cobra.Command{
+			Use:   "link <alias> <tray>",
+			Short: "Save a local alias for a tray you already have (no invite needed)",
+			Long: `Stores alias → tray id in remotes.json. Use this when you are already a member (e.g. after tray join) and only want a short local name.
+
+This does not rename the tray on the server — only the owner can do that with tray rename.`,
+			Args: cobra.ExactArgs(2),
+			RunE: runRemoteLink,
+		},
+		&cobra.Command{
 			Use:   "ls",
 			Short: "List remotes",
 			RunE:  runRemoteLs,

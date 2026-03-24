@@ -8,6 +8,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+	"github.com/tjdsneto/tray-cli/internal/cli/trayref"
 	"github.com/tjdsneto/tray-cli/internal/output"
 	"github.com/tjdsneto/tray-cli/internal/remotesfile"
 )
@@ -41,6 +42,45 @@ func runRemoteAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Saved alias %q → tray %s (you can use the alias anywhere a tray name goes).\n", alias, trayID)
+	return err
+}
+
+func runRemoteLink(cmd *cobra.Command, args []string) error {
+	alias := strings.TrimSpace(args[0])
+	trayRef := strings.TrimSpace(args[1])
+	if alias == "" {
+		return fmt.Errorf("choose a short alias (e.g. tiago-work)")
+	}
+	if trayRef == "" {
+		return fmt.Errorf("which tray should this alias point to? — example: `tray remote link tiago-work work`")
+	}
+	svcs, sess, err := cmdDeps.RequireAuth()
+	if err != nil {
+		return err
+	}
+	trays, err := svcs.Trays.ListMine(cmd.Context(), sess)
+	if err != nil {
+		return err
+	}
+	tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, trayRef, cmdDeps.RemoteAliases())
+	if err != nil {
+		return err
+	}
+	if _, ok := trayref.TrayByID(trays, tid); !ok {
+		return fmt.Errorf("tray not in your list — run `tray ls` (you must already be a member or owner)")
+	}
+	f, err := remotesfile.Load(cmdDeps.ConfigDir())
+	if err != nil {
+		return err
+	}
+	if f.Aliases == nil {
+		f.Aliases = map[string]string{}
+	}
+	f.Aliases[alias] = tid
+	if err := remotesfile.Save(cmdDeps.ConfigDir(), f); err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Linked local alias %q → tray %s (you can use the alias anywhere a tray name goes).\n", alias, tid)
 	return err
 }
 
