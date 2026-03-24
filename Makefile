@@ -1,4 +1,4 @@
-.PHONY: test test-cover test-cover-html
+.PHONY: test test-cover test-cover-html release publish-release
 
 # Default: same as CI — race detector, no cache reuse surprises.
 test:
@@ -14,3 +14,11 @@ coverage.out:
 test-cover-html: coverage.out
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Wrote coverage.html"
+
+release:
+	./scripts/build-release.sh
+
+# Usage: make publish-release VERSION=v1.2.3
+publish-release:
+	@if [ -z "$(VERSION)" ]; then echo "usage: make publish-release VERSION=v1.2.3" >&2; exit 1; fi
+	./scripts/publish-release.sh "$(VERSION)"

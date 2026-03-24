@@ -22,6 +22,22 @@ tray_ldflags() {
 	printf '%s' "${flags}"
 }
 
+# Optional link-time version metadata (used by scripts/build-release.sh and publish-release.sh).
+# Set TRAY_RELEASE_VERSION (e.g. v1.2.3) and TRAY_RELEASE_COMMIT (short SHA) when cutting a release.
+tray_version_ldflags() {
+	local pkg="github.com/tjdsneto/tray-cli/internal/config"
+	local ver="${TRAY_RELEASE_VERSION-}"
+	local commit="${TRAY_RELEASE_COMMIT-}"
+	local flags=""
+	if [[ -n "${ver}" ]]; then
+		flags="${flags} -X ${pkg}.Version=${ver}"
+	fi
+	if [[ -n "${commit}" ]]; then
+		flags="${flags} -X ${pkg}.GitCommit=${commit}"
+	fi
+	printf '%s' "${flags}"
+}
+
 # Prepend common install dirs when `go` is missing from PATH (e.g. fresh Terminal, GUI apps).
 ensure_go() {
 	if command -v go >/dev/null 2>&1; then

@@ -41,6 +41,12 @@ There is **no** `VERSION` file checked into the repo. **`main` at HEAD is not a 
 
 To see the nearest tag on a clone: `git describe --tags --always`.
 
+### First public release (before 1.0)
+
+Use **`v0.x.y`** tags — while major is **0**, semver treats the API as unstable. A common first tag is **`v0.1.0`** (“start of the 0.1 line”). **`v0.0.1`** is valid but often reads oddly as a first tag; prefer **`v0.1.0`** unless you really want a three-part patch series from day one.
+
+To say “beta” **in the version string**, add a [prerelease](https://semver.org/#spec-item-9) suffix, e.g. **`v0.1.0-beta.1`** or **`v0.1.0-rc.1`**. `publish-release.sh` accepts these. On GitHub you can mark that GitHub Release as **Pre-release**; when you later tag **`v0.1.0`** (no suffix), that becomes the stable **0.1** release for `latest` / default installs.
+
 ## Publishing (GitHub Releases)
 
 Recommended: one command from a **clean** working tree (runs tests, builds tarballs with embedded version, creates tag, pushes, uploads):

@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tjdsneto/tray-cli/internal/cli/commands"
+	"github.com/tjdsneto/tray-cli/internal/config"
 	"github.com/tjdsneto/tray-cli/internal/output"
 	"github.com/tjdsneto/tray-cli/internal/remotesfile"
 )
@@ -22,6 +23,7 @@ func NewRootCmd() *cobra.Command {
 		Long: `Tray helps you manage a shared task inbox with named trays.
 
 Run "tray help" for commands, or "tray <command> --help" for options.`,
+		Version: config.VersionLine(),
 		// SilenceUsage: when a RunE returns an error, do not print the full command usage block (keeps stderr short).
 		SilenceUsage: true,
 		// SilenceErrors: cobra does not print the raw error; cmd/tray prints a single user-facing line (and debug detail when TRAY_DEBUG=1).
