@@ -71,10 +71,14 @@ func runLs(cmd *cobra.Command, args []string) error {
 }
 
 func cmdJoin() *cobra.Command {
-	return &cobra.Command{
-		Use:   "join <url-or-token>",
+	c := &cobra.Command{
+		Use:   "join <url-or-token> [local-alias]",
 		Short: "Join a tray via invite URL or token",
-		Args:  cobra.ExactArgs(1),
-		RunE:  runJoin,
+		Long: `Joins the tray using an invite token or a URL that contains the token.
+
+Optional second argument saves a local alias (same as tray remote add) so you can refer to the tray by a short name. This does not change the tray name on the server — only the owner can rename the tray (tray rename).`,
+		Args: cobra.RangeArgs(1, 2),
+		RunE: runJoin,
 	}
+	return c
 }

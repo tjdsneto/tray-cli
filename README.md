@@ -62,13 +62,13 @@ During OAuth, the CLI starts a **short-lived local HTTP server** on `127.0.0.1` 
 
 **Troubleshooting OAuth:** If you see `Unsupported provider: provider is not enabled`, open **Supabase Dashboard → Authentication → Providers**, turn **Google** on, and paste the **Client ID** and **Client secret** from Google Cloud (same OAuth client whose redirect URI is `https://<project-ref>.supabase.co/auth/v1/callback`). Then run `tray login --provider google` again. The CLI cannot enable providers; it must be done in the dashboard.
 
-**Trays:** `./run.sh create <name>` creates a tray; **`rename`**, **`delete-tray`** (owner); **`ls`** lists trays; **`join`** uses an invite token or link; **`invite`** / **`rotate-invite`** or **`invite --rotate`** manage invite tokens (owner); **`members`**, **`revoke`**, **`leave`** for membership.
+**Trays:** `./run.sh create <name>` creates a tray; **`rename <tray> <new-name>`** sets the tray name on the server (owner only); **`delete-tray`** (owner); **`ls`** lists trays; **`join <token-or-url> [local-alias]`** joins via invite and optionally saves a local short name; **`invite`** / **`rotate-invite`** or **`invite --rotate`** manage invite tokens (owner); **`members`**, **`revoke`**, **`leave`** for membership.
 
 **Items:** **`./run.sh add "title" <tray>`** adds a pending item (tray = name, id, or **`remote`** alias). **`list`** / **`list <tray>`**, **`contributed`**, **`remove <item-id>`** (owner deletes any item; contributor can delete own **pending** items).
 
 **Triage (tray owner):** **`accept`**, **`decline`** (**`--reason`**), **`snooze`** (**`--until` RFC3339**), **`complete`** (**`--message`**), **`archive`**. Use item ids from **`tray list --format json`**.
 
-**Remote aliases:** **`./run.sh remote add <alias> <invite-url-or-token>`** joins and saves `remotes.json` under your config dir so you can use **`./run.sh add "…" <alias>`** later. **`./run.sh remote ls`** / **`./run.sh remote remove <alias>`** manage that file.
+**Remote aliases:** **`join … <alias>`** or **`./run.sh remote add <alias> <invite-url-or-token>`** saves `remotes.json` so you can use **`./run.sh add "…" <alias>`** later. **`./run.sh remote ls`** / **`./run.sh remote remove <alias>`** manage that file.
 
 Use the same `./run.sh` pattern so Supabase URL/key are embedded, or export env vars and run `tray` directly.
 

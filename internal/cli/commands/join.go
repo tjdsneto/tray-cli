@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tjdsneto/tray-cli/internal/output"
+	"github.com/tjdsneto/tray-cli/internal/remotesfile"
 )
 
 // extractInviteToken accepts a raw invite token or a URL that carries the token in a query
@@ -44,6 +45,25 @@ func runJoin(cmd *cobra.Command, args []string) error {
 	trayID, err := svcs.Trays.Join(cmd.Context(), sess, token)
 	if err != nil {
 		return err
+	}
+
+	if len(args) == 2 {
+		alias := strings.TrimSpace(args[1])
+		if alias == "" {
+			return fmt.Errorf("local alias cannot be empty — omit the second argument or choose a name (e.g. tiago-work)")
+		}
+		f, err := remotesfile.Load(cmdDeps.ConfigDir())
+		if err != nil {
+			return err
+		}
+		if f.Aliases == nil {
+			f.Aliases = map[string]string{}
+		}
+		f.Aliases[alias] = trayID
+		if err := remotesfile.Save(cmdDeps.ConfigDir(), f); err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Saved local alias %q for this tray.\n", alias)
 	}
 
 	var name string
