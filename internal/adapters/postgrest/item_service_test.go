@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/tjdsneto/tray-cli/internal/adapters/postgrest/pghttp"
@@ -33,6 +34,15 @@ func TestItemsListPath_defaultOrderDesc(t *testing.T) {
 	t.Parallel()
 	p := itemsListPath(domain.ListItemsQuery{})
 	require.Contains(t, p, "order=created_at.desc")
+}
+
+func TestItemsListPath_updatedAfter(t *testing.T) {
+	t.Parallel()
+	ts := time.Date(2026, 3, 24, 13, 30, 45, 123000000, time.UTC)
+	p := itemsListPath(domain.ListItemsQuery{UpdatedAfter: &ts})
+	q, err := url.ParseQuery(strings.TrimPrefix(p, "/rest/v1/items?"))
+	require.NoError(t, err)
+	require.Equal(t, "gt."+ts.UTC().Format(time.RFC3339Nano), q.Get("updated_at"))
 }
 
 func TestItemsCreatePath_select(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/tjdsneto/tray-cli/internal/adapters/postgrest/pghttp"
 	"github.com/tjdsneto/tray-cli/internal/domain"
@@ -115,6 +116,9 @@ func itemsListPath(q domain.ListItemsQuery) string {
 	}
 	if strings.TrimSpace(q.Status) != "" {
 		u.Set("status", "eq."+strings.TrimSpace(q.Status))
+	}
+	if q.UpdatedAfter != nil && !q.UpdatedAfter.IsZero() {
+		u.Set("updated_at", "gt."+q.UpdatedAfter.UTC().Format(time.RFC3339Nano))
 	}
 	order := "created_at.desc"
 	if strings.EqualFold(strings.TrimSpace(q.OrderCreated), "asc") {
