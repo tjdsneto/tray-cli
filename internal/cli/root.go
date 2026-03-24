@@ -18,8 +18,8 @@ func Execute() error {
 func NewRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "tray",
-		Short: "Shared inbox for tasks — list, triage, and share work with your team",
-		Long: `Tray keeps attention on a short list of items you and others can add to named trays.
+		Short: "Shared task inbox — capture, triage, and share work",
+		Long: `Tray helps you manage a shared task inbox with named trays.
 
 Run "tray help" for commands, or "tray <command> --help" for options.`,
 		// SilenceUsage: when a RunE returns an error, do not print the full command usage block (keeps stderr short).
@@ -32,7 +32,7 @@ Run "tray help" for commands, or "tray <command> --help" for options.`,
 	}
 
 	// --config-dir: optional override; default path follows XDG on Unix and APPDATA on Windows (see internal/config/paths if exposed).
-	root.PersistentFlags().StringVar(&configDirFlag, "config-dir", "", "override config directory (default is OS-specific; see documentation)")
+	root.PersistentFlags().StringVar(&configDirFlag, "config-dir", "", "override where tray stores local files (credentials and remotes)")
 
 	// Registers --format, deprecated -o/--output, and --json on the root (inherited by subcommands).
 	output.RegisterPersistentFlags(root.PersistentFlags())
