@@ -12,6 +12,8 @@ CLI-first **tray** (shared inbox-tray / attention queue): **Go** client, **Supab
 curl -fsSL https://raw.githubusercontent.com/tjdsneto/tray-cli/main/scripts/install.sh | bash
 ```
 
+On many Macs the script installs to **`~/.local/bin`**, which is **not** on `PATH` by default. If `tray` is “command not found”, run `export PATH="$HOME/.local/bin:$PATH"` (or follow the banner the installer prints). To install system-wide instead: `TRAY_INSTALL_DIR=/usr/local/bin` (may prompt for a password).
+
 **With Go** (builds from source; needs Go 1.22+):
 
 ```bash

@@ -11,6 +11,50 @@
 #
 set -euo pipefail
 
+# True if $1 is already on PATH (normalized paths; macOS-friendly).
+tray_install_dir_on_path() {
+	local dest="$1"
+	local dest_abs p dir_abs
+	[[ -d "$dest" ]] || return 1
+	dest_abs="$(cd "$dest" && pwd -P)" || return 1
+	IFS=':' read -r -a __path_parts <<<"${PATH:-}"
+	for p in "${__path_parts[@]}"; do
+		[[ -z "$p" ]] && continue
+		[[ -d "$p" ]] || continue
+		dir_abs="$(cd "$p" && pwd -P)" || continue
+		if [[ "$dir_abs" == "$dest_abs" ]]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+tray_print_path_instructions() {
+	local dest="$1"
+	{
+		echo ""
+		echo "--------------------------------------------------------------------------------"
+		echo "  tray was installed to: ${dest}/tray"
+		echo ""
+		echo "  That directory is not on your PATH, so this shell cannot run \"tray\" yet."
+		echo ""
+		echo "  Fix for this terminal only (copy-paste both lines):"
+		echo "    export PATH=\"${dest}:\$PATH\""
+		echo "    tray --version"
+		echo ""
+		echo "  Fix for every new terminal (zsh — default on macOS):"
+		echo "    echo 'export PATH=\"${dest}:\$PATH\"' >> ~/.zshrc && source ~/.zshrc"
+		echo ""
+		echo "  Fix for bash on macOS:"
+		echo "    echo 'export PATH=\"${dest}:\$PATH\"' >> ~/.bash_profile && source ~/.bash_profile"
+		echo ""
+		echo "  Or install to /usr/local/bin instead (may ask for your password):"
+		echo "    curl -fsSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh | TRAY_INSTALL_DIR=/usr/local/bin bash"
+		echo "--------------------------------------------------------------------------------"
+		echo ""
+	} >&2
+}
+
 REPO="${TRAY_INSTALL_REPO:-tjdsneto/tray-cli}"
 VERSION="${TRAY_VERSION:-latest}"
 DEST="${TRAY_INSTALL_DIR:-}"
@@ -73,6 +117,8 @@ fi
 
 "${INSTALL_CMD[@]}"
 echo "Installed tray -> ${DEST}/tray"
-if ! command -v tray >/dev/null 2>&1; then
-	echo "Note: add ${DEST} to your PATH if needed (e.g. export PATH=\"${DEST}:\$PATH\")." >&2
+if ! tray_install_dir_on_path "${DEST}"; then
+	tray_print_path_instructions "${DEST}"
+elif ! command -v tray >/dev/null 2>&1; then
+	tray_print_path_instructions "${DEST}"
 fi

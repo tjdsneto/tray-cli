@@ -88,6 +88,8 @@ After releases exist on GitHub:
 curl -fsSL https://raw.githubusercontent.com/tjdsneto/tray-cli/main/scripts/install.sh | bash
 ```
 
+If `/usr/local/bin` is not writable, the script uses **`~/.local/bin`**, which macOS does not put on `PATH` by default — use `export PATH="$HOME/.local/bin:$PATH"` or append the same to `~/.zshrc`. The installer prints copy-paste steps when that applies.
+
 Pinned version:
 
 ```bash
