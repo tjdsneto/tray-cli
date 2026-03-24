@@ -1,10 +1,12 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/tjdsneto/tray-cli/internal/auth"
@@ -27,9 +29,11 @@ Requires ` + config.EnvSupabaseURL + ` and ` + config.EnvSupabaseAnonKey + ` in 
 
 **OAuth:** without --provider, opens a local page to pick a provider. Use --provider or ` + config.EnvOAuthProvider + ` to skip the picker. Your server admin must enable each provider you use.
 
+OAuth stores a refresh token; before commands run, the CLI refreshes the access JWT when it is expired or close to expiring (no extra login until the refresh token is invalid).
+
 If a valid session is already saved, OAuth is skipped unless you pass **--force**.
 
-**Manual:** use --token with a user JWT from your auth dashboard or another client.`,
+**Manual:** use --token with a user JWT from your auth dashboard or another client. Pasted tokens do not include refresh metadata; use OAuth for long-lived sessions.`,
 		Example: `  tray login
   tray login --force
   tray login --provider google
@@ -55,10 +59,15 @@ func runLogin(cmd *cobra.Command, _ []string) error {
 	if !loginForce {
 		cred, err := credentials.Load(cmdDeps.ConfigDir())
 		if err == nil && strings.TrimSpace(cred.AccessToken) != "" {
-			user, err := auth.FetchUserTimeout(url, key, cred.AccessToken, nil)
+			rctx, cancel := context.WithTimeout(cmd.Context(), 45*time.Second)
+			defer cancel()
+			cred, err = auth.EnsureFreshCredentials(rctx, url, key, nil, cmdDeps.ConfigDir(), cred)
 			if err == nil {
-				printAlreadySignedIn(os.Stdout, user.Email)
-				return nil
+				user, err := auth.FetchUserTimeout(url, key, cred.AccessToken, nil)
+				if err == nil {
+					printAlreadySignedIn(os.Stdout, user.Email)
+					return nil
+				}
 			}
 		}
 	}

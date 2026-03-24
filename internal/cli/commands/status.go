@@ -1,9 +1,11 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/tjdsneto/tray-cli/internal/auth"
@@ -39,6 +41,12 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	}
 
 	cred, err := credentials.Load(cmdDeps.ConfigDir())
+	if err != nil {
+		return writeStatusFailure(cmd, format, err)
+	}
+	sctx, cancel := context.WithTimeout(cmd.Context(), 45*time.Second)
+	defer cancel()
+	cred, err = auth.EnsureFreshCredentials(sctx, url, key, nil, cmdDeps.ConfigDir(), cred)
 	if err != nil {
 		return writeStatusFailure(cmd, format, err)
 	}

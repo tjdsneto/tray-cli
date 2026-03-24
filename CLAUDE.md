@@ -21,6 +21,7 @@ See also: [`docs/testing.md`](docs/testing.md).
 - **Subcommands** live in [`internal/cli/commands`](internal/cli/commands); `commands.Register` groups them (see comments in `register.go`).
 - **Missing server URL/key** uses [`internal/cli/errs`](internal/cli/errs) `MissingBackendConfig` — user-facing text is in `UserFacingError`; **`TRAY_DEBUG=1`** prints the raw error on stderr first (see `cmd/tray/main.go`).
 - **Tray resolution** without extra I/O: [`internal/cli/trayref`](internal/cli/trayref).
+- **Session:** OAuth stores a refresh token; [`requireAuth`](internal/cli/auth.go) uses [`internal/auth`](internal/auth) `EnsureFreshCredentials` (JWT `exp` + Supabase `grant_type=refresh_token`) before commands; `tray login --token` has no refresh.
 - **Distribution:** release tarballs via [`scripts/build-release.sh`](scripts/build-release.sh) / `make release`; publish with [`scripts/publish-release.sh`](scripts/publish-release.sh) / `make publish-release VERSION=v…`; install script [`scripts/install.sh`](scripts/install.sh) — see [`docs/distribution.md`](docs/distribution.md).
 
 ---

@@ -48,7 +48,7 @@ Config directory (see `internal/config/paths.go`): override with **`TRAY_CONFIG_
 
 **Supabase:** `TRAY_SUPABASE_URL` (e.g. `https://xxxx.supabase.co`), `TRAY_SUPABASE_ANON_KEY`. At runtime, **environment variables override** values embedded at build time. See [`.env.example`](.env.example).
 
-**Login:** Run `./run.sh login` to open a **local web page** where you pick Google, GitHub, etc. (enable each in Supabase). Use `./run.sh login --provider google` or **`TRAY_OAUTH_PROVIDER`** in `.env` to skip the picker. If you already have a **valid saved session**, the CLI skips the browser until you run **`./run.sh login --force`**.
+**Login:** Run `./run.sh login` to open a **local web page** where you pick Google, GitHub, etc. (enable each in Supabase). Use `./run.sh login --provider google` or **`TRAY_OAUTH_PROVIDER`** in `.env` to skip the picker. If you already have a **valid saved session**, the CLI skips the browser until you run **`./run.sh login --force`**. After **OAuth**, the CLI **refreshes the access JWT** using the stored refresh token when it is expired or near expiry (until Supabase invalidates the refresh token). **`tray login --token`** stores only an access token—use OAuth for automatic refresh.
 
 **Status:** `./run.sh status` checks credentials and validates the session with Supabase (`--format json` for scripts; exit code **0** if signed in, **1** if not).
 

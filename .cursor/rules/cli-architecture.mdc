@@ -9,6 +9,7 @@ alwaysApply: true
 - **Subcommands:** `internal/cli/commands` — `commands.Register` groups cobra commands (see `register.go` comments).
 - **Missing backend config:** sentinel `errs.MissingBackendConfig`; friendly copy in `UserFacingError`; raw chain when `TRAY_DEBUG=1` (`cmd/tray/main.go`).
 - **Pure tray resolution:** `internal/cli/trayref`.
+- **Session:** OAuth stores a refresh token; `requireAuth` uses `internal/auth` `EnsureFreshCredentials` (JWT `exp` + Supabase `grant_type=refresh_token`) before commands; `tray login --token` has no refresh.
 - **Distribution:** release tarballs via `scripts/build-release.sh` / `make release`; publish with `scripts/publish-release.sh` / `make publish-release VERSION=v…`; end-user install script `scripts/install.sh` — see [`docs/distribution.md`](../docs/distribution.md).
 
 Mirror: [`CLAUDE.md`](../CLAUDE.md) (CLI layout section).
