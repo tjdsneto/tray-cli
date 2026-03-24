@@ -134,9 +134,15 @@ if [[ ! -w "${DEST}" ]]; then
 	if [[ "${USE_SUDO}" == "1" ]]; then
 		INSTALL_CMD=(sudo "${INSTALL_CMD[@]}")
 	else
-		echo "tray install: cannot write to ${DEST}" >&2
-		echo "  Install without sudo defaults to a directory you own (re-run without TRAY_INSTALL_DIR), or set TRAY_INSTALL_USE_SUDO=1" >&2
-		echo "  to allow one sudo prompt for this install (e.g. TRAY_INSTALL_DIR=/usr/local/bin)." >&2
+		{
+			echo "tray install: error: cannot write to ${DEST}" >&2
+			echo >&2
+			echo "  To install there anyway, re-run and allow one sudo prompt:" >&2
+			echo "    curl -fsSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh | TRAY_INSTALL_USE_SUDO=1 TRAY_INSTALL_DIR=${DEST} bash" >&2
+			echo >&2
+			echo "  Or install without sudo under your home directory:" >&2
+			echo "    curl -fsSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh | TRAY_INSTALL_DIR=\"\$HOME/.local/bin\" bash" >&2
+		} >&2
 		exit 1
 	fi
 fi
