@@ -47,7 +47,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	m := trayref.TrayNameMap(trays)
-	return output.WriteItems(cmd.OutOrStdout(), []domain.Item{*item}, m, format)
+	return output.WriteItems(cmd.OutOrStdout(), []domain.Item{*item}, m, strings.TrimSpace(sess.UserID), format)
 }
 
 func cmdList() *cobra.Command {
@@ -85,7 +85,7 @@ func runList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	m := trayref.TrayNameMap(trays)
-	return output.WriteItems(cmd.OutOrStdout(), items, m, format)
+	return output.WriteItems(cmd.OutOrStdout(), items, m, strings.TrimSpace(sess.UserID), format)
 }
 
 func cmdContributed() *cobra.Command {
@@ -114,5 +114,5 @@ func runContributed(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	m := trayref.TrayNameMap(trays)
-	return output.WriteItems(cmd.OutOrStdout(), items, m, format)
+	return output.WriteItems(cmd.OutOrStdout(), items, m, strings.TrimSpace(sess.UserID), format)
 }

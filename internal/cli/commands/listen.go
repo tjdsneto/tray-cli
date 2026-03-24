@@ -72,7 +72,7 @@ func runListen(cmd *cobra.Command, args []string) error {
 	}
 
 	if once {
-		return output.WriteItems(cmd.OutOrStdout(), items, trayNames, format)
+		return output.WriteItems(cmd.OutOrStdout(), items, trayNames, strings.TrimSpace(sess.UserID), format)
 	}
 	if format == output.FormatTable {
 		if len(args) == 1 {
@@ -96,7 +96,7 @@ func runListen(cmd *cobra.Command, args []string) error {
 			}
 			newItems := unseenItems(latest, seen)
 			if len(newItems) > 0 {
-				if err := output.WriteItems(cmd.OutOrStdout(), newItems, trayNames, format); err != nil {
+				if err := output.WriteItems(cmd.OutOrStdout(), newItems, trayNames, strings.TrimSpace(sess.UserID), format); err != nil {
 					return err
 				}
 			}

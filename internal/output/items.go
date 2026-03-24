@@ -5,40 +5,53 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"text/tabwriter"
 	"time"
+	"unicode/utf8"
 
 	"github.com/tjdsneto/tray-cli/internal/domain"
 )
 
+const (
+	colStatus = 12
+	colTitle  = 42
+	colTray   = 14
+	colBy     = 10
+)
+
 // WriteItems renders items; trayNames maps tray_id → display name (optional).
-func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, f Format) error {
+// currentUserID is used to show "you" for SourceUserID when it matches (can be empty).
+func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, currentUserID string, f Format) error {
 	if trayNames == nil {
 		trayNames = map[string]string{}
 	}
+	now := time.Now()
 	switch f {
 	case FormatJSON:
 		type row struct {
-			ID           string  `json:"id"`
-			TrayID       string  `json:"tray_id"`
-			TrayName     string  `json:"tray_name,omitempty"`
-			Title        string  `json:"title"`
-			Status       string  `json:"status"`
-			DueDate      *string `json:"due_date,omitempty"`
-			CreatedAt    string  `json:"created_at"`
-			SourceUserID string  `json:"source_user_id"`
+			ID               string `json:"id"`
+			TrayID           string `json:"tray_id"`
+			TrayName         string `json:"tray_name,omitempty"`
+			Title            string `json:"title"`
+			Status           string `json:"status"`
+			DueDate          *string `json:"due_date,omitempty"`
+			CreatedAt        string `json:"created_at"`
+			CreatedAgo       string `json:"created_ago"`
+			SourceUserID     string `json:"source_user_id"`
+			SourceUserLabel  string `json:"source_user_label"`
 		}
 		out := make([]row, 0, len(items))
 		for _, it := range items {
 			out = append(out, row{
-				ID:           it.ID,
-				TrayID:       it.TrayID,
-				TrayName:     trayNames[it.TrayID],
-				Title:        it.Title,
-				Status:       it.Status,
-				DueDate:      it.DueDate,
-				CreatedAt:    it.CreatedAt.UTC().Format(time.RFC3339),
-				SourceUserID: it.SourceUserID,
+				ID:              it.ID,
+				TrayID:          it.TrayID,
+				TrayName:        trayNames[it.TrayID],
+				Title:           it.Title,
+				Status:          it.Status,
+				DueDate:         it.DueDate,
+				CreatedAt:       it.CreatedAt.UTC().Format(time.RFC3339),
+				CreatedAgo:      HumanizeTimeAgo(it.CreatedAt, now),
+				SourceUserID:    it.SourceUserID,
+				SourceUserLabel: FormatSourceUser(it.SourceUserID, currentUserID),
 			})
 		}
 		enc := json.NewEncoder(w)
@@ -49,11 +62,11 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, f
 			_, err := fmt.Fprintln(w, "_No items._")
 			return err
 		}
-		_, err := fmt.Fprintf(w, "| %s | %s | %s | %s |\n", "Status", "Title", "Tray", "Created")
+		_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", "Status", "Title", "Tray", "By", "Created")
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(w, "| %s | %s | %s | %s |\n", "---", "---", "---", "---")
+		_, err = fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", "---", "---", "---", "---", "---")
 		if err != nil {
 			return err
 		}
@@ -64,11 +77,13 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, f
 			}
 			tn = strings.ReplaceAll(tn, "|", "\\|")
 			ttl := strings.ReplaceAll(it.Title, "|", "\\|")
-			_, err := fmt.Fprintf(w, "| %s | %s | %s | %s |\n",
+			by := strings.ReplaceAll(FormatSourceUser(it.SourceUserID, currentUserID), "|", "\\|")
+			_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n",
 				strings.ReplaceAll(it.Status, "|", "\\|"),
 				ttl,
 				tn,
-				formatTrayLocalTime(it.CreatedAt))
+				by,
+				strings.ReplaceAll(HumanizeTimeAgo(it.CreatedAt, now), "|", "\\|"))
 			if err != nil {
 				return err
 			}
@@ -79,8 +94,14 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, f
 			_, err := fmt.Fprintln(w, "No items.")
 			return err
 		}
-		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-		_, err := fmt.Fprintln(tw, "STATUS\tTITLE\tTRAY\tCREATED")
+		color := ColorEnabled(w)
+		sep := "  "
+		_, err := fmt.Fprintf(w, "%s%s%s%s%s%s%s%s%s\n",
+			padPlain("STATUS", colStatus), sep,
+			padPlain("TITLE", colTitle), sep,
+			padPlain("TRAY", colTray), sep,
+			padPlain("BY", colBy), sep,
+			"CREATED")
 		if err != nil {
 			return err
 		}
@@ -89,12 +110,39 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, f
 			if tn == "" {
 				tn = it.TrayID
 			}
-			_, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
-				it.Status, it.Title, tn, formatTrayLocalTime(it.CreatedAt))
+			statusCell := FormatStatusANSI(it.Status, color, colStatus)
+			titleCell := padPlain(truncateRunesPlain(it.Title, colTitle), colTitle)
+			trayCell := padPlain(truncateRunesPlain(tn, colTray), colTray)
+			byCell := padPlain(truncateRunesPlain(FormatSourceUser(it.SourceUserID, currentUserID), colBy), colBy)
+			when := HumanizeTimeAgo(it.CreatedAt, now)
+			_, err := fmt.Fprintf(w, "%s%s%s%s%s%s%s%s%s\n",
+				statusCell, sep, titleCell, sep, trayCell, sep, byCell, sep, when)
 			if err != nil {
 				return err
 			}
 		}
-		return tw.Flush()
+		return nil
 	}
+}
+
+func padPlain(s string, width int) string {
+	n := utf8.RuneCountInString(s)
+	if n >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-n)
+}
+
+func truncateRunesPlain(s string, max int) string {
+	if max <= 0 {
+		return ""
+	}
+	rs := []rune(s)
+	if len(rs) <= max {
+		return s
+	}
+	if max == 1 {
+		return "…"
+	}
+	return string(rs[:max-1]) + "…"
 }

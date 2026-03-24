@@ -92,6 +92,8 @@ Use the same `./run.sh` pattern so Supabase URL/key are embedded, or export env 
 
 For **trays**, the default **human** output shows **name**, **item count**, and **created** (in your **local timezone**; set **`TZ`** if needed). An **empty** list suggests **`tray create <name>`**; after **`create`**, human and markdown print a short **“Created tray …”** line before the table (JSON is data-only). After `create` or `ls` with rows, the CLI prints **next-step hints** (`tray add …`, `tray invite …`). Tray **IDs** (UUIDs) and **`item_count`** appear in **`--format json`** / **`--json`**.
 
+For **items** (`list`, `review`, …), human output includes **who added** the item (`you` vs a short id), **created** as a **relative time** when recent (e.g. `20 minutes ago`), and **status** colors on a TTY. Set **`NO_COLOR=1`** to disable ANSI colors.
+
 ### Architecture
 
 - **`internal/domain`** — types (`Tray`, `Item`, `Session`, …) and **service interfaces**: `TrayService`, `ItemService`. The CLI depends on these, not on HTTP paths.
