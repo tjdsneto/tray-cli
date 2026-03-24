@@ -95,7 +95,7 @@ func (s *itemService) Delete(ctx context.Context, sess domain.Session, itemID st
 	return err
 }
 
-const itemSelectColumns = "id,tray_id,source_user_id,title,status,due_date,snooze_until,decline_reason,completion_message,created_at,updated_at"
+const itemSelectColumns = "id,tray_id,source_user_id,title,status,due_date,snooze_until,decline_reason,completion_message,accepted_at,declined_at,completed_at,archived_at,snoozed_at,created_at,updated_at"
 
 // itemsCreatePath is the POST /rest/v1/items path with Prefer: return=representation.
 func itemsCreatePath() string {

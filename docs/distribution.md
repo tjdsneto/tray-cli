@@ -118,7 +118,7 @@ TRAY_INSTALL_DIR="$HOME/bin" curl -fsSL https://raw.githubusercontent.com/tjdsne
 
 ## Install with Go (developers)
 
-If you have Go 1.22+ and do not need release tarballs:
+If you have Go 1.25+ and do not need release tarballs:
 
 ```bash
 go install github.com/tjdsneto/tray-cli/cmd/tray@latest

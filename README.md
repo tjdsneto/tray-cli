@@ -16,7 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/tjdsneto/tray-cli/main/scripts/inst
 
 **Upgrades:** run the same `curl … | bash` line again with default **`TRAY_VERSION=latest`** (the default). It downloads the newest GitHub Release and replaces the binary in the install directory. To stay on a specific version, set `TRAY_VERSION=v0.1.0` (or pin in your docs).
 
-**With Go** (builds from source; needs Go 1.22+):
+**With Go** (builds from source; needs Go 1.25+ for current Charm deps):
 
 ```bash
 go install github.com/tjdsneto/tray-cli/cmd/tray@latest
@@ -28,7 +28,7 @@ More detail: [`docs/distribution.md`](docs/distribution.md) (versioning, `publis
 
 ## Dev
 
-You need **[Go 1.22+](https://go.dev/dl/)** on your `PATH` (e.g. `brew install go` on macOS). `./run.sh` and `./build.sh` also look under `/opt/homebrew/bin` and `/usr/local/go/bin` if `go` is missing from PATH.
+You need **[Go 1.25+](https://go.dev/dl/)** on your `PATH` (e.g. `brew install go` on macOS). `./run.sh` and `./build.sh` also look under `/opt/homebrew/bin` and `/usr/local/go/bin` if `go` is missing from PATH.
 
 ```bash
 make test              # or: go test ./... -race -count=1
@@ -72,7 +72,7 @@ During OAuth, the CLI starts a **short-lived local HTTP server** on `127.0.0.1` 
 
 Use the same `./run.sh` pattern so Supabase URL/key are embedded, or export env vars and run `tray` directly.
 
-**Database:** SQL migrations live under [`supabase/migrations/`](supabase/migrations/). Link the repo to your Supabase project and run **`supabase db push`** (or paste SQL in the dashboard) so row-level security matches the CLI. If `create` fails with a policy / recursion error, your remote DB is usually missing a newer migration.
+**Database:** SQL migrations live under [`supabase/migrations/`](supabase/migrations/). Link the repo to your Supabase project and run **`supabase db push`** (or paste SQL in the dashboard) so row-level security matches the CLI. If `create` fails with a policy / recursion error, your remote DB is usually missing a newer migration. Item list **By** resolves contributor **name or email** from the `profiles` migration when it is applied; otherwise you see a short id. **`items`** rows include **`accepted_at`**, **`declined_at`**, **`completed_at`**, **`archived_at`**, and **`snoozed_at`** (set by the database when status changes; see migrations).
 
 **Verbose API errors:** set **`TRAY_DEBUG=1`** when running `tray` to print full PostgREST response bodies. By default, errors are shortened for end users.
 
@@ -92,7 +92,7 @@ Use the same `./run.sh` pattern so Supabase URL/key are embedded, or export env 
 
 For **trays**, the default **human** output shows **name**, **item count**, and **created** (in your **local timezone**; set **`TZ`** if needed). An **empty** list suggests **`tray create <name>`**; after **`create`**, human and markdown print a short **“Created tray …”** line before the table (JSON is data-only). After `create` or `ls` with rows, the CLI prints **next-step hints** (`tray add …`, `tray invite …`). Tray **IDs** (UUIDs) and **`item_count`** appear in **`--format json`** / **`--json`**.
 
-For **items** (`list`, `review`, …), human output includes **who added** the item (`you` vs a short id), **created** as a **relative time** when recent (e.g. `20 minutes ago`), and **status** colors on a TTY. Set **`NO_COLOR=1`** to disable ANSI colors.
+For **items** (`list`, `review`, …), human output includes **who added** the item (`you` vs a short id), **created** as a **relative time** when recent (e.g. `20 minutes ago`), and **status** colors on a TTY. Set **`NO_COLOR=1`** to disable ANSI colors. Use **`tray triage`** for an interactive pending queue (TTY); **`tray review`** stays a non-interactive list.
 
 ### Architecture
 

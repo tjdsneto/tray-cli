@@ -48,7 +48,8 @@ func runReview(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	m := trayref.TrayNameMap(trays)
-	if err := output.WriteItems(cmd.OutOrStdout(), items, m, strings.TrimSpace(sess.UserID), format); err != nil {
+	by := profileDisplayMap(cmd.Context(), sess, svcs, sourceUserIDsFromItems(items))
+	if err := output.WriteItems(cmd.OutOrStdout(), items, m, strings.TrimSpace(sess.UserID), by, format); err != nil {
 		return err
 	}
 	if format == output.FormatTable && len(items) == 0 {

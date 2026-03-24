@@ -16,6 +16,11 @@ type Item struct {
 	SnoozeUntil       *time.Time
 	DeclineReason     *string
 	CompletionMessage *string
+	AcceptedAt        *time.Time
+	DeclinedAt        *time.Time
+	CompletedAt       *time.Time
+	ArchivedAt        *time.Time
+	SnoozedAt         *time.Time
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }

@@ -12,8 +12,9 @@ import (
 func NewServices(c *supabasehttp.Client) domain.Services {
 	pg := pghttp.New(c)
 	return domain.Services{
-		Trays: newTrayService(pg),
-		Items: newItemService(pg),
+		Trays:    newTrayService(pg),
+		Items:    newItemService(pg),
+		Profiles: newProfileService(pg),
 	}
 }
 

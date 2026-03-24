@@ -15,12 +15,13 @@ const (
 	colStatus = 12
 	colTitle  = 42
 	colTray   = 14
-	colBy     = 10
+	colBy     = 24 // name or email when profiles exist; otherwise short id
 )
 
 // WriteItems renders items; trayNames maps tray_id → display name (optional).
 // currentUserID is used to show "you" for SourceUserID when it matches (can be empty).
-func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, currentUserID string, f Format) error {
+// displayByID maps source_user_id → label from profiles (name or email); nil or empty entries fall back to a short id.
+func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, currentUserID string, displayByID map[string]string, f Format) error {
 	if trayNames == nil {
 		trayNames = map[string]string{}
 	}
@@ -28,16 +29,21 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 	switch f {
 	case FormatJSON:
 		type row struct {
-			ID               string `json:"id"`
-			TrayID           string `json:"tray_id"`
-			TrayName         string `json:"tray_name,omitempty"`
-			Title            string `json:"title"`
-			Status           string `json:"status"`
+			ID               string  `json:"id"`
+			TrayID           string  `json:"tray_id"`
+			TrayName         string  `json:"tray_name,omitempty"`
+			Title            string  `json:"title"`
+			Status           string  `json:"status"`
 			DueDate          *string `json:"due_date,omitempty"`
-			CreatedAt        string `json:"created_at"`
-			CreatedAgo       string `json:"created_ago"`
-			SourceUserID     string `json:"source_user_id"`
-			SourceUserLabel  string `json:"source_user_label"`
+			CreatedAt        string  `json:"created_at"`
+			CreatedAgo       string  `json:"created_ago"`
+			SourceUserID     string  `json:"source_user_id"`
+			SourceUserLabel  string  `json:"source_user_label"`
+			AcceptedAt       *string `json:"accepted_at,omitempty"`
+			DeclinedAt       *string `json:"declined_at,omitempty"`
+			CompletedAt      *string `json:"completed_at,omitempty"`
+			ArchivedAt       *string `json:"archived_at,omitempty"`
+			SnoozedAt        *string `json:"snoozed_at,omitempty"`
 		}
 		out := make([]row, 0, len(items))
 		for _, it := range items {
@@ -51,7 +57,12 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 				CreatedAt:       it.CreatedAt.UTC().Format(time.RFC3339),
 				CreatedAgo:      HumanizeTimeAgo(it.CreatedAt, now),
 				SourceUserID:    it.SourceUserID,
-				SourceUserLabel: FormatSourceUser(it.SourceUserID, currentUserID),
+				SourceUserLabel: FormatSourceUser(it.SourceUserID, currentUserID, displayByID),
+				AcceptedAt:      itemTimeJSON(it.AcceptedAt),
+				DeclinedAt:      itemTimeJSON(it.DeclinedAt),
+				CompletedAt:     itemTimeJSON(it.CompletedAt),
+				ArchivedAt:      itemTimeJSON(it.ArchivedAt),
+				SnoozedAt:       itemTimeJSON(it.SnoozedAt),
 			})
 		}
 		enc := json.NewEncoder(w)
@@ -77,7 +88,7 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 			}
 			tn = strings.ReplaceAll(tn, "|", "\\|")
 			ttl := strings.ReplaceAll(it.Title, "|", "\\|")
-			by := strings.ReplaceAll(FormatSourceUser(it.SourceUserID, currentUserID), "|", "\\|")
+			by := strings.ReplaceAll(FormatSourceUser(it.SourceUserID, currentUserID, displayByID), "|", "\\|")
 			_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n",
 				strings.ReplaceAll(it.Status, "|", "\\|"),
 				ttl,
@@ -113,7 +124,7 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 			statusCell := FormatStatusANSI(it.Status, color, colStatus)
 			titleCell := padPlain(truncateRunesPlain(it.Title, colTitle), colTitle)
 			trayCell := padPlain(truncateRunesPlain(tn, colTray), colTray)
-			byCell := padPlain(truncateRunesPlain(FormatSourceUser(it.SourceUserID, currentUserID), colBy), colBy)
+			byCell := padPlain(truncateRunesPlain(FormatSourceUser(it.SourceUserID, currentUserID, displayByID), colBy), colBy)
 			when := HumanizeTimeAgo(it.CreatedAt, now)
 			_, err := fmt.Fprintf(w, "%s%s%s%s%s%s%s%s%s\n",
 				statusCell, sep, titleCell, sep, trayCell, sep, byCell, sep, when)
@@ -123,6 +134,14 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 		}
 		return nil
 	}
+}
+
+func itemTimeJSON(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	s := t.UTC().Format(time.RFC3339)
+	return &s
 }
 
 func padPlain(s string, width int) string {

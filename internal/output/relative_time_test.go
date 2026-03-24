@@ -18,8 +18,9 @@ func TestHumanizeTimeAgo(t *testing.T) {
 }
 
 func TestFormatSourceUser(t *testing.T) {
-	require.Equal(t, "you", FormatSourceUser("user-1", "user-1"))
-	require.Equal(t, "you", FormatSourceUser("user-1", "USER-1"))
-	require.Equal(t, "a1b2c3d4", FormatSourceUser("a1b2c3d4-e5f6-7890-abcd-ef1234567890", ""))
-	require.Equal(t, "—", FormatSourceUser("", "x"))
+	require.Equal(t, "you", FormatSourceUser("user-1", "user-1", nil))
+	require.Equal(t, "you", FormatSourceUser("user-1", "USER-1", nil))
+	require.Equal(t, "a1b2c3d4", FormatSourceUser("a1b2c3d4-e5f6-7890-abcd-ef1234567890", "", nil))
+	require.Equal(t, "—", FormatSourceUser("", "x", nil))
+	require.Equal(t, "Ada", FormatSourceUser("uuid-1", "", map[string]string{"uuid-1": "Ada"}))
 }

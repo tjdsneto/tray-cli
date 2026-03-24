@@ -21,6 +21,21 @@ func TestItemRow_ToDomain(t *testing.T) {
 	require.Equal(t, "pending", it.Status)
 }
 
+func TestItemRow_ToDomain_statusTimestamps(t *testing.T) {
+	t.Parallel()
+	acc := "2026-03-22T15:00:00Z"
+	it, err := (itemRow{
+		ID: "i1", TrayID: "t1", SourceUserID: "u1",
+		Title: "x", Status: "accepted",
+		AcceptedAt: &acc,
+		CreatedAt:  "2026-03-20T12:00:00Z",
+		UpdatedAt:  "2026-03-22T15:00:00Z",
+	}).ToDomain()
+	require.NoError(t, err)
+	require.NotNil(t, it.AcceptedAt)
+	require.Equal(t, 2026, it.AcceptedAt.UTC().Year())
+}
+
 func TestItemRow_ToDomain_snoozeUntil(t *testing.T) {
 	t.Parallel()
 	s := "2026-03-21T10:00:00Z"

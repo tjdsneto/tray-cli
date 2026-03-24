@@ -28,6 +28,11 @@ type itemRow struct {
 	SnoozeUntil       *string `json:"snooze_until"`
 	DeclineReason     *string `json:"decline_reason"`
 	CompletionMessage *string `json:"completion_message"`
+	AcceptedAt        *string `json:"accepted_at"`
+	DeclinedAt        *string `json:"declined_at"`
+	CompletedAt       *string `json:"completed_at"`
+	ArchivedAt        *string `json:"archived_at"`
+	SnoozedAt         *string `json:"snoozed_at"`
 	CreatedAt         string  `json:"created_at"`
 	UpdatedAt         string  `json:"updated_at"`
 }
@@ -49,6 +54,26 @@ func (r itemRow) ToDomain() (domain.Item, error) {
 		}
 		snooze = &t
 	}
+	acceptedAt, err := optionalRFC3339Time(r.AcceptedAt)
+	if err != nil {
+		return domain.Item{}, fmt.Errorf("postgrest: item accepted_at: %w", err)
+	}
+	declinedAt, err := optionalRFC3339Time(r.DeclinedAt)
+	if err != nil {
+		return domain.Item{}, fmt.Errorf("postgrest: item declined_at: %w", err)
+	}
+	completedAt, err := optionalRFC3339Time(r.CompletedAt)
+	if err != nil {
+		return domain.Item{}, fmt.Errorf("postgrest: item completed_at: %w", err)
+	}
+	archivedAt, err := optionalRFC3339Time(r.ArchivedAt)
+	if err != nil {
+		return domain.Item{}, fmt.Errorf("postgrest: item archived_at: %w", err)
+	}
+	snoozedAt, err := optionalRFC3339Time(r.SnoozedAt)
+	if err != nil {
+		return domain.Item{}, fmt.Errorf("postgrest: item snoozed_at: %w", err)
+	}
 	return domain.Item{
 		ID:                r.ID,
 		TrayID:            r.TrayID,
@@ -59,9 +84,29 @@ func (r itemRow) ToDomain() (domain.Item, error) {
 		SnoozeUntil:       snooze,
 		DeclineReason:     r.DeclineReason,
 		CompletionMessage: r.CompletionMessage,
+		AcceptedAt:        acceptedAt,
+		DeclinedAt:        declinedAt,
+		CompletedAt:       completedAt,
+		ArchivedAt:        archivedAt,
+		SnoozedAt:         snoozedAt,
 		CreatedAt:         ca,
 		UpdatedAt:         ua,
 	}, nil
+}
+
+func optionalRFC3339Time(s *string) (*time.Time, error) {
+	if s == nil {
+		return nil, nil
+	}
+	t := strings.TrimSpace(*s)
+	if t == "" {
+		return nil, nil
+	}
+	parsed, err := timex.ParseRFC3339OrNano(t)
+	if err != nil {
+		return nil, err
+	}
+	return &parsed, nil
 }
 
 func parseItemRows(raw []byte) ([]domain.Item, error) {
