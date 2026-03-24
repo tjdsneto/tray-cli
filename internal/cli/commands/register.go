@@ -23,7 +23,7 @@ func Register(root *cobra.Command, deps Deps) {
 	root.AddCommand(cmdMembers(), cmdRevoke(), cmdLeave())
 
 	// --- Triage & stubs ---
-	root.AddCommand(cmdNotImplemented("review", "Interactive triage"))
+	root.AddCommand(cmdReview())
 	root.AddCommand(cmdAccept(), cmdDecline())
 	root.AddCommand(cmdSnooze(), cmdComplete(), cmdArchive())
 	root.AddCommand(cmdNotImplemented("listen", "Watch for tray updates"))
