@@ -12,7 +12,9 @@ CLI-first **tray** (shared inbox-tray / attention queue): **Go** client, **Supab
 curl -fsSL https://raw.githubusercontent.com/tjdsneto/tray-cli/main/scripts/install.sh | bash
 ```
 
-On many Macs the script installs to **`~/.local/bin`**, which is **not** on `PATH` by default. If `tray` is “command not found”, run `export PATH="$HOME/.local/bin:$PATH"` (or follow the banner the installer prints). To install system-wide instead: `TRAY_INSTALL_DIR=/usr/local/bin` (may prompt for a password).
+**Where it installs:** by default, **`/usr/local/bin`** (may prompt for your password once) or **`/opt/homebrew/bin`** on Apple Silicon if that exists — both are usually on `PATH`. If you already have `tray` on `PATH`, the same path is reused when you upgrade. If neither applies, it uses **`~/.local/bin`**; that folder is often not on `PATH` on macOS until you add it (the installer prints copy-paste steps). Override with `TRAY_INSTALL_DIR`.
+
+**Upgrades:** run the same `curl … | bash` line again with default **`TRAY_VERSION=latest`** (the default). It downloads the newest GitHub Release and replaces the binary in the install directory. To stay on a specific version, set `TRAY_VERSION=v0.1.0` (or pin in your docs).
 
 **With Go** (builds from source; needs Go 1.22+):
 

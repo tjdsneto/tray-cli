@@ -6,8 +6,14 @@
 #
 # Environment:
 #   TRAY_INSTALL_REPO   default: tjdsneto/tray-cli
-#   TRAY_VERSION        default: latest  (Git tag like v1.2.3, or "latest")
-#   TRAY_INSTALL_DIR      default: /usr/local/bin if writable, else ~/.local/bin
+#   TRAY_VERSION        default: latest  (Git tag like v1.2.3, or "latest" — same one-liner upgrades when latest)
+#   TRAY_INSTALL_DIR    optional — override install directory (see default logic below)
+#
+# Default install directory (when TRAY_INSTALL_DIR is unset):
+#   1) If `tray` is already on your PATH, reuse that directory (smooth upgrades).
+#   2) Else /usr/local/bin if it exists (typical macOS/Linux; uses sudo if not writable — usually already on PATH).
+#   3) Else on macOS only: /opt/homebrew/bin if it exists (Homebrew prefix; usually on PATH).
+#   4) Else ~/.local/bin (may require adding that directory to PATH; installer prints help).
 #
 set -euo pipefail
 
@@ -59,7 +65,9 @@ REPO="${TRAY_INSTALL_REPO:-tjdsneto/tray-cli}"
 VERSION="${TRAY_VERSION:-latest}"
 DEST="${TRAY_INSTALL_DIR:-}"
 
-case "$(uname -s)" in
+OS_NAME="$(uname -s)"
+
+case "${OS_NAME}" in
 Darwin) OS=darwin ;;
 Linux) OS=linux ;;
 *)
@@ -101,9 +109,18 @@ if [[ ! -x "${TMP}/tray" ]]; then
 	exit 1
 fi
 
+# Resolve default install directory (see header comment).
 if [[ -z "${DEST}" ]]; then
-	if [[ -w "/usr/local/bin" ]] 2>/dev/null; then
+	existing="$(command -v tray 2>/dev/null || true)"
+	if [[ -n "${existing}" && -f "${existing}" ]]; then
+		DEST="$(dirname "${existing}")"
+	fi
+fi
+if [[ -z "${DEST}" ]]; then
+	if [[ -d "/usr/local/bin" ]]; then
 		DEST="/usr/local/bin"
+	elif [[ "${OS_NAME}" == "Darwin" && -d "/opt/homebrew/bin" ]]; then
+		DEST="/opt/homebrew/bin"
 	else
 		DEST="${HOME}/.local/bin"
 	fi

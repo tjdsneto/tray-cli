@@ -88,7 +88,16 @@ After releases exist on GitHub:
 curl -fsSL https://raw.githubusercontent.com/tjdsneto/tray-cli/main/scripts/install.sh | bash
 ```
 
-If `/usr/local/bin` is not writable, the script uses **`~/.local/bin`**, which macOS does not put on `PATH` by default — use `export PATH="$HOME/.local/bin:$PATH"` or append the same to `~/.zshrc`. The installer prints copy-paste steps when that applies.
+**Where the binary goes (no `TRAY_INSTALL_DIR`):**
+
+1. If `tray` is already on your `PATH`, that directory is reused (handy for upgrades).
+2. Otherwise **`/usr/local/bin`** if that directory exists (installer uses `sudo` when needed — usually already on `PATH` on macOS/Linux).
+3. On macOS only, else **`/opt/homebrew/bin`** if present (typical Homebrew prefix on Apple Silicon).
+4. Otherwise **`~/.local/bin`**, which many macOS setups do **not** include on `PATH` — use `export PATH="$HOME/.local/bin:$PATH"` or append to `~/.zshrc`. The installer prints copy-paste steps when that applies.
+
+**Upgrades:** the same one-liner with default `TRAY_VERSION` (`latest`) downloads the **newest** release tarball and overwrites `tray` in the chosen install directory. Re-running does not duplicate installs; it replaces the binary. Pin with `TRAY_VERSION=v0.1.0` to avoid auto-upgrading.
+
+If an older copy lives under `~/.local/bin` but `tray` is not on your `PATH`, the installer will not see it — it may install to `/usr/local/bin` instead. Remove the old binary or set `TRAY_INSTALL_DIR="$HOME/.local/bin"` to upgrade in place.
 
 Pinned version:
 
