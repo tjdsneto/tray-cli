@@ -8,6 +8,9 @@ scratch/
 # Release tarballs from scripts/build-release.sh
 /dist/
 
+# Generated CLI reports (scripts/generate-cli-report.sh, generate-cli-e2e-report.sh)
+/tmp/
+
 # Local env (secrets)
 .env
 .env.*
