@@ -5,15 +5,16 @@
 #   curl -fsSL https://raw.githubusercontent.com/tjdsneto/tray-cli/main/scripts/install.sh | bash
 #
 # Environment:
-#   TRAY_INSTALL_REPO   default: tjdsneto/tray-cli
-#   TRAY_VERSION        default: latest  (Git tag like v1.2.3, or "latest" — same one-liner upgrades when latest)
-#   TRAY_INSTALL_DIR    optional — override install directory (see default logic below)
+#   TRAY_INSTALL_REPO        default: tjdsneto/tray-cli
+#   TRAY_VERSION             default: latest  (Git tag like v1.2.3, or "latest" — same one-liner upgrades when latest)
+#   TRAY_INSTALL_DIR         optional — override install directory (see default logic below)
+#   TRAY_INSTALL_USE_SUDO    set to 1 only if you want `sudo install` into a root-owned directory (e.g. /usr/local/bin)
 #
-# Default install directory (when TRAY_INSTALL_DIR is unset):
+# Default install directory (when TRAY_INSTALL_DIR is unset). **Never uses sudo unless TRAY_INSTALL_USE_SUDO=1.**
 #   1) If `tray` is already on your PATH, reuse that directory (smooth upgrades).
-#   2) Else /usr/local/bin if it exists (typical macOS/Linux; uses sudo if not writable — usually already on PATH).
-#   3) Else on macOS only: /opt/homebrew/bin if it exists (Homebrew prefix; usually on PATH).
-#   4) Else ~/.local/bin (may require adding that directory to PATH; installer prints help).
+#   2) Else the first **user-writable** directory in order: /usr/local/bin, then (macOS only) /opt/homebrew/bin, else ~/.local/bin
+#
+# ~/.local/bin is used often on macOS; it may not be on PATH — the installer prints copy-paste steps when needed.
 #
 set -euo pipefail
 
@@ -54,8 +55,8 @@ tray_print_path_instructions() {
 		echo "  Fix for bash on macOS:"
 		echo "    echo 'export PATH=\"${dest}:\$PATH\"' >> ~/.bash_profile && source ~/.bash_profile"
 		echo ""
-		echo "  Or install to /usr/local/bin instead (may ask for your password):"
-		echo "    curl -fsSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh | TRAY_INSTALL_DIR=/usr/local/bin bash"
+		echo "  Or install system-wide (explicit — you will be prompted for your password):"
+		echo "    curl -fsSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh | TRAY_INSTALL_USE_SUDO=1 TRAY_INSTALL_DIR=/usr/local/bin bash"
 		echo "--------------------------------------------------------------------------------"
 		echo ""
 	} >&2
@@ -117,9 +118,9 @@ if [[ -z "${DEST}" ]]; then
 	fi
 fi
 if [[ -z "${DEST}" ]]; then
-	if [[ -d "/usr/local/bin" ]]; then
+	if [[ -d "/usr/local/bin" && -w "/usr/local/bin" ]]; then
 		DEST="/usr/local/bin"
-	elif [[ "${OS_NAME}" == "Darwin" && -d "/opt/homebrew/bin" ]]; then
+	elif [[ "${OS_NAME}" == "Darwin" && -d "/opt/homebrew/bin" && -w "/opt/homebrew/bin" ]]; then
 		DEST="/opt/homebrew/bin"
 	else
 		DEST="${HOME}/.local/bin"
@@ -127,9 +128,17 @@ if [[ -z "${DEST}" ]]; then
 fi
 
 mkdir -p "${DEST}"
+USE_SUDO="${TRAY_INSTALL_USE_SUDO:-0}"
 INSTALL_CMD=(install -m 0755 "${TMP}/tray" "${DEST}/tray")
 if [[ ! -w "${DEST}" ]]; then
-	INSTALL_CMD=(sudo "${INSTALL_CMD[@]}")
+	if [[ "${USE_SUDO}" == "1" ]]; then
+		INSTALL_CMD=(sudo "${INSTALL_CMD[@]}")
+	else
+		echo "tray install: cannot write to ${DEST}" >&2
+		echo "  Install without sudo defaults to a directory you own (re-run without TRAY_INSTALL_DIR), or set TRAY_INSTALL_USE_SUDO=1" >&2
+		echo "  to allow one sudo prompt for this install (e.g. TRAY_INSTALL_DIR=/usr/local/bin)." >&2
+		exit 1
+	fi
 fi
 
 "${INSTALL_CMD[@]}"

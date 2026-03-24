@@ -12,7 +12,7 @@ CLI-first **tray** (shared inbox-tray / attention queue): **Go** client, **Supab
 curl -fsSL https://raw.githubusercontent.com/tjdsneto/tray-cli/main/scripts/install.sh | bash
 ```
 
-**Where it installs:** by default, **`/usr/local/bin`** (may prompt for your password once) or **`/opt/homebrew/bin`** on Apple Silicon if that exists — both are usually on `PATH`. If you already have `tray` on `PATH`, the same path is reused when you upgrade. If neither applies, it uses **`~/.local/bin`**; that folder is often not on `PATH` on macOS until you add it (the installer prints copy-paste steps). Override with `TRAY_INSTALL_DIR`.
+**Where it installs:** the script **does not run `sudo` unless you set `TRAY_INSTALL_USE_SUDO=1`**. It picks the first **writable** directory: reuse the path if `tray` is already on `PATH`, else **`/usr/local/bin`** or **`/opt/homebrew/bin`** (macOS) when your user can write there, else **`~/.local/bin`**. That last path is often not on `PATH` on macOS until you add it (the installer prints copy-paste steps). System-wide install without write access: `TRAY_INSTALL_USE_SUDO=1 TRAY_INSTALL_DIR=/usr/local/bin` (one password prompt). Override directory with `TRAY_INSTALL_DIR`.
 
 **Upgrades:** run the same `curl … | bash` line again with default **`TRAY_VERSION=latest`** (the default). It downloads the newest GitHub Release and replaces the binary in the install directory. To stay on a specific version, set `TRAY_VERSION=v0.1.0` (or pin in your docs).
 

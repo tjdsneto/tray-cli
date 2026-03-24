@@ -88,16 +88,21 @@ After releases exist on GitHub:
 curl -fsSL https://raw.githubusercontent.com/tjdsneto/tray-cli/main/scripts/install.sh | bash
 ```
 
-**Where the binary goes (no `TRAY_INSTALL_DIR`):**
+**Where the binary goes (no `TRAY_INSTALL_DIR`):** the script **never runs `sudo` unless you set `TRAY_INSTALL_USE_SUDO=1`** (explicit opt-in for a root-owned target such as `/usr/local/bin`).
 
-1. If `tray` is already on your `PATH`, that directory is reused (handy for upgrades).
-2. Otherwise **`/usr/local/bin`** if that directory exists (installer uses `sudo` when needed — usually already on `PATH` on macOS/Linux).
-3. On macOS only, else **`/opt/homebrew/bin`** if present (typical Homebrew prefix on Apple Silicon).
-4. Otherwise **`~/.local/bin`**, which many macOS setups do **not** include on `PATH` — use `export PATH="$HOME/.local/bin:$PATH"` or append to `~/.zshrc`. The installer prints copy-paste steps when that applies.
+1. If `tray` is already on your `PATH`, that directory is reused (handy for upgrades). If that path is not writable without `sudo`, re-run with `TRAY_INSTALL_USE_SUDO=1` (and the same `TRAY_INSTALL_DIR` if you set one).
+2. Otherwise the first **user-writable** directory in order: **`/usr/local/bin`**, then (macOS only) **`/opt/homebrew/bin`**, else **`~/.local/bin`**.
+3. **`~/.local/bin`** is common on macOS; it may not be on `PATH` — use `export PATH="$HOME/.local/bin:$PATH"` or append to `~/.zshrc`. The installer prints copy-paste steps when that applies.
+
+System-wide when you cannot write to `/usr/local/bin` yourself:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tjdsneto/tray-cli/main/scripts/install.sh | TRAY_INSTALL_USE_SUDO=1 TRAY_INSTALL_DIR=/usr/local/bin bash
+```
 
 **Upgrades:** the same one-liner with default `TRAY_VERSION` (`latest`) downloads the **newest** release tarball and overwrites `tray` in the chosen install directory. Re-running does not duplicate installs; it replaces the binary. Pin with `TRAY_VERSION=v0.1.0` to avoid auto-upgrading.
 
-If an older copy lives under `~/.local/bin` but `tray` is not on your `PATH`, the installer will not see it — it may install to `/usr/local/bin` instead. Remove the old binary or set `TRAY_INSTALL_DIR="$HOME/.local/bin"` to upgrade in place.
+If an older copy lives under `~/.local/bin` but `tray` is not on your `PATH`, the installer will not see it — it may install another copy under a writable system path or `~/.local/bin`. Remove the old binary or set `TRAY_INSTALL_DIR="$HOME/.local/bin"` to upgrade in place.
 
 Pinned version:
 
