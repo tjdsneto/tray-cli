@@ -45,15 +45,19 @@ func runRemoteAdd(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-func runRemoteLink(cmd *cobra.Command, args []string) error {
-	alias := strings.TrimSpace(args[0])
-	trayRef := strings.TrimSpace(args[1])
-	if alias == "" {
-		return fmt.Errorf("choose a short alias (e.g. tiago-work)")
+func runRemoteRename(cmd *cobra.Command, args []string) error {
+	curr := strings.TrimSpace(args[0])
+	newName := strings.TrimSpace(args[1])
+	if curr == "" {
+		return fmt.Errorf("give the current remote alias or tray name — example: `tray remote rename work tiago-work`")
 	}
-	if trayRef == "" {
-		return fmt.Errorf("which tray should this alias point to? — example: `tray remote link tiago-work work`")
+	if newName == "" {
+		return fmt.Errorf("choose a non-empty new local name")
 	}
+	if strings.EqualFold(curr, newName) {
+		return fmt.Errorf("current and new name are the same")
+	}
+
 	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
@@ -62,25 +66,69 @@ func runRemoteLink(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, trayRef, cmdDeps.RemoteAliases())
-	if err != nil {
-		return err
-	}
-	if _, ok := trayref.TrayByID(trays, tid); !ok {
-		return fmt.Errorf("tray not in your list — run `tray ls` (you must already be a member or owner)")
-	}
-	f, err := remotesfile.Load(cmdDeps.ConfigDir())
+	configDir := cmdDeps.ConfigDir()
+	aliasesMap := cmdDeps.RemoteAliases()
+
+	f, err := remotesfile.Load(configDir)
 	if err != nil {
 		return err
 	}
 	if f.Aliases == nil {
 		f.Aliases = map[string]string{}
 	}
-	f.Aliases[alias] = tid
-	if err := remotesfile.Save(cmdDeps.ConfigDir(), f); err != nil {
+
+	var foundOldKey string
+	var trayID string
+	for k, v := range f.Aliases {
+		if strings.EqualFold(k, curr) {
+			foundOldKey = k
+			trayID = strings.TrimSpace(v)
+			break
+		}
+	}
+
+	if foundOldKey != "" {
+		for k, v := range f.Aliases {
+			if !strings.EqualFold(k, newName) {
+				continue
+			}
+			if strings.TrimSpace(v) != trayID {
+				return fmt.Errorf("local alias %q already points to a different tray", newName)
+			}
+			// newName already maps to this tray — drop the old key only.
+			delete(f.Aliases, foundOldKey)
+			if err := remotesfile.Save(configDir, f); err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Removed alias %q; %q already refers to this tray.\n", foundOldKey, k)
+			return err
+		}
+		delete(f.Aliases, foundOldKey)
+		f.Aliases[newName] = trayID
+		if err := remotesfile.Save(configDir, f); err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Renamed remote alias %q → %q (tray %s).\n", foundOldKey, newName, trayID)
 		return err
 	}
-	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Linked local alias %q → tray %s (you can use the alias anywhere a tray name goes).\n", alias, tid)
+
+	tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, curr, aliasesMap)
+	if err != nil {
+		return fmt.Errorf("no remote alias %q and could not resolve as a tray — run `tray ls` or `tray remote ls`", curr)
+	}
+	if _, ok := trayref.TrayByID(trays, tid); !ok {
+		return fmt.Errorf("tray not in your list — run `tray ls` (you must already be a member or owner)")
+	}
+	for k, v := range f.Aliases {
+		if strings.EqualFold(k, newName) && strings.TrimSpace(v) != tid {
+			return fmt.Errorf("local alias %q already points to a different tray", newName)
+		}
+	}
+	f.Aliases[newName] = tid
+	if err := remotesfile.Save(configDir, f); err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Saved local alias %q → tray %s (you can use it anywhere a tray name goes).\n", newName, tid)
 	return err
 }
 

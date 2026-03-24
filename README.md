@@ -68,7 +68,7 @@ During OAuth, the CLI starts a **short-lived local HTTP server** on `127.0.0.1` 
 
 **Triage (tray owner):** **`accept`**, **`decline`** (**`--reason`**), **`snooze`** (**`--until` RFC3339**), **`complete`** (**`--message`**), **`archive`**. Use item ids from **`tray list --format json`**.
 
-**Remote aliases:** **`join … <alias>`** or **`./run.sh remote add <alias> <invite-url-or-token>`** saves `remotes.json`. If you **already joined** and don’t have the token handy, **`./run.sh remote link <alias> <tray>`** sets a local alias using the tray name or id from **`tray ls`**. **`./run.sh remote ls`** / **`./run.sh remote remove <alias>`** manage that file.
+**Remote aliases:** **`join … <alias>`** or **`./run.sh remote add <alias> <invite-url-or-token>`** saves `remotes.json`. **`./run.sh remote rename <current> <new>`** renames an existing local alias, or sets a first alias when `<current>` is a tray name/id from **`tray ls`** (after you already joined). **`./run.sh remote ls`** / **`./run.sh remote remove <alias>`** manage that file.
 
 Use the same `./run.sh` pattern so Supabase URL/key are embedded, or export env vars and run `tray` directly.
 
