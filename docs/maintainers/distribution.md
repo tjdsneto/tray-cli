@@ -1,6 +1,6 @@
 # Distribution
 
-This project ships a single static binary (`tray`) built from [`cmd/tray`](../cmd/tray).
+This project ships a single static binary (`tray`) built from [`cmd/tray`](../../cmd/tray).
 
 ## Building locally
 
@@ -27,7 +27,7 @@ make release
 
 - **Policy:** [Semantic versioning](https://semver.org/) with a `v` prefix on git tags: `vMAJOR.MINOR.PATCH` (optional prerelease: `v1.0.0-rc.1`).
 - **Source of truth:** annotated **git tags** on `main` (or your release branch). The same tag string is embedded in release binaries (`tray --version`).
-- **Dev builds:** `go run` / `./run.sh` without `TRAY_RELEASE_*` show `dev` (see [`internal/config/version.go`](../internal/config/version.go)).
+- **Dev builds:** `go run` / `./run.sh` without `TRAY_RELEASE_*` show `dev` (see [`internal/config/version.go`](../../internal/config/version.go)).
 
 ### Where is the “current version” in git?
 
