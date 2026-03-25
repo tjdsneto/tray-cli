@@ -10,6 +10,9 @@ alwaysApply: true
 - **Missing backend config:** sentinel `errs.MissingBackendConfig`; friendly copy in `UserFacingError`; raw chain when `TRAY_DEBUG=1` (`cmd/tray/main.go`).
 - **Pure tray resolution:** `internal/cli/trayref`.
 - **Session:** OAuth stores a refresh token; `requireAuth` uses `internal/auth` `EnsureFreshCredentials` (JWT `exp` + Supabase `grant_type=refresh_token`) before commands; `tray login --token` has no refresh.
-- **Distribution:** release tarballs via `scripts/build-release.sh` / `make release`; publish with `scripts/publish-release.sh` / `make publish-release VERSION=v…`; end-user install script `scripts/install.sh` — see [`docs/distribution.md`](../docs/distribution.md).
+- **Distribution:** release tarballs via `scripts/build-release.sh` / `make release`; publish with `scripts/publish-release.sh` / `make publish-release VERSION=v…`; end-user install script `scripts/install.sh` — see [`docs/maintainers/distribution.md`](../docs/maintainers/distribution.md).
+- **Listen hooks (CLI users):** [`docs/user/hooks.md`](../docs/user/hooks.md) — `tray listen` + `hooks.json`.
+- **Docs:** [`docs/README.md`](../docs/README.md) — `docs/user/` vs `docs/maintainers/`.
+- **Repository `README.md`:** primarily for **CLI users**; contributor hub [`docs/maintainers/README.md`](../docs/maintainers/README.md) (linked from the bottom of `README.md`).
 
 Mirror: [`CLAUDE.md`](../CLAUDE.md) (CLI layout section).

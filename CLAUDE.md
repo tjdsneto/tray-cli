@@ -11,7 +11,7 @@ Unless it would push the design too far from the simplest or clearest approach, 
 - Put URL/query builders, request body maps, decoders, string normalizers, and validation in **pure helpers**; keep HTTP, filesystem, and cobra wiring in **thin wrappers**.
 - **Do not** twist the domain model or add layers of indirection only for purity—when a bit of I/O-bound code is obviously clearer, keep it.
 
-See also: [`docs/testing.md`](docs/testing.md).
+See also: [`docs/maintainers/testing.md`](docs/maintainers/testing.md).
 
 ---
 
@@ -22,13 +22,16 @@ See also: [`docs/testing.md`](docs/testing.md).
 - **Missing server URL/key** uses [`internal/cli/errs`](internal/cli/errs) `MissingBackendConfig` — user-facing text is in `UserFacingError`; **`TRAY_DEBUG=1`** prints the raw error on stderr first (see `cmd/tray/main.go`).
 - **Tray resolution** without extra I/O: [`internal/cli/trayref`](internal/cli/trayref).
 - **Session:** OAuth stores a refresh token; [`requireAuth`](internal/cli/auth.go) uses [`internal/auth`](internal/auth) `EnsureFreshCredentials` (JWT `exp` + Supabase `grant_type=refresh_token`) before commands; `tray login --token` has no refresh.
-- **Distribution:** release tarballs via [`scripts/build-release.sh`](scripts/build-release.sh) / `make release`; publish with [`scripts/publish-release.sh`](scripts/publish-release.sh) / `make publish-release VERSION=v…`; install script [`scripts/install.sh`](scripts/install.sh) — see [`docs/distribution.md`](docs/distribution.md).
+- **Distribution:** release tarballs via [`scripts/build-release.sh`](scripts/build-release.sh) / `make release`; publish with [`scripts/publish-release.sh`](scripts/publish-release.sh) / `make publish-release VERSION=v…`; install script [`scripts/install.sh`](scripts/install.sh) — see [`docs/maintainers/distribution.md`](docs/maintainers/distribution.md).
+- **Listen hooks (CLI users):** [`docs/user/hooks.md`](docs/user/hooks.md) — `tray listen` + `hooks.json` (events, `TRAY_*` env, recipes).
+- **Docs layout:** [`docs/README.md`](docs/README.md) — `docs/user/` vs `docs/maintainers/`.
+- **Repository README:** aimed at **CLI users**; **maintainers** → [`docs/maintainers/README.md`](docs/maintainers/README.md) (linked at the bottom of `README.md`).
 
 ---
 
 ## Local `scratch/` directory
 
-The **`scratch/`** directory is **gitignored**—use it for private brainstorming and notes. Nothing under `scratch/` is committed. Promote ideas into `README.md`, `docs/`, or code when they should ship.
+The **`scratch/`** directory is **gitignored**—use it for private brainstorming and notes. Nothing under `scratch/` is committed. Promote ideas into `README.md`, `docs/user/` or `docs/maintainers/`, or code when they should ship.
 
 (See [`.cursor/rules/scratch-local-brainstorm.mdc`](.cursor/rules/scratch-local-brainstorm.mdc).)
 
