@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install the tray CLI from GitHub Releases (prebuilt tarballs).
 #
-# One-liner (after you publish release assets — see docs/distribution.md):
+# One-liner (after you publish release assets — see docs/maintainers/distribution.md):
 #   curl -fsSL https://raw.githubusercontent.com/tjdsneto/tray-cli/main/scripts/install.sh | bash
 #
 # Environment:

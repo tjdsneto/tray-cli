@@ -8,6 +8,15 @@ mkdir -p "${OUT_DIR}"
 REPORT_PATH="${1:-${OUT_DIR}/cli-report.md}"
 cd "$ROOT_DIR" || exit 1
 
+# One `go build` instead of `go run` per command (avoids repeated full compiles).
+# shellcheck disable=SC1091
+source "${ROOT_DIR}/scripts/tray-env.sh"
+load_tray_env "${ROOT_DIR}"
+ensure_go
+tray_bin="${OUT_DIR}/tray-e2e"
+go build -ldflags "$(tray_ldflags)" -o "${tray_bin}" ./cmd/tray
+export TRAY_CLI_BIN="${tray_bin}"
+
 timestamp="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
 run_id="$(date -u +"%Y%m%d%H%M%S")"
 
@@ -104,7 +113,7 @@ trap cleanup EXIT
   echo "- Generated: $timestamp"
   echo "- Run ID: \`$run_id\`"
   echo "- Repo: \`$ROOT_DIR\`"
-  echo "- Scope: end-to-end command exercise with real create/update/delete flows."
+  echo "- Scope: end-to-end command exercise with real create/update/delete flows; listen help/flags and short poll smokes (hooks file, \`--mode\`)."
   echo
 } > "$REPORT_PATH"
 
@@ -193,7 +202,7 @@ if [ -n "$item_archive_id" ]; then
   run_cmd "./run.sh archive \"$item_archive_id\""
 fi
 
-# 7) Remove + contributed + members/revoke/leave + remote + listen once
+# 7) Remove + contributed + members/revoke/leave + remote
 if [ -n "$item_remove_id" ]; then
   run_cmd "./run.sh remove \"$item_remove_id\""
 fi
@@ -208,6 +217,25 @@ if [ -n "$tray_b_id" ]; then
   run_cmd "./run.sh remote ls --format json"
   run_cmd "./run.sh remote remove \"e2e-${run_id}\""
 fi
-run_cmd "./run.sh listen --once --format json"
+
+# 8) Listen — help, once-variants, hooks file, poll/auto smokes (newer listen implementation)
+run_cmd "./run.sh listen --help"
+if [ -n "${tray_a_id:-}" ]; then
+  run_cmd "./run.sh listen --once --format json \"$tray_a_id\""
+fi
+run_cmd "./run.sh listen --once --no-hooks --format json"
+run_cmd "./run.sh listen --once --quiet --format json"
+run_cmd "./run.sh listen --once --mode poll --format json"
+
+hooks_tmp="${OUT_DIR}/hooks-e2e-${run_id}.json"
+printf '%s\n' '{"hooks":[{"event":"item.pending","command":["/bin/sh","-c","true"]}]}' >"$hooks_tmp"
+# Short background listen: exercises merged hooks file + poll loop (killed after ~2s).
+run_cmd "( ./run.sh listen --hooks \"$hooks_tmp\" --mode poll --interval 3s --quiet & pid=\$!; sleep 2; kill \$pid 2>/dev/null; wait \$pid 2>/dev/null; true )"
+rm -f "$hooks_tmp"
+
+# No hooks file: poll-only smoke (realtime not used with --mode poll).
+run_cmd "( ./run.sh listen --mode poll --interval 3s --no-hooks --quiet & pid=\$!; sleep 2; kill \$pid 2>/dev/null; wait \$pid 2>/dev/null; true )"
+# --mode auto may use Supabase Realtime briefly before settle; same short kill window.
+run_cmd "( ./run.sh listen --mode auto --interval 60s --no-hooks --quiet & pid=\$!; sleep 3; kill \$pid 2>/dev/null; wait \$pid 2>/dev/null; true )"
 
 echo "Report written to: $REPORT_PATH"
