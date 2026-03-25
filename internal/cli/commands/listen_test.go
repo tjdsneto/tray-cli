@@ -1,11 +1,12 @@
 package commands
 
 import (
+	"runtime"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/tjdsneto/tray-cli/internal/domain"
+	"github.com/tjdsneto/tray-cli/internal/cli/listenhook"
 )
 
 func TestCmdListen_Metadata(t *testing.T) {
@@ -16,18 +17,47 @@ func TestCmdListen_Metadata(t *testing.T) {
 	f := c.Flags().Lookup("interval")
 	require.NotNil(t, f)
 	require.Equal(t, (10 * time.Second).String(), f.DefValue)
+	require.NotNil(t, c.Flags().Lookup("hooks"))
+	require.NotNil(t, c.Flags().Lookup("no-hooks"))
+	require.NotNil(t, c.Flags().Lookup("quiet"))
+	require.NotNil(t, c.Flags().Lookup("exec"))
+	require.NotNil(t, c.Flags().Lookup("exec-pattern"))
+	require.NotNil(t, c.Flags().Lookup("mode"))
+	require.NotNil(t, c.Flags().Lookup("daemon"))
 }
 
-func TestUnseenItems_marksAndReturnsNew(t *testing.T) {
+func TestParseExecEvents(t *testing.T) {
 	t.Parallel()
-	seen := map[string]struct{}{"a": {}}
-	items := []domain.Item{{ID: "a"}, {ID: "b"}, {ID: "  "}, {ID: "c"}}
-	got := unseenItems(items, seen)
-	require.Len(t, got, 2)
-	require.Equal(t, "b", got[0].ID)
-	require.Equal(t, "c", got[1].ID)
-	_, okB := seen["b"]
-	_, okC := seen["c"]
-	require.True(t, okB)
-	require.True(t, okC)
+	got, err := parseExecEvents("pending,completed accepted")
+	require.NoError(t, err)
+	require.Equal(t, []string{
+		listenhook.EventItemPending,
+		listenhook.EventItemCompleted,
+		listenhook.EventItemAccepted,
+	}, got)
+
+	got, err = parseExecEvents("all")
+	require.NoError(t, err)
+	require.Equal(t, []string{
+		listenhook.EventItemPending,
+		listenhook.EventItemCompleted,
+		listenhook.EventItemAccepted,
+		listenhook.EventItemDeclined,
+	}, got)
+
+	_, err = parseExecEvents("bogus")
+	require.Error(t, err)
+}
+
+func TestExecRules(t *testing.T) {
+	t.Parallel()
+	rules, err := execRules("echo hi", "declined")
+	require.NoError(t, err)
+	require.Len(t, rules, 1)
+	require.Equal(t, listenhook.EventItemDeclined, rules[0].Event)
+	if runtime.GOOS == "windows" {
+		require.Equal(t, []string{"cmd", "/C", "echo hi"}, rules[0].Command)
+	} else {
+		require.Equal(t, []string{"/bin/sh", "-c", "echo hi"}, rules[0].Command)
+	}
 }
