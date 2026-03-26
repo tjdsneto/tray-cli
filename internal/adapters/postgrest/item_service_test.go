@@ -36,6 +36,16 @@ func TestItemsListPath_defaultOrderDesc(t *testing.T) {
 	require.Contains(t, p, "order=created_at.desc")
 }
 
+func TestItemsListPath_trayIDIn(t *testing.T) {
+	t.Parallel()
+	p := itemsListPath(domain.ListItemsQuery{
+		TrayIDIn: []string{"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"},
+	})
+	require.Contains(t, p, "tray_id=in.")
+	require.Contains(t, p, "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+	require.Contains(t, p, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+}
+
 func TestItemsListPath_updatedAfter(t *testing.T) {
 	t.Parallel()
 	ts := time.Date(2026, 3, 24, 13, 30, 45, 123000000, time.UTC)

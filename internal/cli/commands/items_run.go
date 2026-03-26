@@ -14,7 +14,7 @@ func cmdAdd() *cobra.Command {
 	return &cobra.Command{
 		Use:   `add "title" <tray>`,
 		Short: "Add an item to a tray",
-		Long:  `Creates a pending item. Tray can be a name from tray ls or a tray id.`,
+		Long:  `Creates a pending item. Tray can be a name from tray ls, a joined tray (see tray remote ls), a remote alias, or a tray id.`,
 		Args:  cobra.ExactArgs(2),
 		RunE:  runAdd,
 	}
@@ -54,8 +54,12 @@ func runAdd(cmd *cobra.Command, args []string) error {
 func cmdList() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list [tray]",
-		Short: "List items in a tray (or all visible items)",
-		Args:  cobra.RangeArgs(0, 1),
+		Short: "List items on trays you own (default: all of them)",
+		Long: `Without arguments, lists items on every tray you own.
+
+With a tray name, id, or remote alias, the tray must be one you own.
+Items you filed on someone else's tray are listed with: tray contributed`,
+		Args: cobra.RangeArgs(0, 1),
 		RunE:  runList,
 	}
 }
@@ -65,17 +69,42 @@ func runList(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	owned, err := svcs.Trays.ListOwned(cmd.Context(), sess)
+	if err != nil {
+		return err
+	}
+	ownedIDs := make(map[string]struct{}, len(owned))
+	for i := range owned {
+		ownedIDs[strings.TrimSpace(owned[i].ID)] = struct{}{}
+	}
 	q := domain.ListItemsQuery{OrderCreated: "desc"}
 	if len(args) == 1 {
 		tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, strings.TrimSpace(args[0]), cmdDeps.RemoteAliases())
 		if err != nil {
 			return err
 		}
+		if _, ok := ownedIDs[strings.TrimSpace(tid)]; !ok {
+			return fmt.Errorf("tray list only shows trays you own — %q is not yours (items you added elsewhere: `tray contributed`; trays you joined: `tray remote ls`)", strings.TrimSpace(args[0]))
+		}
 		q.TrayID = tid
+	} else {
+		if len(owned) == 0 {
+			q.TrayIDIn = nil
+		} else {
+			q.TrayIDIn = make([]string, 0, len(owned))
+			for i := range owned {
+				q.TrayIDIn = append(q.TrayIDIn, strings.TrimSpace(owned[i].ID))
+			}
+		}
 	}
-	items, err := svcs.Items.List(cmd.Context(), sess, q)
-	if err != nil {
-		return err
+	var items []domain.Item
+	if len(args) == 0 && len(owned) == 0 {
+		items = nil
+	} else {
+		items, err = svcs.Items.List(cmd.Context(), sess, q)
+		if err != nil {
+			return err
+		}
 	}
 	format, err := output.FormatFromCmd(cmd)
 	if err != nil {

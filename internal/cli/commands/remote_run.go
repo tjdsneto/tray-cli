@@ -3,12 +3,15 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/tjdsneto/tray-cli/internal/cli/trayref"
+	"github.com/tjdsneto/tray-cli/internal/domain"
 	"github.com/tjdsneto/tray-cli/internal/output"
 	"github.com/tjdsneto/tray-cli/internal/remotesfile"
 )
@@ -117,7 +120,7 @@ func runRemoteRename(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no remote alias %q and could not resolve as a tray — run `tray ls` or `tray remote ls`", curr)
 	}
 	if _, ok := trayref.TrayByID(trays, tid); !ok {
-		return fmt.Errorf("tray not in your list — run `tray ls` (you must already be a member or owner)")
+		return fmt.Errorf("tray not in your list — run `tray remote ls` (joined) or `tray ls` (owned)")
 	}
 	for k, v := range f.Aliases {
 		if strings.EqualFold(k, newName) && strings.TrimSpace(v) != tid {
@@ -133,59 +136,200 @@ func runRemoteRename(cmd *cobra.Command, args []string) error {
 }
 
 func runRemoteLs(cmd *cobra.Command, args []string) error {
+	svcs, sess, err := cmdDeps.RequireAuth()
+	if err != nil {
+		return err
+	}
+	joined, err := svcs.Trays.ListJoined(cmd.Context(), sess)
+	if err != nil {
+		return err
+	}
 	f, err := remotesfile.Load(cmdDeps.ConfigDir())
 	if err != nil {
 		return err
 	}
+	if f.Aliases == nil {
+		f.Aliases = map[string]string{}
+	}
+	byTray := aliasesByTrayID(f.Aliases)
+	joinedIDs := make(map[string]struct{}, len(joined))
+	for i := range joined {
+		joinedIDs[strings.TrimSpace(joined[i].ID)] = struct{}{}
+	}
+	orphans := map[string]string{}
+	for alias, tid := range f.Aliases {
+		tid = strings.TrimSpace(tid)
+		if _, ok := joinedIDs[tid]; !ok {
+			orphans[alias] = tid
+		}
+	}
+
 	format, err := output.FormatFromCmd(cmd)
 	if err != nil {
 		return err
 	}
 	switch format {
 	case output.FormatJSON:
+		payload := buildRemoteListPayload(joined, byTray, orphans)
 		enc := json.NewEncoder(cmd.OutOrStdout())
 		enc.SetIndent("", "  ")
-		return enc.Encode(f.Aliases)
+		return enc.Encode(payload)
 	case output.FormatMarkdown:
-		if len(f.Aliases) == 0 {
-			_, err := fmt.Fprintln(cmd.OutOrStdout(), "_No remotes._")
-			return err
-		}
-		_, err := fmt.Fprintf(cmd.OutOrStdout(), "| %s | %s |\n", "Alias", "Tray ID")
-		if err != nil {
-			return err
-		}
-		_, err = fmt.Fprintf(cmd.OutOrStdout(), "| %s | %s |\n", "---", "---")
-		if err != nil {
-			return err
-		}
-		keys := sortedKeys(f.Aliases)
-		for _, k := range keys {
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "| %s | `%s` |\n",
-				strings.ReplaceAll(k, "|", "\\|"), f.Aliases[k])
-			if err != nil {
-				return err
-			}
-		}
-		return nil
+		return writeRemoteLsMarkdown(cmd.OutOrStdout(), joined, byTray, orphans)
 	default:
-		if len(f.Aliases) == 0 {
-			_, err := fmt.Fprintln(cmd.OutOrStdout(), "No remotes.")
-			return err
+		return writeRemoteLsTable(cmd.OutOrStdout(), joined, byTray, orphans)
+	}
+}
+
+type remoteListPayload struct {
+	Joined        []remoteJoinedPayload `json:"joined"`
+	OrphanAliases map[string]string     `json:"orphan_aliases,omitempty"`
+}
+
+type remoteJoinedPayload struct {
+	TrayID   string   `json:"tray_id"`
+	Name     string   `json:"name"`
+	OwnerID  string   `json:"owner_id"`
+	Aliases  []string `json:"aliases"`
+	JoinedAt *string  `json:"joined_at,omitempty"`
+}
+
+func buildRemoteListPayload(joined []domain.Tray, byTray map[string][]string, orphans map[string]string) remoteListPayload {
+	out := remoteListPayload{Joined: make([]remoteJoinedPayload, 0, len(joined))}
+	for i := range joined {
+		t := &joined[i]
+		aliases := byTray[strings.TrimSpace(t.ID)]
+		if aliases == nil {
+			aliases = []string{}
 		}
-		tw := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-		_, err := fmt.Fprintln(tw, "ALIAS\tTRAY_ID")
+		rp := remoteJoinedPayload{
+			TrayID:  strings.TrimSpace(t.ID),
+			Name:    t.Name,
+			OwnerID: strings.TrimSpace(t.OwnerID),
+			Aliases: aliases,
+		}
+		if t.MemberJoinedAt != nil {
+			s := t.MemberJoinedAt.UTC().Format(time.RFC3339)
+			rp.JoinedAt = &s
+		}
+		out.Joined = append(out.Joined, rp)
+	}
+	if len(orphans) > 0 {
+		out.OrphanAliases = orphans
+	}
+	return out
+}
+
+func aliasesByTrayID(aliases map[string]string) map[string][]string {
+	by := make(map[string][]string)
+	for a, tid := range aliases {
+		tid = strings.TrimSpace(tid)
+		by[tid] = append(by[tid], a)
+	}
+	for k := range by {
+		sort.Strings(by[k])
+	}
+	return by
+}
+
+func writeRemoteLsMarkdown(w io.Writer, joined []domain.Tray, byTray map[string][]string, orphans map[string]string) error {
+	if len(joined) == 0 {
+		_, err := fmt.Fprintln(w, "_No joined trays._")
 		if err != nil {
 			return err
 		}
-		for _, k := range sortedKeys(f.Aliases) {
-			_, err := fmt.Fprintf(tw, "%s\t%s\n", k, f.Aliases[k])
+	} else {
+		_, err := fmt.Fprintf(w, "| %s | %s | %s | %s |\n", "Name", "Aliases", "Tray ID", "Joined")
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(w, "| %s | %s | %s | %s |\n", "---", "---", "---", "---")
+		if err != nil {
+			return err
+		}
+		for i := range joined {
+			t := &joined[i]
+			al := strings.Join(byTray[strings.TrimSpace(t.ID)], ", ")
+			if al == "" {
+				al = "—"
+			}
+			jd := "—"
+			if t.MemberJoinedAt != nil {
+				jd = output.FormatTrayLocalTime(*t.MemberJoinedAt)
+			}
+			_, err := fmt.Fprintf(w, "| %s | %s | `%s` | %s |\n",
+				strings.ReplaceAll(t.Name, "|", "\\|"),
+				strings.ReplaceAll(al, "|", "\\|"),
+				strings.TrimSpace(t.ID),
+				jd,
+			)
 			if err != nil {
 				return err
 			}
 		}
-		return tw.Flush()
 	}
+	if len(orphans) > 0 {
+		_, err := fmt.Fprint(w, "\n_Orphan local aliases (tray not joined or left):_\n")
+		if err != nil {
+			return err
+		}
+		for _, k := range sortedKeys(orphans) {
+			_, err := fmt.Fprintf(w, "- `%s` → `%s`\n", k, orphans[k])
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func writeRemoteLsTable(w io.Writer, joined []domain.Tray, byTray map[string][]string, orphans map[string]string) error {
+	if len(joined) == 0 && len(orphans) == 0 {
+		_, err := fmt.Fprint(w, `No joined trays.
+
+Join with an invite:  tray join <token-or-url> [local-alias]
+Optional nickname:    tray remote add <alias> <token-or-url>
+`)
+		return err
+	}
+	if len(joined) > 0 {
+		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+		_, err := fmt.Fprintln(tw, "NAME\tALIASES\tTRAY_ID\tJOINED")
+		if err != nil {
+			return err
+		}
+		for i := range joined {
+			t := &joined[i]
+			al := strings.Join(byTray[strings.TrimSpace(t.ID)], ", ")
+			if al == "" {
+				al = "—"
+			}
+			jd := "—"
+			if t.MemberJoinedAt != nil {
+				jd = output.FormatTrayLocalTime(*t.MemberJoinedAt)
+			}
+			_, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", t.Name, al, strings.TrimSpace(t.ID), jd)
+			if err != nil {
+				return err
+			}
+		}
+		if err := tw.Flush(); err != nil {
+			return err
+		}
+	}
+	if len(orphans) > 0 {
+		_, err := fmt.Fprintln(w, "\nOrphan local aliases (tray not joined or left):")
+		if err != nil {
+			return err
+		}
+		for _, k := range sortedKeys(orphans) {
+			_, err := fmt.Fprintf(w, "  %s  →  %s\n", k, orphans[k])
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func runRemoteRemove(cmd *cobra.Command, args []string) error {

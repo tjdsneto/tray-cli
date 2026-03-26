@@ -1,6 +1,7 @@
 package pghttp
 
 import (
+	"errors"
 	"net/http"
 	"testing"
 
@@ -62,8 +63,21 @@ func TestAPIError_statuses(t *testing.T) {
 			err := apiError("GET", "/rest/v1/x", "status", tc.status, []byte(tc.raw))
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tc.substr)
+			if tc.status == http.StatusUnauthorized {
+				require.True(t, errors.Is(err, ErrUnauthorized))
+			}
 		})
 	}
+}
+
+func TestAPIError_401_debug_wraps_ErrUnauthorized(t *testing.T) {
+	t.Setenv(config.EnvDebug, "1")
+	t.Cleanup(func() { t.Setenv(config.EnvDebug, "") })
+
+	err := apiError("GET", "/rest/v1/x", "401 Unauthorized", http.StatusUnauthorized, []byte(`{"message":"JWT expired"}`))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "JWT expired")
+	require.True(t, errors.Is(err, ErrUnauthorized))
 }
 
 func TestAPIError_42501(t *testing.T) {

@@ -89,3 +89,26 @@ func TestEnsureFreshCredentials_noRefreshWhenValid(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, f.AccessToken, out.AccessToken)
 }
+
+func TestRefreshSessionTokens_alwaysRefreshes(t *testing.T) {
+	far := float64(time.Now().Add(1 * time.Hour).Unix())
+	accessTok := "eyJhbGciOiJub25lIn0." + mustB64JSON(t, map[string]any{"exp": far}) + ".x"
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"access_token":  "forced-new",
+			"refresh_token": "rotated-2",
+			"user":          map[string]string{"id": "uid-3"},
+		})
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	f := credentials.File{AccessToken: accessTok, RefreshToken: "rt", UserID: "u"}
+	out, err := RefreshSessionTokens(context.Background(), srv.URL, "anon", srv.Client(), dir, f)
+	require.NoError(t, err)
+	require.Equal(t, "forced-new", out.AccessToken)
+	require.Equal(t, "rotated-2", out.RefreshToken)
+	require.Equal(t, "uid-3", out.UserID)
+}

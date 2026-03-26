@@ -29,6 +29,8 @@ type Item struct {
 type ListItemsQuery struct {
 	ItemID       string // optional: single item by id
 	TrayID       string
+	// TrayIDIn limits to items on any of these trays (PostgREST in.); empty means no filter.
+	TrayIDIn []string
 	Status       string
 	UpdatedAfter *time.Time
 	OrderCreated string // "asc" | "desc"

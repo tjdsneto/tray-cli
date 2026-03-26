@@ -10,9 +10,23 @@ import (
 	"github.com/tjdsneto/tray-cli/internal/domain"
 )
 
+// trayAccess returns "owner" vs "member" for the signed-in user, or empty if viewerUserID is unset.
+func trayAccess(t domain.Tray, viewerUserID string) string {
+	v := strings.TrimSpace(viewerUserID)
+	if v == "" {
+		return ""
+	}
+	if strings.TrimSpace(t.OwnerID) == v {
+		return "owner"
+	}
+	return "member"
+}
+
 // WriteTrays renders trays for list-style commands. When showHints is true and format is
 // table, prints suggested commands after the table (create / ls only).
-func WriteTrays(w io.Writer, trays []domain.Tray, f Format, showHints bool) error {
+// When viewerUserID is non-empty, adds an ACCESS column (owner = you own the tray; member = you joined someone else's tray).
+func WriteTrays(w io.Writer, trays []domain.Tray, f Format, showHints bool, viewerUserID string) error {
+	showAccess := strings.TrimSpace(viewerUserID) != ""
 	switch f {
 	case FormatJSON:
 		enc := json.NewEncoder(w)
@@ -22,6 +36,24 @@ func WriteTrays(w io.Writer, trays []domain.Tray, f Format, showHints bool) erro
 		if len(trays) == 0 {
 			_, err := fmt.Fprint(w, "_No trays yet._\n\n_Create a tray:_ `tray create <name>`\n")
 			return err
+		}
+		if showAccess {
+			_, err := fmt.Fprintf(w, "| %s | %s | %s | %s |\n", "Name", "Access", "Items", "Created")
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(w, "| %s | %s | %s | %s |\n", "---", "---", "---", "---")
+			if err != nil {
+				return err
+			}
+			for _, t := range trays {
+				name := strings.ReplaceAll(t.Name, "|", "\\|")
+				_, err := fmt.Fprintf(w, "| %s | %s | %d | %s |\n", name, trayAccess(t, viewerUserID), t.ItemCount, formatTrayLocalTime(t.CreatedAt))
+				if err != nil {
+					return err
+				}
+			}
+			return nil
 		}
 		_, err := fmt.Fprintf(w, "| %s | %s | %s |\n", "Name", "Items", "Created")
 		if err != nil {
@@ -49,14 +81,27 @@ func WriteTrays(w io.Writer, trays []domain.Tray, f Format, showHints bool) erro
 			return err
 		}
 		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-		_, err := fmt.Fprintln(tw, "NAME\tITEMS\tCREATED")
-		if err != nil {
-			return err
-		}
-		for _, t := range trays {
-			_, err := fmt.Fprintf(tw, "%s\t%d\t%s\n", t.Name, t.ItemCount, formatTrayLocalTime(t.CreatedAt))
+		if showAccess {
+			_, err := fmt.Fprintln(tw, "NAME\tACCESS\tITEMS\tCREATED")
 			if err != nil {
 				return err
+			}
+			for _, t := range trays {
+				_, err := fmt.Fprintf(tw, "%s\t%s\t%d\t%s\n", t.Name, trayAccess(t, viewerUserID), t.ItemCount, formatTrayLocalTime(t.CreatedAt))
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			_, err := fmt.Fprintln(tw, "NAME\tITEMS\tCREATED")
+			if err != nil {
+				return err
+			}
+			for _, t := range trays {
+				_, err := fmt.Fprintf(tw, "%s\t%d\t%s\n", t.Name, t.ItemCount, formatTrayLocalTime(t.CreatedAt))
+				if err != nil {
+					return err
+				}
 			}
 		}
 		if err := tw.Flush(); err != nil {

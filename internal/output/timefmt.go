@@ -6,3 +6,8 @@ import "time"
 func formatTrayLocalTime(t time.Time) string {
 	return t.In(time.Local).Format("Jan 2, 2006 3:04 PM MST")
 }
+
+// FormatTrayLocalTime is the exported form for commands that print tray-style timestamps.
+func FormatTrayLocalTime(t time.Time) string {
+	return formatTrayLocalTime(t)
+}

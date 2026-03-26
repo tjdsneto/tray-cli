@@ -67,6 +67,33 @@ func RefreshTokens(ctx context.Context, projectURL, anonKey, refreshToken string
 	return out.AccessToken, out.RefreshToken, uid, nil
 }
 
+// RefreshSessionTokens exchanges the stored refresh token for new tokens and persists them.
+// Use when the access JWT was accepted locally but the API returned 401 (e.g. clock skew or server-side invalidation).
+func RefreshSessionTokens(ctx context.Context, projectURL, anonKey string, httpClient *http.Client, configDir string, f credentials.File) (credentials.File, error) {
+	if strings.TrimSpace(f.RefreshToken) == "" {
+		return f, fmt.Errorf("session expired — run `tray login` again (no refresh token stored)")
+	}
+	access, refresh, uid, err := RefreshTokens(ctx, projectURL, anonKey, f.RefreshToken, httpClient)
+	if err != nil {
+		return f, fmt.Errorf("session expired — run `tray login` again (%w)", err)
+	}
+	out := credentials.File{
+		AccessToken:  access,
+		RefreshToken: f.RefreshToken,
+		UserID:       f.UserID,
+	}
+	if strings.TrimSpace(refresh) != "" {
+		out.RefreshToken = refresh
+	}
+	if strings.TrimSpace(uid) != "" {
+		out.UserID = uid
+	}
+	if err := credentials.Save(configDir, out); err != nil {
+		return f, err
+	}
+	return out, nil
+}
+
 // EnsureFreshCredentials returns creds with a valid access token when a refresh token is stored.
 // It refreshes (and persists) when the access JWT is missing, unreadable, or expires within leeway.
 // Manual login (--token) with no refresh_token is returned unchanged.

@@ -113,6 +113,8 @@ func itemsListPath(q domain.ListItemsQuery) string {
 	}
 	if strings.TrimSpace(q.TrayID) != "" {
 		u.Set("tray_id", "eq."+strings.TrimSpace(q.TrayID))
+	} else if len(q.TrayIDIn) > 0 {
+		u.Set("tray_id", "in.("+strings.Join(q.TrayIDIn, ",")+")")
 	}
 	if strings.TrimSpace(q.Status) != "" {
 		u.Set("status", "eq."+strings.TrimSpace(q.Status))

@@ -2,12 +2,17 @@ package pghttp
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/tjdsneto/tray-cli/internal/config"
 )
+
+// ErrUnauthorized is returned (wrapped) when the API responds with HTTP 401.
+// Use errors.Is(err, ErrUnauthorized) to detect an expired or rejected access token.
+var ErrUnauthorized = errors.New("pghttp: unauthorized")
 
 type supabaseErrJSON struct {
 	Code    string `json:"code"`
@@ -17,6 +22,9 @@ type supabaseErrJSON struct {
 func apiError(method, path, statusLine string, statusCode int, raw []byte) error {
 	rawStr := strings.TrimSpace(string(raw))
 	if config.Debug() {
+		if statusCode == http.StatusUnauthorized {
+			return fmt.Errorf("%w: pghttp: %s %s: %s: %s", ErrUnauthorized, method, path, statusLine, rawStr)
+		}
 		return fmt.Errorf("pghttp: %s %s: %s: %s", method, path, statusLine, rawStr)
 	}
 
@@ -33,7 +41,7 @@ func apiError(method, path, statusLine string, statusCode int, raw []byte) error
 		}
 		return fmt.Errorf("that request wasn't valid (%s)", statusLine)
 	case http.StatusUnauthorized:
-		return fmt.Errorf("your session expired or isn't valid — run `tray login` and try again")
+		return fmt.Errorf("%w: your session expired or isn't valid — run `tray login` and try again", ErrUnauthorized)
 	case http.StatusForbidden:
 		if msg != "" {
 			return fmt.Errorf("you're not allowed to do that: %s", msg)

@@ -14,7 +14,7 @@ curl -fsSL https://raw.githubusercontent.com/tjdsneto/tray-cli/main/scripts/inst
 
 **Where it installs:** the script **does not run `sudo` unless you set `TRAY_INSTALL_USE_SUDO=1`**. It picks the first **writable** directory: reuse the path if `tray` is already on `PATH`, else **`/usr/local/bin`** or **`/opt/homebrew/bin`** (macOS) when your user can write there, else **`~/.local/bin`**. That last path is often not on `PATH` on macOS until you add it (the installer prints copy-paste steps). System-wide install without write access: `TRAY_INSTALL_USE_SUDO=1 TRAY_INSTALL_DIR=/usr/local/bin` (one password prompt). Override directory with `TRAY_INSTALL_DIR`.
 
-**Upgrades:** run the same `curl … | bash` line again with default **`TRAY_VERSION=latest`**. Pin a version with **`TRAY_VERSION=v0.1.0`**.
+**Upgrades:** run **`tray upgrade`** (install-script method). To pin: **`tray upgrade --version v0.1.0`**. You can still run the same `curl … | bash` line directly with default **`TRAY_VERSION=latest`**.
 
 **With Go** (needs Go 1.25+):
 
@@ -48,11 +48,13 @@ During OAuth, the CLI starts a **short-lived local HTTP server** on `127.0.0.1` 
 
 ## Trays
 
-**`tray create <name>`** creates a tray; **`rename <tray> <new-name>`** (owner); **`delete-tray`** (owner); **`ls`** lists trays; **`join <token-or-url> [local-alias]`** joins via invite; **`invite`** / **`rotate-invite`** manage invite tokens (owner); **`members`**, **`revoke`**, **`leave`** for membership.
+**`tray create <name>`** creates a tray; **`rename <tray> <new-name>`** (owner); **`delete-tray`** (owner); **`ls`** lists **only trays you own**; **`join <token-or-url> [local-alias]`** joins via invite; **`invite`** / **`rotate-invite`** manage invite tokens (owner); **`members`**, **`revoke`**, **`leave`** for membership.
+
+**Joined trays** (someone else’s inbox you were invited to) show up in **`tray remote ls`**, with optional local aliases — see **[`docs/user/trays.md`](docs/user/trays.md)**.
 
 ## Items
 
-**`tray add "title" <tray>`** adds a pending item (tray = name, id, or **`remote`** alias). **`list`** / **`list <tray>`**, **`contributed`**, **`remove <item-id>`** (owner deletes any item; contributor can delete own **pending** items).
+**`tray add "title" <tray>`** adds a pending item (tray = name, id, or **`remote`** alias). **`list`** shows items on **your** trays; **`list <tray>`** requires an **owned** tray. **`contributed`** lists items you filed on others’ trays; **`remove <item-id>`** (owner deletes any item; contributor can delete own **pending** items).
 
 ## Triage (tray owner)
 

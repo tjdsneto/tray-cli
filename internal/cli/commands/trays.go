@@ -41,14 +41,14 @@ func runCreate(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
-	return output.WriteTrays(cmd.OutOrStdout(), []domain.Tray{*tray}, format, showHints)
+	return output.WriteTrays(cmd.OutOrStdout(), []domain.Tray{*tray}, format, showHints, strings.TrimSpace(sess.UserID))
 }
 
 func cmdLs() *cobra.Command {
 	return &cobra.Command{
 		Use:     "ls",
 		Aliases: []string{"list-trays"},
-		Short:   "List trays you can access (owned and joined)",
+		Short:   "List trays you own",
 		RunE:    runLs,
 	}
 }
@@ -58,7 +58,7 @@ func runLs(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	trays, err := svcs.Trays.ListMine(cmd.Context(), sess)
+	trays, err := svcs.Trays.ListOwned(cmd.Context(), sess)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,8 @@ func runLs(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	showHints := format == output.FormatTable
-	return output.WriteTrays(cmd.OutOrStdout(), trays, format, showHints)
+	// Owned-only list: omit ACCESS column (everything would be "owner").
+	return output.WriteTrays(cmd.OutOrStdout(), trays, format, showHints, "")
 }
 
 func cmdJoin() *cobra.Command {

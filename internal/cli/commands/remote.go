@@ -5,7 +5,7 @@ import "github.com/spf13/cobra"
 func cmdRemote() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "remote",
-		Short: "Manage local aliases for trays (join + remember a short name)",
+		Short: "Local aliases for joined trays (optional nicknames on this device)",
 	}
 
 	root.AddCommand(
@@ -31,7 +31,7 @@ This does not rename the tray on the server — only the owner can do that with 
 		},
 		&cobra.Command{
 			Use:   "ls",
-			Short: "List remotes",
+			Short: "List trays you joined (and local aliases, if any)",
 			RunE:  runRemoteLs,
 		},
 		&cobra.Command{

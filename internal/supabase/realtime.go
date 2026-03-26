@@ -3,13 +3,20 @@ package supabase
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
+
+// Note: WebSocket auth matches hosted Realtime — anon apikey + vsn in the URL only.
+// User JWT belongs in phx_join payload (joinPayload). Do not set Authorization/apikey
+// on the HTTP upgrade; Supabase/Cloudflare may reject with 4xx → "bad handshake".
 
 // Change is a realtime database change for public.items.
 type Change struct {
@@ -25,10 +32,11 @@ type RealtimeClient struct {
 
 func NewRealtimeClient(rawBaseURL, anonKey string) (*RealtimeClient, error) {
 	base := strings.TrimSpace(rawBaseURL)
+	anonKey = strings.TrimSpace(anonKey)
 	if base == "" {
 		return nil, fmt.Errorf("supabase realtime: empty base URL")
 	}
-	if strings.TrimSpace(anonKey) == "" {
+	if anonKey == "" {
 		return nil, fmt.Errorf("supabase realtime: empty anon key")
 	}
 	u, err := url.Parse(strings.TrimRight(base, "/"))
@@ -51,23 +59,94 @@ func NewRealtimeClient(rawBaseURL, anonKey string) (*RealtimeClient, error) {
 	return &RealtimeClient{wsURL: u.String()}, nil
 }
 
+func realtimeDialer() *websocket.Dialer {
+	// DefaultDialer uses a 45s handshake; slow or lossy paths (Wi‑Fi, VPN) often need more.
+	return &websocket.Dialer{
+		Proxy:            http.ProxyFromEnvironment,
+		HandshakeTimeout: 90 * time.Second,
+		// Compression can confuse some intermediaries; Supabase text frames work without it.
+		EnableCompression: false,
+	}
+}
+
+// IsRetryableRealtimeErr reports whether a failed realtime connection may succeed on retry.
+func IsRetryableRealtimeErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	switch {
+	case strings.Contains(s, "no events requested"),
+		strings.Contains(s, "missing access token"),
+		strings.Contains(s, "empty base URL"),
+		strings.Contains(s, "empty anon key"),
+		strings.Contains(s, "unsupported URL scheme"):
+		return false
+	case strings.Contains(s, "bad handshake"):
+		return false
+	}
+	var ne net.Error
+	if errors.As(err, &ne) && ne.Timeout() {
+		return true
+	}
+	if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure) {
+		return true
+	}
+	if strings.Contains(s, "realtime disconnected") || strings.Contains(s, "realtime stream closed") {
+		return true
+	}
+	return strings.Contains(s, "timeout") ||
+		strings.Contains(s, "i/o timeout") ||
+		strings.Contains(s, "connection reset") ||
+		strings.Contains(s, "broken pipe") ||
+		strings.Contains(s, "EOF") ||
+		strings.Contains(s, "unexpected EOF") ||
+		strings.Contains(s, "close 1006") ||
+		strings.Contains(s, "abnormal closure")
+}
+
+func dialRealtime(ctx context.Context, d *websocket.Dialer, urlStr string, hdr http.Header) (*websocket.Conn, *http.Response, error) {
+	backoffs := []time.Duration{0, 400 * time.Millisecond, 900 * time.Millisecond}
+	var lastErr error
+	for i, wait := range backoffs {
+		if i > 0 {
+			select {
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			case <-time.After(wait):
+			}
+		}
+		conn, resp, err := d.DialContext(ctx, urlStr, hdr)
+		if err == nil {
+			return conn, resp, nil
+		}
+		lastErr = err
+		if !IsRetryableRealtimeErr(err) {
+			break
+		}
+	}
+	return nil, nil, lastErr
+}
+
 // SubscribeItems subscribes to public.items changes for the current JWT.
 func (c *RealtimeClient) SubscribeItems(ctx context.Context, accessToken string) (<-chan Change, <-chan error, error) {
 	if strings.TrimSpace(accessToken) == "" {
 		return nil, nil, fmt.Errorf("supabase realtime: missing access token")
 	}
-	conn, _, err := websocket.DefaultDialer.DialContext(ctx, c.wsURL, nil)
+	conn, _, err := dialRealtime(ctx, realtimeDialer(), c.wsURL, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 	out := make(chan Change, 32)
 	errs := make(chan error, 1)
 
+	joinRef := "1"
 	join := map[string]any{
-		"topic":   "realtime:public:items",
-		"event":   "phx_join",
-		"payload": joinPayload(accessToken),
-		"ref":     "1",
+		"topic":    "realtime:public:items",
+		"event":    "phx_join",
+		"payload":  joinPayload(accessToken),
+		"ref":      joinRef,
+		"join_ref": joinRef,
 	}
 	if err := conn.WriteJSON(join); err != nil {
 		_ = conn.Close()
@@ -97,6 +176,9 @@ func (c *RealtimeClient) SubscribeItems(ctx context.Context, accessToken string)
 					}
 					return
 				}
+				// Extend on every frame: Phoenix acks heartbeats as JSON, not WS pongs, so
+				// relying only on PongHandler could let the read deadline fire during an otherwise healthy session.
+				_ = conn.SetReadDeadline(time.Now().Add(90 * time.Second))
 				var env envelope
 				if err := json.Unmarshal(msg, &env); err != nil {
 					continue
@@ -144,7 +226,9 @@ func joinPayload(accessToken string) map[string]any {
 	return map[string]any{
 		"config": map[string]any{
 			"broadcast": map[string]any{"ack": false, "self": false},
-			"presence":  map[string]any{"key": ""},
+			"presence": map[string]any{
+				"enabled": false,
+			},
 			"postgres_changes": []map[string]string{
 				{"event": "*", "schema": "public", "table": "items"},
 			},

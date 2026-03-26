@@ -114,6 +114,20 @@ func TestTraysListMinePath(t *testing.T) {
 	require.Contains(t, q.Get("select"), "owner_id")
 }
 
+func TestTraysListOwnedPath(t *testing.T) {
+	t.Parallel()
+	p := traysListOwnedPath("user-uuid")
+	require.Contains(t, p, "owner_id=eq.user-uuid")
+	require.Contains(t, p, "order=name.asc")
+}
+
+func TestTrayMembersListForUserPath(t *testing.T) {
+	t.Parallel()
+	p := trayMembersListForUserPath("member-uid")
+	require.Contains(t, p, "user_id=eq.member-uid")
+	require.Contains(t, p, "trays%28id")
+}
+
 func TestJoinTrayRPCPath(t *testing.T) {
 	t.Parallel()
 	require.Equal(t, "/rest/v1/rpc/join_tray", joinTrayRPCPath())

@@ -10,6 +10,7 @@ func Register(root *cobra.Command, deps Deps) {
 
 	// --- Session & account ---
 	root.AddCommand(cmdLogin(), cmdStatus())
+	root.AddCommand(cmdUpgrade())
 
 	// --- Trays: lifecycle & sharing ---
 	root.AddCommand(cmdCreate(), cmdLs(), cmdRename(), cmdDeleteTray())

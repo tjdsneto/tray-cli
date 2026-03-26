@@ -6,9 +6,11 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/tjdsneto/tray-cli/internal/adapters/postgrest/pghttp"
 	"github.com/tjdsneto/tray-cli/internal/domain"
+	"github.com/tjdsneto/tray-cli/internal/timex"
 )
 
 type trayService struct {
@@ -55,6 +57,64 @@ func (s *trayService) ListMine(ctx context.Context, sess domain.Session) ([]doma
 		if err != nil {
 			return nil, err
 		}
+		out = append(out, *t)
+	}
+	return out, nil
+}
+
+func (s *trayService) ListOwned(ctx context.Context, sess domain.Session) ([]domain.Tray, error) {
+	if strings.TrimSpace(sess.UserID) == "" {
+		return nil, fmt.Errorf("postgrest: session missing UserID (set after login)")
+	}
+	path := traysListOwnedPath(sess.UserID)
+	var rows []trayRow
+	if err := s.pg.DoJSON(ctx, sess.AccessToken, http.MethodGet, path, nil, &rows, nil); err != nil {
+		return nil, err
+	}
+	out := make([]domain.Tray, 0, len(rows))
+	for _, r := range rows {
+		t, err := r.ToDomain()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *t)
+	}
+	return out, nil
+}
+
+// trayMemberListRow is GET /tray_members?user_id=eq…&select=joined_at,trays(…).
+type trayMemberListRow struct {
+	JoinedAt string   `json:"joined_at"`
+	Trays    *trayRow `json:"trays"`
+}
+
+func (s *trayService) ListJoined(ctx context.Context, sess domain.Session) ([]domain.Tray, error) {
+	uid := strings.TrimSpace(sess.UserID)
+	if uid == "" {
+		return nil, fmt.Errorf("postgrest: session missing UserID (set after login)")
+	}
+	path := trayMembersListForUserPath(uid)
+	var rows []trayMemberListRow
+	if err := s.pg.DoJSON(ctx, sess.AccessToken, http.MethodGet, path, nil, &rows, nil); err != nil {
+		return nil, err
+	}
+	out := make([]domain.Tray, 0, len(rows))
+	for _, row := range rows {
+		if row.Trays == nil {
+			continue
+		}
+		if strings.TrimSpace(row.Trays.OwnerID) == uid {
+			continue
+		}
+		t, err := row.Trays.ToDomain()
+		if err != nil {
+			return nil, err
+		}
+		jt, err := timex.ParseRFC3339OrNano(row.JoinedAt)
+		if err != nil {
+			jt = time.Time{}
+		}
+		t.MemberJoinedAt = &jt
 		out = append(out, *t)
 	}
 	return out, nil
@@ -151,6 +211,22 @@ func traysListMinePath() string {
 	q.Set("select", "id,owner_id,name,invite_token,created_at,items(count)")
 	q.Set("order", "name.asc")
 	return "/rest/v1/trays?" + q.Encode()
+}
+
+func traysListOwnedPath(userID string) string {
+	q := url.Values{}
+	q.Set("select", "id,owner_id,name,invite_token,created_at,items(count)")
+	q.Set("owner_id", "eq."+strings.TrimSpace(userID))
+	q.Set("order", "name.asc")
+	return "/rest/v1/trays?" + q.Encode()
+}
+
+func trayMembersListForUserPath(userID string) string {
+	q := url.Values{}
+	q.Set("user_id", "eq."+strings.TrimSpace(userID))
+	q.Set("select", "joined_at,trays(id,owner_id,name,invite_token,created_at,items(count))")
+	q.Set("order", "joined_at.asc")
+	return "/rest/v1/tray_members?" + q.Encode()
 }
 
 func joinTrayRPCPath() string {

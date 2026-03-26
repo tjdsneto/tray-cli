@@ -155,7 +155,7 @@ func runListen(cmd *cobra.Command, args []string) error {
 	var items []domain.Item
 	if needPending || once {
 		var err error
-		items, err = svcs.Items.List(cmd.Context(), sess, q)
+		items, sess, err = listItemsWithRetry(cmd.Context(), svcs, sess, q)
 		if err != nil {
 			return err
 		}
@@ -174,7 +174,7 @@ func runListen(cmd *cobra.Command, args []string) error {
 		if mode == "realtime" {
 			return rtErr
 		}
-		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "realtime unavailable (%v); falling back to polling\n", rtErr)
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "realtime unavailable (%v); falling back to polling (use --mode poll to skip this step)\n", rtErr)
 	}
 
 	return runListenPoll(cmd, svcs, sess, q, format, quiet, &hooks, trayNames, owned, interval, items)
@@ -192,10 +192,11 @@ func runListenPoll(cmd *cobra.Command, svcs domain.Services, sess domain.Session
 	}
 	var outboxSeeded bool
 	if needOutbox0 {
-		outboxItems, err := svcs.Items.ListOutbox(cmd.Context(), sess)
+		outboxItems, s, err := listOutboxWithRetry(cmd.Context(), svcs, sess)
 		if err != nil {
 			return err
 		}
+		sess = s
 		outboxState.Seed(outboxItems)
 		outboxSeeded = true
 	}
@@ -227,10 +228,11 @@ func runListenPoll(cmd *cobra.Command, svcs domain.Services, sess domain.Session
 		needOutbox := hookCfg != nil && hookCfg.WantsOutboxPoll()
 		if needOutbox {
 			if !outboxSeeded {
-				outboxItems, err := svcs.Items.ListOutbox(cmd.Context(), sess)
+				outboxItems, s, err := listOutboxWithRetry(cmd.Context(), svcs, sess)
 				if err != nil {
 					return err
 				}
+				sess = s
 				outboxState.Seed(outboxItems)
 				outboxSeeded = true
 			}
@@ -238,10 +240,11 @@ func runListenPoll(cmd *cobra.Command, svcs domain.Services, sess domain.Session
 			outboxSeeded = false
 		}
 		if needPending {
-			latest, err := svcs.Items.List(cmd.Context(), sess, q)
+			latest, s, err := listItemsWithRetry(cmd.Context(), svcs, sess, q)
 			if err != nil {
 				return err
 			}
+			sess = s
 			newItems := pendingSeen.NewPending(latest)
 			if len(newItems) > 0 && !quiet {
 				by := profileDisplayMap(cmd.Context(), sess, svcs, sourceUserIDsFromItems(newItems))
@@ -272,10 +275,11 @@ func runListenPoll(cmd *cobra.Command, svcs domain.Services, sess domain.Session
 			}
 		}
 		if needOutbox && hookCfg != nil {
-			outLatest, err := svcs.Items.ListOutbox(cmd.Context(), sess)
+			outLatest, s, err := listOutboxWithRetry(cmd.Context(), svcs, sess)
 			if err != nil {
 				return err
 			}
+			sess = s
 			trans := outboxState.OutTransitions(outLatest)
 			runOutboxHooks(cmd, svcs, sess, hookCfg, ruleTray, trans)
 		}
@@ -511,6 +515,20 @@ func shellCommand(command string) []string {
 	return []string{"/bin/sh", "-c", command}
 }
 
+// Backoff between failed SubscribeItems attempts (3 waits => 1 initial + 3 retries before poll fallback).
+var realtimeListenBackoff = []time.Duration{400 * time.Millisecond, 900 * time.Millisecond, 2 * time.Second}
+
+func realtimeSubscribeBackoffDelay(failureCount int) time.Duration {
+	i := failureCount - 1
+	if i < 0 || len(realtimeListenBackoff) == 0 {
+		return 0
+	}
+	if i >= len(realtimeListenBackoff) {
+		return realtimeListenBackoff[len(realtimeListenBackoff)-1]
+	}
+	return realtimeListenBackoff[i]
+}
+
 func runListenRealtime(cmd *cobra.Command, svcs domain.Services, sess domain.Session, q domain.ListItemsQuery, format output.Format, quiet bool, hooks *atomic.Pointer[hookRuntime], trayNames map[string]string, owned map[string]bool) error {
 	hookCfg, _, hookPath := snapHooks(hooks)
 	needPending := hookCfg == nil || hookCfg.WantsPendingPoll()
@@ -519,27 +537,72 @@ func runListenRealtime(cmd *cobra.Command, svcs domain.Services, sess domain.Ses
 		return fmt.Errorf("no events requested")
 	}
 
-	rc, err := supabase.NewRealtimeClient(config.SupabaseURL(), config.SupabaseAnonKey())
-	if err != nil {
-		return err
-	}
-	changes, errs, err := rc.SubscribeItems(cmd.Context(), sess.AccessToken)
-	if err != nil {
-		return err
-	}
-	if format == output.FormatTable && !quiet {
-		switch {
-		case hookPath != "" && needPending && needOutbox:
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Listening realtime (pending + outbox hooks) %q...\n", hookPath)
-		case hookPath != "" && needOutbox:
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Listening realtime (outbox hooks) %q...\n", hookPath)
-		case hookPath != "":
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Listening realtime with hooks %q...\n", hookPath)
-		default:
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Listening realtime for pending items...\n")
-		}
-	}
+	maxSubscribeFails := 1 + len(realtimeListenBackoff)
+	consecutiveSubscribeFails := 0
+	subscribedOnce := false
 
+	for {
+		if err := cmd.Context().Err(); err != nil {
+			return err
+		}
+
+		rc, err := supabase.NewRealtimeClient(config.SupabaseURL(), config.SupabaseAnonKey())
+		if err != nil {
+			return err
+		}
+		changes, errs, err := rc.SubscribeItems(cmd.Context(), sess.AccessToken)
+		if err != nil {
+			if !supabase.IsRetryableRealtimeErr(err) {
+				return err
+			}
+			consecutiveSubscribeFails++
+			if consecutiveSubscribeFails >= maxSubscribeFails {
+				return err
+			}
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "realtime unavailable (%v); retrying (%d/%d)...\n", err, consecutiveSubscribeFails, len(realtimeListenBackoff))
+			select {
+			case <-cmd.Context().Done():
+				return cmd.Context().Err()
+			case <-time.After(realtimeSubscribeBackoffDelay(consecutiveSubscribeFails)):
+			}
+			continue
+		}
+
+		consecutiveSubscribeFails = 0
+
+		if !subscribedOnce {
+			if format == output.FormatTable && !quiet {
+				switch {
+				case hookPath != "" && needPending && needOutbox:
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Listening realtime (pending + outbox hooks) %q...\n", hookPath)
+				case hookPath != "" && needOutbox:
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Listening realtime (outbox hooks) %q...\n", hookPath)
+				case hookPath != "":
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Listening realtime with hooks %q...\n", hookPath)
+				default:
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Listening realtime for pending items...\n")
+				}
+			}
+			subscribedOnce = true
+		} else {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "realtime reconnected\n")
+		}
+
+		streamErr := runListenRealtimeDispatchLoop(cmd, svcs, sess, q, format, quiet, hooks, trayNames, owned, changes, errs)
+		if err := cmd.Context().Err(); err != nil {
+			return err
+		}
+		if streamErr == nil {
+			return nil
+		}
+		if !supabase.IsRetryableRealtimeErr(streamErr) {
+			return streamErr
+		}
+		// Transient disconnect: reconnect without counting toward subscribe-fail limit.
+	}
+}
+
+func runListenRealtimeDispatchLoop(cmd *cobra.Command, svcs domain.Services, sess domain.Session, q domain.ListItemsQuery, format output.Format, quiet bool, hooks *atomic.Pointer[hookRuntime], trayNames map[string]string, owned map[string]bool, changes <-chan supabase.Change, errs <-chan error) error {
 	for {
 		select {
 		case <-cmd.Context().Done():

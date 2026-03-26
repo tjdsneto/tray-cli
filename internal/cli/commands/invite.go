@@ -59,7 +59,7 @@ func runInviteCore(cmd *cobra.Command, args []string, rotate bool) error {
 	}
 	tray, ok := trayref.TrayByID(trays, tid)
 	if !ok {
-		return fmt.Errorf("tray not found — run `tray ls`")
+		return fmt.Errorf("tray not found — run `tray ls` for trays you own")
 	}
 	if tray.OwnerID != sess.UserID {
 		return fmt.Errorf("only the owner can share invites for %q", tray.Name)
