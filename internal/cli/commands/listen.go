@@ -40,6 +40,7 @@ When --once is set, prints a one-shot snapshot of pending items and does not run
 	c.Flags().Bool("quiet", false, "do not print new items to stdout (hooks still run)")
 	c.Flags().String("exec", "", "compat: run this shell command when matching events fire")
 	c.Flags().String("exec-pattern", "item.pending", "compat: comma-separated events for --exec (pending,completed,accepted,declined or item.*)")
+	c.Flags().Bool("verbose", false, "print detailed hook diagnostics (match/run/ok) to stderr")
 	c.Flags().String("mode", "auto", "listen mode: auto (realtime then fallback), realtime (strict), or poll")
 	c.Flags().Bool("daemon", false, "daemon mode: write listen.pid and listen.log under config dir, reload hooks on hooks.json change (and SIGHUP on Unix)")
 	return c
@@ -711,13 +712,18 @@ func runHookWithLogs(cmd *cobra.Command, r listenhook.Rule, event string, sess d
 	if cmdLabel == "" {
 		cmdLabel = "<empty command>"
 	}
-	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "hook matched event=%s command=%q item=%s\n", strings.TrimSpace(event), cmdLabel, strings.TrimSpace(it.ID))
-	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "hook run event=%s command=%q\n", strings.TrimSpace(event), cmdLabel)
+	verbose, _ := cmd.Flags().GetBool("verbose")
+	if verbose {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "hook matched event=%s command=%q item=%s\n", strings.TrimSpace(event), cmdLabel, strings.TrimSpace(it.ID))
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "hook run event=%s command=%q\n", strings.TrimSpace(event), cmdLabel)
+	}
 	if err := listenhook.RunHook(r, event, sess, it, srcName); err != nil {
 		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "hook failed event=%s command=%q err=%v\n", strings.TrimSpace(event), cmdLabel, err)
 		return
 	}
-	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "hook ok event=%s command=%q\n", strings.TrimSpace(event), cmdLabel)
+	if verbose {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "hook ok event=%s command=%q\n", strings.TrimSpace(event), cmdLabel)
+	}
 }
 
 func itemFromRealtime(m map[string]any) (domain.Item, bool) {

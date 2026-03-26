@@ -22,6 +22,7 @@ func TestCmdListen_Metadata(t *testing.T) {
 	require.NotNil(t, c.Flags().Lookup("quiet"))
 	require.NotNil(t, c.Flags().Lookup("exec"))
 	require.NotNil(t, c.Flags().Lookup("exec-pattern"))
+	require.NotNil(t, c.Flags().Lookup("verbose"))
 	require.NotNil(t, c.Flags().Lookup("mode"))
 	require.NotNil(t, c.Flags().Lookup("daemon"))
 }
