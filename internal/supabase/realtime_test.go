@@ -1,6 +1,7 @@
 package supabase
 
 import (
+	"encoding/json"
 	"errors"
 	"net"
 	"testing"
@@ -33,6 +34,41 @@ func TestIsRetryableRealtimeErr(t *testing.T) {
 	require.False(t, IsRetryableRealtimeErr(&websocket.CloseError{Code: websocket.CloseNormalClosure}))
 
 	require.True(t, IsRetryableRealtimeErr(errors.New("realtime stream closed")))
+}
+
+func TestParseEnvelope_EventTypeShape(t *testing.T) {
+	t.Parallel()
+	payload := map[string]any{
+		"data": map[string]any{
+			"eventType": "INSERT",
+			"new":       map[string]any{"id": "1"},
+			"old":       map[string]any{},
+		},
+	}
+	raw, err := json.Marshal(payload)
+	require.NoError(t, err)
+	ch, ok := parseEnvelope(envelope{Event: "postgres_changes", Payload: raw})
+	require.True(t, ok)
+	require.Equal(t, "INSERT", ch.Type)
+	require.Equal(t, "1", ch.New["id"])
+}
+
+func TestParseEnvelope_RecordShape(t *testing.T) {
+	t.Parallel()
+	payload := map[string]any{
+		"data": map[string]any{
+			"type":       "UPDATE",
+			"record":     map[string]any{"id": "2"},
+			"old_record": map[string]any{"id": "2"},
+		},
+	}
+	raw, err := json.Marshal(payload)
+	require.NoError(t, err)
+	ch, ok := parseEnvelope(envelope{Event: "postgres_changes", Payload: raw})
+	require.True(t, ok)
+	require.Equal(t, "UPDATE", ch.Type)
+	require.Equal(t, "2", ch.New["id"])
+	require.Equal(t, "2", ch.Old["id"])
 }
 
 type timeoutError struct{}

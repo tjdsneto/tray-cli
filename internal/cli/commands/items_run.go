@@ -26,11 +26,12 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("give the item a title — example: tray add \"Fix login\" inbox")
 	}
 	trayRef := strings.TrimSpace(args[1])
+	aliases := cmdDeps.RemoteAliases()
 	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
 	}
-	tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, trayRef, cmdDeps.RemoteAliases())
+	tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, trayRef, aliases)
 	if err != nil {
 		return err
 	}
@@ -47,8 +48,28 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	m := trayref.TrayNameMap(trays)
+	m = withAddAliasDisplay(m, trayRef, tid, aliases)
 	by := profileDisplayMap(cmd.Context(), sess, svcs, sourceUserIDsFromItems([]domain.Item{*item}))
 	return output.WriteItems(cmd.OutOrStdout(), []domain.Item{*item}, m, strings.TrimSpace(sess.UserID), by, format)
+}
+
+func withAddAliasDisplay(trayNames map[string]string, trayRef, trayID string, aliases map[string]string) map[string]string {
+	ref := strings.TrimSpace(trayRef)
+	if ref == "" {
+		return trayNames
+	}
+	if aliases == nil {
+		return trayNames
+	}
+	if strings.TrimSpace(aliases[strings.ToLower(ref)]) != strings.TrimSpace(trayID) {
+		return trayNames
+	}
+	out := make(map[string]string, len(trayNames)+1)
+	for k, v := range trayNames {
+		out[k] = v
+	}
+	out[strings.TrimSpace(trayID)] = ref
+	return out
 }
 
 func cmdList() *cobra.Command {

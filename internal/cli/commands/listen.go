@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -150,7 +151,7 @@ func runListen(cmd *cobra.Command, args []string) error {
 	}
 
 	hookCfg, _, _ := snapHooks(&hooks)
-	needPending := hookCfg == nil || hookCfg.WantsPendingPoll()
+	needPending := hookCfg == nil || hookCfg.WantsPendingPoll() || format == output.FormatTable
 
 	var items []domain.Item
 	if needPending || once {
@@ -182,7 +183,7 @@ func runListen(cmd *cobra.Command, args []string) error {
 
 func runListenPoll(cmd *cobra.Command, svcs domain.Services, sess domain.Session, q domain.ListItemsQuery, format output.Format, quiet bool, hooks *atomic.Pointer[hookRuntime], trayNames map[string]string, owned map[string]bool, interval time.Duration, seedItems []domain.Item) error {
 	hookCfg0, _, _ := snapHooks(hooks)
-	needPending0 := hookCfg0 == nil || hookCfg0.WantsPendingPoll()
+	needPending0 := hookCfg0 == nil || hookCfg0.WantsPendingPoll() || format == output.FormatTable
 	needOutbox0 := hookCfg0 != nil && hookCfg0.WantsOutboxPoll()
 	pendingSeen := listenhook.NewPendingSeen()
 	outboxState := listenhook.NewOutboxState()
@@ -203,7 +204,7 @@ func runListenPoll(cmd *cobra.Command, svcs domain.Services, sess domain.Session
 
 	if format == output.FormatTable && !quiet {
 		hookCfg, _, hookPath := snapHooks(hooks)
-		needPending := hookCfg == nil || hookCfg.WantsPendingPoll()
+		needPending := hookCfg == nil || hookCfg.WantsPendingPoll() || format == output.FormatTable
 		needOutbox := hookCfg != nil && hookCfg.WantsOutboxPoll()
 		switch {
 		case hookPath != "" && needPending && needOutbox:
@@ -224,7 +225,7 @@ func runListenPoll(cmd *cobra.Command, svcs domain.Services, sess domain.Session
 
 	runTick := func() error {
 		hookCfg, ruleTray, _ := snapHooks(hooks)
-		needPending := hookCfg == nil || hookCfg.WantsPendingPoll()
+		needPending := hookCfg == nil || hookCfg.WantsPendingPoll() || format == output.FormatTable
 		needOutbox := hookCfg != nil && hookCfg.WantsOutboxPoll()
 		if needOutbox {
 			if !outboxSeeded {
@@ -246,6 +247,12 @@ func runListenPoll(cmd *cobra.Command, svcs domain.Services, sess domain.Session
 			}
 			sess = s
 			newItems := pendingSeen.NewPending(latest)
+			if format == output.FormatTable {
+				by := profileDisplayMap(cmd.Context(), sess, svcs, sourceUserIDsFromItems(newItems))
+				for _, it := range newItems {
+					emitListenEvent(cmd, listenhook.EventItemPending, it, trayNames, strings.TrimSpace(sess.UserID), by)
+				}
+			}
 			if len(newItems) > 0 && !quiet {
 				by := profileDisplayMap(cmd.Context(), sess, svcs, sourceUserIDsFromItems(newItems))
 				if err := output.WriteItems(cmd.OutOrStdout(), newItems, trayNames, strings.TrimSpace(sess.UserID), by, format); err != nil {
@@ -267,9 +274,7 @@ func runListenPoll(cmd *cobra.Command, svcs domain.Services, sess domain.Session
 						if !listenhook.MatchPending(r, it, owned, sess.UserID, tf) {
 							continue
 						}
-						if err := listenhook.RunHook(r, listenhook.EventItemPending, sess, it, srcName); err != nil {
-							_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "hook %q: %v\n", r.Command[0], err)
-						}
+						runHookWithLogs(cmd, r, listenhook.EventItemPending, sess, it, srcName)
 					}
 				}
 			}
@@ -295,6 +300,14 @@ func runOutboxHooks(cmd *cobra.Command, svcs domain.Services, sess domain.Sessio
 			return
 		}
 		by := profileDisplayMap(cmd.Context(), sess, svcs, sourceUserIDsFromItems(items))
+		trays, err := svcs.Trays.ListMine(cmd.Context(), sess)
+		if err != nil {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "listen: unable to resolve tray names for event output: %v\n", err)
+		}
+		trayNames := trayref.TrayNameMap(trays)
+		for _, it := range items {
+			emitListenEvent(cmd, event, it, trayNames, strings.TrimSpace(sess.UserID), by)
+		}
 		for _, it := range items {
 			srcName := strings.TrimSpace(by[strings.TrimSpace(it.SourceUserID)])
 			for i, r := range hookCfg.Hooks {
@@ -308,9 +321,7 @@ func runOutboxHooks(cmd *cobra.Command, svcs domain.Services, sess domain.Sessio
 				if !listenhook.MatchOutboxFilter(r, it, tf) {
 					continue
 				}
-				if err := listenhook.RunHook(r, event, sess, it, srcName); err != nil {
-					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "hook %q: %v\n", r.Command[0], err)
-				}
+				runHookWithLogs(cmd, r, event, sess, it, srcName)
 			}
 		}
 	}
@@ -531,7 +542,7 @@ func realtimeSubscribeBackoffDelay(failureCount int) time.Duration {
 
 func runListenRealtime(cmd *cobra.Command, svcs domain.Services, sess domain.Session, q domain.ListItemsQuery, format output.Format, quiet bool, hooks *atomic.Pointer[hookRuntime], trayNames map[string]string, owned map[string]bool) error {
 	hookCfg, _, hookPath := snapHooks(hooks)
-	needPending := hookCfg == nil || hookCfg.WantsPendingPoll()
+	needPending := hookCfg == nil || hookCfg.WantsPendingPoll() || format == output.FormatTable
 	needOutbox := hookCfg != nil && hookCfg.WantsOutboxPoll()
 	if !needPending && !needOutbox {
 		return fmt.Errorf("no events requested")
@@ -625,7 +636,7 @@ func runListenRealtimeDispatchLoop(cmd *cobra.Command, svcs domain.Services, ses
 
 func handleRealtimeChange(ctx context.Context, cmd *cobra.Command, svcs domain.Services, sess domain.Session, q domain.ListItemsQuery, format output.Format, quiet bool, hooks *atomic.Pointer[hookRuntime], trayNames map[string]string, owned map[string]bool, ch supabase.Change) error {
 	hookCfg, ruleTray, _ := snapHooks(hooks)
-	needPending := hookCfg == nil || hookCfg.WantsPendingPoll()
+	needPending := hookCfg == nil || hookCfg.WantsPendingPoll() || format == output.FormatTable
 	needOutbox := hookCfg != nil && hookCfg.WantsOutboxPoll()
 	newItem, hasNew := itemFromRealtime(ch.New)
 	oldItem, hasOld := itemFromRealtime(ch.Old)
@@ -637,14 +648,16 @@ func handleRealtimeChange(ctx context.Context, cmd *cobra.Command, svcs domain.S
 	}
 
 	if needPending && strings.EqualFold(ch.Type, "INSERT") && hasNew && strings.EqualFold(strings.TrimSpace(newItem.Status), "pending") {
+		by := profileDisplayMap(ctx, sess, svcs, sourceUserIDsFromItems([]domain.Item{newItem}))
+		if format == output.FormatTable {
+			emitListenEvent(cmd, listenhook.EventItemPending, newItem, trayNames, strings.TrimSpace(sess.UserID), by)
+		}
 		if !quiet {
-			by := profileDisplayMap(ctx, sess, svcs, sourceUserIDsFromItems([]domain.Item{newItem}))
 			if err := output.WriteItems(cmd.OutOrStdout(), []domain.Item{newItem}, trayNames, strings.TrimSpace(sess.UserID), by, format); err != nil {
 				return err
 			}
 		}
 		if hookCfg != nil {
-			by := profileDisplayMap(ctx, sess, svcs, sourceUserIDsFromItems([]domain.Item{newItem}))
 			srcName := strings.TrimSpace(by[strings.TrimSpace(newItem.SourceUserID)])
 			for i, r := range hookCfg.Hooks {
 				if strings.TrimSpace(r.Event) != listenhook.EventItemPending {
@@ -657,9 +670,7 @@ func handleRealtimeChange(ctx context.Context, cmd *cobra.Command, svcs domain.S
 				if !listenhook.MatchPending(r, newItem, owned, sess.UserID, tf) {
 					continue
 				}
-				if err := listenhook.RunHook(r, listenhook.EventItemPending, sess, newItem, srcName); err != nil {
-					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "hook %q: %v\n", r.Command[0], err)
-				}
+				runHookWithLogs(cmd, r, listenhook.EventItemPending, sess, newItem, srcName)
 			}
 		}
 	}
@@ -683,6 +694,30 @@ func handleRealtimeChange(ctx context.Context, cmd *cobra.Command, svcs domain.S
 		}
 	}
 	return nil
+}
+
+func emitListenEvent(cmd *cobra.Command, event string, it domain.Item, trayNames map[string]string, currentUserID string, displayByID map[string]string) {
+	tn := strings.TrimSpace(trayNames[strings.TrimSpace(it.TrayID)])
+	if tn == "" {
+		tn = strings.TrimSpace(it.TrayID)
+	}
+	by := output.FormatSourceUser(it.SourceUserID, currentUserID, displayByID)
+	title := strconv.Quote(strings.TrimSpace(it.Title))
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "event %s tray=%s by=%s title=%s\n", strings.TrimSpace(event), tn, by, title)
+}
+
+func runHookWithLogs(cmd *cobra.Command, r listenhook.Rule, event string, sess domain.Session, it domain.Item, srcName string) {
+	cmdLabel := strings.Join(r.Command, " ")
+	if cmdLabel == "" {
+		cmdLabel = "<empty command>"
+	}
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "hook matched event=%s command=%q item=%s\n", strings.TrimSpace(event), cmdLabel, strings.TrimSpace(it.ID))
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "hook run event=%s command=%q\n", strings.TrimSpace(event), cmdLabel)
+	if err := listenhook.RunHook(r, event, sess, it, srcName); err != nil {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "hook failed event=%s command=%q err=%v\n", strings.TrimSpace(event), cmdLabel, err)
+		return
+	}
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "hook ok event=%s command=%q\n", strings.TrimSpace(event), cmdLabel)
 }
 
 func itemFromRealtime(m map[string]any) (domain.Item, bool) {

@@ -241,19 +241,39 @@ func parseEnvelope(env envelope) (Change, bool) {
 	if strings.TrimSpace(env.Event) != "postgres_changes" {
 		return Change{}, false
 	}
-	var p struct {
-		Data struct {
-			EventType string         `json:"eventType"`
-			New       map[string]any `json:"new"`
-			Old       map[string]any `json:"old"`
-		} `json:"data"`
-	}
+	var p map[string]any
 	if err := json.Unmarshal(env.Payload, &p); err != nil {
 		return Change{}, false
 	}
-	t := strings.ToUpper(strings.TrimSpace(p.Data.EventType))
+	data, _ := p["data"].(map[string]any)
+
+	// Supabase Realtime payloads appear in both of these shapes:
+	// 1) data.eventType + data.new + data.old
+	// 2) data.type + data.record + data.old_record
+	t := strings.ToUpper(strings.TrimSpace(readString(data, "eventType")))
+	if t == "" {
+		t = strings.ToUpper(strings.TrimSpace(readString(data, "type")))
+	}
 	if t == "" {
 		return Change{}, false
 	}
-	return Change{Type: t, New: p.Data.New, Old: p.Data.Old}, true
+	n := readMap(data, "new")
+	if len(n) == 0 {
+		n = readMap(data, "record")
+	}
+	o := readMap(data, "old")
+	if len(o) == 0 {
+		o = readMap(data, "old_record")
+	}
+	return Change{Type: t, New: n, Old: o}, true
+}
+
+func readString(m map[string]any, key string) string {
+	v, _ := m[key].(string)
+	return v
+}
+
+func readMap(m map[string]any, key string) map[string]any {
+	v, _ := m[key].(map[string]any)
+	return v
 }
