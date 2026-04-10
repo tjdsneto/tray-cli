@@ -4,6 +4,10 @@ CLI-first **tray** (shared inbox-tray / attention queue): **Go** client, **Supab
 
 **More documentation:** **[`docs/user/`](docs/user/README.md)** (hooks index) · **[`docs/maintainers/`](docs/maintainers/README.md)** (contributors) · [`docs/README.md`](docs/README.md) (full index) · **[`skills/`](skills/README.md)** (Claude/Cursor: operating `tray`).
 
+## Why not just DM or use chat?
+
+You might *see* a request in a DM or a busy channel—but if you don’t act on it **right away**, it’s easy to **forget**, and it can get **buried in history** among everything else. Tray is a **dedicated queue** for those **small todos and handoffs** so they **don’t get lost**: items sit in **your tray** until you **deal with them**, instead of competing with the rest of the conversation.
+
 ## Install
 
 **From GitHub Releases:**
