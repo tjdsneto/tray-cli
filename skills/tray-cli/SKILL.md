@@ -61,3 +61,14 @@ Stable scripting: **`--format json`**, **`--format machine`**, or **`--json`**. 
 ## When unsure
 
 Prefer **`tray <cmd> --help`** and the linked docs over guessing flags. Do not invent Supabase dashboard steps beyond “enable provider / set redirect URI” already described in the README.
+
+## Updating this skill file
+
+The **`tray` binary does not update this skill.** If the user installed **`SKILL.md`** with `curl` (or copied it by hand), they refresh it by **downloading again** and overwriting the same path.
+
+- **Track `main` (newest doc changes):**  
+  `curl -fsSL "https://raw.githubusercontent.com/tjdsneto/tray-cli/main/skills/tray-cli/SKILL.md" -o /path/to/SKILL.md`
+- **Pin to a release:** replace `main` with a tag (e.g. `v1.2.3`) in that URL; bump the tag when they want a newer snapshot.
+- **Common locations:** `~/.cursor/skills/tray-cli/SKILL.md`, `~/.claude/skills/tray-cli/SKILL.md` (use the path that applies; if one is a symlink, overwriting the real file is enough).
+
+Full install options and symlink notes: [skills/README.md](https://github.com/tjdsneto/tray-cli/blob/main/skills/README.md).
