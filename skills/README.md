@@ -8,6 +8,52 @@ These files teach **Claude**, **Cursor**, and similar tools how to help **users*
 |------|------|
 | [`tray-cli/SKILL.md`](tray-cli/SKILL.md) | **Canonical** skill body (version with the repo; suitable to zip or copy standalone). |
 
+## Install without cloning (curl)
+
+The skill file is plain markdown on GitHub. You can download it with **`curl`** and drop it into the tool’s skills directory—no `git clone` required.
+
+**Stable raw URL (tracks `main`):**
+
+`https://raw.githubusercontent.com/tjdsneto/tray-cli/main/skills/tray-cli/SKILL.md`
+
+**Pin to a release** (matches a tagged release of the repo, e.g. `v1.2.3`):
+
+`https://raw.githubusercontent.com/tjdsneto/tray-cli/v1.2.3/skills/tray-cli/SKILL.md`
+
+Replace `v1.2.3` with the tag you want. If that path 404s, that release predates the skill file—use `main` or a newer tag.
+
+### Cursor (personal skill)
+
+Cursor loads project skills from **`.cursor/skills/`** inside a repo, and personal skills from **`~/.cursor/skills/`** (see Cursor’s skill docs). Example:
+
+```bash
+mkdir -p ~/.cursor/skills/tray-cli
+curl -fsSL "https://raw.githubusercontent.com/tjdsneto/tray-cli/main/skills/tray-cli/SKILL.md" \
+  -o ~/.cursor/skills/tray-cli/SKILL.md
+```
+
+### Claude Code (personal skill)
+
+```bash
+mkdir -p ~/.claude/skills/tray-cli
+curl -fsSL "https://raw.githubusercontent.com/tjdsneto/tray-cli/main/skills/tray-cli/SKILL.md" \
+  -o ~/.claude/skills/tray-cli/SKILL.md
+```
+
+**Use both tools?** You can keep one file and symlink the other to avoid drift, for example install under `~/.cursor/skills/tray-cli/SKILL.md` and run `ln -sf ~/.cursor/skills/tray-cli/SKILL.md ~/.claude/skills/tray-cli/SKILL.md` (adjust if you prefer Claude as the “source”).
+
+## Keeping the skill updated
+
+There is **no** separate auto-updater: refresh by **re-running the same `curl`** (or your pinned-URL `curl`) so the file is overwritten.
+
+| Approach | What to do |
+|----------|------------|
+| **Track `main`** | Re-run the install `curl` whenever you want the latest doc changes (same URL as above). |
+| **Track releases** | Set the URL to a **git tag** and bump the tag in the URL when you upgrade the CLI and want the skill in lockstep. |
+| **Notifications** | Watch **Releases** on the GitHub repo, or subscribe to the repo’s RSS/activity, then re-`curl` after a release if the release notes mention docs/skills. |
+
+If a future **release tarball** ships `skills/tray-cli/SKILL.md`, you can unpack that file over your personal skill path instead of `curl`—see [`docs/maintainers/distribution.md`](../docs/maintainers/distribution.md).
+
 ## Cursor (project clone)
 
 Cursor loads **project** skills from [`.cursor/skills/`](../.cursor/skills/). This repository symlinks **`tray-cli`** there to the canonical file so clones pick it up automatically.
