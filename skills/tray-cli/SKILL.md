@@ -11,6 +11,14 @@ description: >-
 
 Teach the model how to help **end users** of the **`tray`** binary—not how to hack this repository (that lives in maintainer docs and `CLAUDE.md` / `.cursor/rules`).
 
+## Tone: help like a product, not a debugger
+
+Most people want a **short, friendly** answer—not a spec sheet.
+
+- **Casual asks** (“check my tray”, “what’s on my tray”, “show my inbox”): Use **plain language** first. If they’re **not signed in**, say that in one sentence and give **one** next step: run **`tray login`** (browser sign-in, usually Google). Do **not** open with **exit codes**, **`tray status` exit 1**, **`--force`**, **`--token` / JWT**, or **`TRAY_DEBUG`** unless they are **debugging a failure** or **explicitly ask** for advanced options.
+- **After they’re signed in**, keep it minimal: e.g. **`tray list`** for items on trays they own, **`tray ls`** for tray names—**briefly say what each shows** instead of dumping every related subcommand at once.
+- **Reserve** technical detail (exit codes, token-only login caveats, verbose debug env) for **troubleshooting** or **power users**—see **Session** below when relevant.
+
 ## Canonical human docs
 
 - [User docs index](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/README.md)
@@ -27,7 +35,7 @@ Teach the model how to help **end users** of the **`tray`** binary—not how to 
 
 - **`tray login`** — OAuth in browser (local page is **Google** only; use **`--provider`** for other IdPs); stored refresh token; CLI refreshes JWT when needed. **`tray login --force`** to re-prompt even if a session exists.
 - **`tray login --token '<jwt>'`** — manual access token only; **no refresh**; prefer OAuth for long-term use.
-- **`tray status`** — verify credentials; **`--format json`** for scripts (exit **0** if signed in, **1** if not).
+- **`tray status`** — verify credentials; **`--format json`** for scripts (exit **0** if signed in, **1** if not). **Do not quote exit codes** to casual users—just say “not signed in” and point to **`tray login`**.
 
 ## Command map (high level)
 
