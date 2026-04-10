@@ -2,6 +2,9 @@
 # Promote notes into README.md, docs/, or code. Do not `git add -f` here.
 scratch/
 
+# Local comms drafts (e.g. Slack copy); not product docs.
+docs/drafts/
+
 # Go build artifact when built from repo root
 /tray
 
