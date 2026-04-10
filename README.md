@@ -1,16 +1,16 @@
 # Tray-CLI
 
-**Tray** is a **CLI** for shared **inbox trays**: add items to your tray or someone else’s, **triage** what lands on yours, and keep **asks and handoffs** from dissolving into chat scrollback.
+**Tray** is a **command-line tool** for shared **inbox trays**: add items to your tray or someone else’s, **triage** what lands on yours, and keep **asks and handoffs** from dissolving into chat scrollback.
 
 ## Why not just DM or use chat?
 
 **Chat and DMs** work in the moment—but “I’ll get to that” is easy to **forget**, and threads get **buried** under whatever came next. Tray gives each owner a **persistent queue**: items stay on **your tray** until **you** act on them; people you **invite** can still file requests without a separate project tool.
 
-Because **tray** is a **CLI**, **AI coding agents** can run it in the same place you already work (terminal/IDE), and you can **file or check a handoff** without **context-switching** to another app or chat window just to message someone. See **[`skills/`](skills/README.md)** for Claude/Cursor.
+Because it runs in your **terminal**, **AI coding assistants** can use it alongside you in the same place you already work, and you can **file or check a handoff** without **switching** to another app or chat window just to message someone. See **[`skills/`](skills/README.md)** for Claude/Cursor.
 
-Built with **Go** and **Supabase**. **Try it:** [Install](#install) → **`tray login`** → **`tray create`** / **`tray invite`**. See **[`docs/user/hooks.md`](docs/user/hooks.md)** if you want **`tray listen`** and local notifications.
+**Get started:** [Install](#install) → **`tray login`** → **`tray create`** / **`tray invite`**. Optional: background **notifications** with **`tray listen`** — see **[`docs/user/hooks.md`](docs/user/hooks.md)**.
 
-**More documentation:** **[`docs/user/`](docs/user/README.md)** (hooks index) · **[`docs/maintainers/`](docs/maintainers/README.md)** (contributors) · [`docs/README.md`](docs/README.md) (full index) · **[`skills/`](skills/README.md)** (Claude/Cursor: operating `tray`).
+**More documentation:** **[`docs/user/`](docs/user/README.md)** · **[`docs/maintainers/`](docs/maintainers/README.md)** · [`docs/README.md`](docs/README.md) · **[`skills/`](skills/README.md)**.
 
 ## Install
 
