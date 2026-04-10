@@ -2,7 +2,7 @@
 
 CLI-first **tray** (shared inbox-tray / attention queue): **Go** client, **Supabase** backend.
 
-**More documentation:** **[`docs/user/`](docs/user/README.md)** (hooks index) · **[`docs/maintainers/`](docs/maintainers/README.md)** (contributors) · [`docs/README.md`](docs/README.md) (full index).
+**More documentation:** **[`docs/user/`](docs/user/README.md)** (hooks index) · **[`docs/maintainers/`](docs/maintainers/README.md)** (contributors) · [`docs/README.md`](docs/README.md) (full index) · **[`skills/`](skills/README.md)** (Claude/Cursor: operating `tray`).
 
 ## Install
 

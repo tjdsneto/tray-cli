@@ -1,0 +1,63 @@
+---
+name: tray-cli
+description: >-
+  Operates the tray CLI (shared inbox / attention queue): Supabase auth, trays,
+  items, triage, remotes, and tray listen hooks. Use when the user is using or
+  asking about the tray binary, tray login, hooks.json, TRAY_* env vars, or
+  automation around this CLI.
+---
+
+# Tray CLI (agent skill)
+
+Teach the model how to help **end users** of the **`tray`** binary—not how to hack this repository (that lives in maintainer docs and `CLAUDE.md` / `.cursor/rules`).
+
+## Canonical human docs
+
+- [User docs index](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/README.md)
+- [Hooks & `tray listen`](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/hooks.md)
+- [Owned vs joined trays, list semantics](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/trays.md)
+- [Install & daily commands (root README)](https://github.com/tjdsneto/tray-cli/blob/main/README.md)
+
+## Config and backend
+
+- **Config directory:** `TRAY_CONFIG_DIR`, else Windows `%APPDATA%\tray`, else `$XDG_CONFIG_HOME/tray` or `~/.config/tray`.
+- **Supabase:** `TRAY_SUPABASE_URL`, `TRAY_SUPABASE_ANON_KEY` (env overrides build-time embeds). See `.env.example` in the repo when helping someone clone or self-host the client.
+
+## Session
+
+- **`tray login`** — OAuth in browser; stored refresh token; CLI refreshes JWT when needed. **`tray login --force`** to re-prompt even if a session exists.
+- **`tray login --token '<jwt>'`** — manual access token only; **no refresh**; prefer OAuth for long-term use.
+- **`tray status`** — verify credentials; **`--format json`** for scripts (exit **0** if signed in, **1** if not).
+
+## Command map (high level)
+
+| Area | Commands |
+|------|----------|
+| Account | `login`, `status`, `upgrade` |
+| Trays (owned) | `create`, `ls`, `rename`, `delete-tray`, `invite`, `rotate-invite` |
+| Join / remotes | `join`, `remote` (`add`, `rename`, `ls`, `remove`) |
+| Items | `add`, `list`, `remove`, `contributed` |
+| Members | `members`, `revoke`, `leave` |
+| Triage (owner) | `review`, `triage`, `accept`, `decline`, `snooze`, `complete`, `archive` |
+| Automation | `listen` (with `hooks.json`) |
+
+Semantics that trip people up:
+
+- **`tray ls`** — trays **you own**. **`tray remote ls`** — trays you **joined** + local aliases.
+- **`tray list`** — items on **your** trays; **`tray list <tray>`** only for trays **you own**.
+- **`tray contributed`** — items **you** filed on **others’** trays (outbox).
+- **`tray add "title" <tray>`** — target tray by **name**, **id**, or **remote alias** (for trays you don’t own).
+
+## Output formats
+
+Stable scripting: **`--format json`**, **`--format machine`**, or **`--json`**. Human default: tables and hints. **`NO_COLOR=1`** disables ANSI where applicable.
+
+## Listen and hooks
+
+- **`tray listen`** polls/subscribes and runs **`hooks.json`** (default `$TRAY_CONFIG_DIR/hooks.json`; override with `--hooks`, or **`--no-hooks`**).
+- Events such as **`item.pending`**, **`item.accepted`**, **`item.declined`**, **`item.completed`**; hook processes receive **`TRAY_*`** environment variables—**full list and recipes** belong in [hooks.md](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/hooks.md).
+- **`TRAY_DEBUG=1`** — verbose errors (e.g. PostgREST bodies) when something fails; use when diagnosing API issues.
+
+## When unsure
+
+Prefer **`tray <cmd> --help`** and the linked docs over guessing flags. Do not invent Supabase dashboard steps beyond “enable provider / set redirect URI” already described in the README.

@@ -11,4 +11,5 @@ These pages are for **end users** of the `tray` binary: installing it, configuri
 
 - **Install and upgrades** — [README.md § Install](../../README.md#install) in the repository root (curl installer, `go install`, config directory).
 - **Command overview** — same README (trays, items, triage, remotes) and `tray --help`.
+- **Agent skills (Claude, Cursor)** — [`skills/README.md`](../../skills/README.md): packaged guidance for AI assistants helping you run `tray` (canonical [`skills/tray-cli/SKILL.md`](../../skills/tray-cli/SKILL.md)).
 - **Developing the client** — not required to use the CLI; see [`docs/maintainers/`](../maintainers/README.md) if you hack on this repo.

@@ -37,6 +37,12 @@ The **`scratch/`** directory is **gitignored**—use it for private brainstormin
 
 ---
 
+## End-user agent skills (`tray` CLI)
+
+Help for **using** the shipped `tray` binary (not developing this repo) lives in **[`skills/README.md`](skills/README.md)**. The canonical body is **[`skills/tray-cli/SKILL.md`](skills/tray-cli/SKILL.md)**; the repository symlinks it into **`.cursor/skills/tray-cli/`** and **`.claude/skills/tray-cli/`** so Cursor and Claude Code load it in a normal clone.
+
+---
+
 ## AI instruction parity (Cursor ↔ Claude)
 
 | Surface | Location |

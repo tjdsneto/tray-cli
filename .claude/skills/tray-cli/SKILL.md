@@ -1,0 +1,1 @@
+../../../skills/tray-cli/SKILL.md
