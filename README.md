@@ -1,12 +1,12 @@
 # Tray-CLI
 
-CLI-first **tray** (shared inbox-tray / attention queue): **Go** client, **Supabase** backend.
+**Tray** is a **CLI** for shared **inbox trays**: add items to your tray or someone else’s, **triage** what lands on yours, and keep **asks and handoffs** from dissolving into chat scrollback.
+
+**Chat and DMs** work in the moment—but “I’ll get to that” is easy to **forget**, and threads get **buried** under whatever came next. Tray gives each owner a **persistent queue**: items stay on **your tray** until **you** act on them; people you **invite** can still file requests without a separate project tool.
+
+Built with **Go** and **Supabase**. **Try it:** [Install](#install) → **`tray login`** → **`tray create`** / **`tray invite`**. See **[`docs/user/hooks.md`](docs/user/hooks.md)** if you want **`tray listen`** and local notifications.
 
 **More documentation:** **[`docs/user/`](docs/user/README.md)** (hooks index) · **[`docs/maintainers/`](docs/maintainers/README.md)** (contributors) · [`docs/README.md`](docs/README.md) (full index) · **[`skills/`](skills/README.md)** (Claude/Cursor: operating `tray`).
-
-## Why not just DM or use chat?
-
-You might *see* a request in a DM or a busy channel—but if you don’t act on it **right away**, it’s easy to **forget**, and it can get **buried in history** among everything else. Tray is a **dedicated queue** for those **small todos and handoffs** so they **don’t get lost**: items sit in **your tray** until you **deal with them**, instead of competing with the rest of the conversation.
 
 ## Install
 
