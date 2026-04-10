@@ -34,7 +34,7 @@ Config directory: override with **`TRAY_CONFIG_DIR`**; otherwise **Windows** use
 
 ## Login & session
 
-Run **`tray login`** to open a **local web page** where you pick Google, GitHub, etc. (enable each in Supabase). Use **`tray login --provider google`** or **`TRAY_OAUTH_PROVIDER`** in `.env` to skip the picker. If you already have a **valid saved session**, the CLI skips the browser until **`tray login --force`**. After **OAuth**, the CLI **refreshes the access JWT** using the stored refresh token when it is expired or near expiry. **`tray login --token`** stores only an access token—use OAuth for automatic refresh.
+Run **`tray login`** to open a **local web page** to sign in with **Google** (enable it in Supabase). Use **`tray login --provider <id>`** or **`TRAY_OAUTH_PROVIDER`** in `.env` to skip the page and use a specific provider your project has enabled. If you already have a **valid saved session**, the CLI skips the browser until **`tray login --force`**. After **OAuth**, the CLI **refreshes the access JWT** using the stored refresh token when it is expired or near expiry. **`tray login --token`** stores only an access token—use OAuth for automatic refresh.
 
 **Status:** **`tray status`** checks credentials and validates the session with Supabase (`--format json` for scripts; exit code **0** if signed in, **1** if not).
 

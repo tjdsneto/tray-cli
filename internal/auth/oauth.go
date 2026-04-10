@@ -166,7 +166,7 @@ func LoginWithOAuth(ctx context.Context, projectURL, anonKey, provider string, h
 	return tok.AccessToken, tok.RefreshToken, tok.User.ID, tok.User.Email, nil
 }
 
-// OAuthCallbackServer listens on 127.0.0.1:0, serves a provider picker at / and callback at /callback.
+// OAuthCallbackServer listens on 127.0.0.1:0, serves a Google sign-in page at / and callback at /callback.
 func OAuthCallbackServer(projectURL, codeChallenge string) (redirectTo string, pickURL string, wait func(context.Context) (code string, oauthErr error), srv *http.Server, err error) {
 	ln, err := listenLocalhostCallback()
 	if err != nil {

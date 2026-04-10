@@ -27,7 +27,7 @@ func cmdLogin() *cobra.Command {
 
 Requires ` + config.EnvSupabaseURL + ` and ` + config.EnvSupabaseAnonKey + ` in the environment (or values embedded in your build). See the project README if you are packaging or developing the CLI.
 
-**OAuth:** without --provider, opens a local page to pick a provider. Use --provider or ` + config.EnvOAuthProvider + ` to skip the picker. Your server admin must enable each provider you use.
+**OAuth:** without --provider, opens a local page with **Google** only. Use --provider or ` + config.EnvOAuthProvider + ` to sign in with a specific provider id and skip the page (any provider your Supabase project has enabled).
 
 OAuth stores a refresh token; before commands run, the CLI refreshes the access JWT when it is expired or close to expiring (no extra login until the refresh token is invalid).
 
@@ -42,7 +42,7 @@ If a valid session is already saved, OAuth is skipped unless you pass **--force*
 		RunE: runLogin,
 	}
 	c.Flags().StringVar(&loginToken, "token", "", "skip OAuth and use this user access token (JWT)")
-	c.Flags().StringVar(&loginProvider, "provider", "", "skip the provider picker and sign in with this id (e.g. google); optional if you use "+config.EnvOAuthProvider+" or the web picker")
+	c.Flags().StringVar(&loginProvider, "provider", "", "skip the sign-in page and use this provider id (e.g. google); optional if you use "+config.EnvOAuthProvider+" or the web page")
 	c.Flags().BoolVar(&loginForce, "force", false, "sign in again even if the current session is already valid")
 	return c
 }
@@ -88,7 +88,7 @@ func runLoginOAuth(cmd *cobra.Command, url, key string) error {
 		if provider != "" {
 			fmt.Fprintf(cmd.OutOrStdout(), "[dev embed] OAuth sign-in (provider=%s).\n", provider)
 		} else {
-			fmt.Fprintf(cmd.OutOrStdout(), "[dev embed] OAuth — pick a provider in the browser.\n")
+			fmt.Fprintf(cmd.OutOrStdout(), "[dev embed] OAuth — sign in with Google in the browser.\n")
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "One-time project setup (Supabase / identity provider consoles):\n")
 		fmt.Fprintf(cmd.OutOrStdout(), "  • Supabase → Authentication → URL Configuration → Redirect URLs: allow local callbacks, e.g. http://127.0.0.1:*/**\n")
@@ -115,7 +115,7 @@ func runLoginOAuth(cmd *cobra.Command, url, key string) error {
 			if direct != "" {
 				fmt.Fprintf(cmd.OutOrStdout(), "[dev embed] Opening provider authorize URL…\n")
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "[dev embed] Opening provider picker: %s\n", pickURL)
+				fmt.Fprintf(cmd.OutOrStdout(), "[dev embed] Opening sign-in page: %s\n", pickURL)
 			}
 		},
 	)

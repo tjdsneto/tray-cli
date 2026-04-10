@@ -25,7 +25,7 @@ Teach the model how to help **end users** of the **`tray`** binary—not how to 
 
 ## Session
 
-- **`tray login`** — OAuth in browser; stored refresh token; CLI refreshes JWT when needed. **`tray login --force`** to re-prompt even if a session exists.
+- **`tray login`** — OAuth in browser (local page is **Google** only; use **`--provider`** for other IdPs); stored refresh token; CLI refreshes JWT when needed. **`tray login --force`** to re-prompt even if a session exists.
 - **`tray login --token '<jwt>'`** — manual access token only; **no refresh**; prefer OAuth for long-term use.
 - **`tray status`** — verify credentials; **`--format json`** for scripts (exit **0** if signed in, **1** if not).
 

@@ -6,17 +6,14 @@ import (
 	"html/template"
 )
 
-// PickerProviders are shown on the local / page; only enable the ones you use in Supabase.
+// PickerProviders are shown on the local / page (tray login without --provider).
+// Only Google is offered in the HTML UI; other providers remain available via
+// tray login --provider <id> when enabled in Supabase.
 var PickerProviders = []struct {
 	ID    string
 	Label string
 }{
-	{"google", "Google"},
-	{"github", "GitHub"},
-	{"gitlab", "GitLab"},
-	{"bitbucket", "Bitbucket"},
-	{"azure", "Microsoft"},
-	{"discord", "Discord"},
+	{"google", "Continue with Google"},
 }
 
 type pickerLink struct {
@@ -55,7 +52,7 @@ var pickerPageTmpl = template.Must(template.New("picker").Parse(`<!DOCTYPE html>
 </head>
 <body>
 <h1>Sign in to Tray</h1>
-<p>Choose a provider. Each must be enabled under Supabase → Authentication → Providers.</p>
+<p>Sign in with Google. Ensure Google is enabled under Supabase → Authentication → Providers.</p>
 {{range .Links}}
 <a href="{{.Href}}">{{.Label}}</a>
 {{end}}
