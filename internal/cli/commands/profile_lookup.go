@@ -36,3 +36,20 @@ func sourceUserIDsFromItems(items []domain.Item) []string {
 	}
 	return out
 }
+
+func userIDsFromMembers(members []domain.TrayMember) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	for _, m := range members {
+		id := strings.TrimSpace(m.UserID)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+}

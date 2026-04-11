@@ -32,11 +32,12 @@ func runMembers(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	by := profileDisplayMap(cmd.Context(), sess, svcs, userIDsFromMembers(members))
 	format, err := output.FormatFromCmd(cmd)
 	if err != nil {
 		return err
 	}
-	return output.WriteTrayMembers(cmd.OutOrStdout(), name, members, format)
+	return output.WriteTrayMembers(cmd.OutOrStdout(), name, members, sess.UserID, by, format)
 }
 
 func cmdRevoke() *cobra.Command {
