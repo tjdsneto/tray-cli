@@ -6,53 +6,65 @@
 
 **Chat and DMs** work in the moment—but “I’ll get to that” is easy to **forget**, and threads get **buried** under whatever came next. Tray gives each owner a **persistent queue**: items stay on **your tray** until **you** act on them; people you **invite** can still file requests without a separate project tool.
 
-Because it runs in your **terminal**, **AI coding assistants** can use it alongside you in the same place you already work, and you can **file or check a handoff** without **switching** to another app or chat window just to message someone. See **[`skills/`](skills/README.md)** for Claude/Cursor.
+Because it runs in your **terminal**, **AI coding assistants** can use it alongside you in the same place you already work, and you can **file or check a handoff** without **switching** to another app or chat window just to message someone. Optional **[agent skills](#agent-skills)** ([**`skills/README.md`**](skills/README.md)) teach assistants how to help with `tray`.
 
-**Get started:** [Install](#install) → **`tray login`** → **`tray create`** / **`tray invite`**. Optional: background **notifications** with **`tray listen`** — see **[`docs/user/hooks.md`](docs/user/hooks.md)**.
+**Get started:** [Install](#install) → [First use](#first-use) → [Triage](#triage-your-inbox) → optional **[`tray listen`](docs/user/hooks.md)** for notifications.
 
-**More documentation:** **[`docs/user/`](docs/user/README.md)** · **[`docs/maintainers/`](docs/maintainers/README.md)** · [`docs/README.md`](docs/README.md) · **[`skills/`](skills/README.md)**.
+**More documentation:** **[`docs/user/`](docs/user/README.md)** · [`docs/README.md`](docs/README.md) · **[`skills/`](skills/README.md)**.
 
 ## Install
-
-**From GitHub Releases:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/tjdsneto/tray-cli/main/scripts/install.sh | bash
 ```
 
-**Where it installs:** the script **does not run `sudo` unless you set `TRAY_INSTALL_USE_SUDO=1`**. It picks the first **writable** directory: reuse the path if `tray` is already on `PATH`, else **`/usr/local/bin`** or **`/opt/homebrew/bin`** (macOS) when your user can write there, else **`~/.local/bin`**. That last path is often not on `PATH` on macOS until you add it (the installer prints copy-paste steps). System-wide install without write access: `TRAY_INSTALL_USE_SUDO=1 TRAY_INSTALL_DIR=/usr/local/bin` (one password prompt). Override directory with `TRAY_INSTALL_DIR`.
+No **`git clone`** required.
 
-**Upgrades:** run **`tray upgrade`** (install-script method). To pin: **`tray upgrade --version v0.1.0`**. You can still run the same `curl … | bash` line directly with default **`TRAY_VERSION=latest`**.
-
-**With Go** (needs Go 1.25+):
+## First use
 
 ```bash
-go install github.com/tjdsneto/tray-cli/cmd/tray@latest
+tray login
+tray create my-tray
+tray invite my-tray
 ```
 
-Ensure `$(go env GOPATH)/bin` is on your `PATH`.
+Complete sign-in when your browser opens. **`tray status`** shows whether you’re signed in; **`tray login --force`** runs sign-in again (for example if you switch accounts).
 
-Versioning, release tarballs, and publishing are documented for maintainers in **[`docs/maintainers/distribution.md`](docs/maintainers/distribution.md)**.
+**Invite others:** **`tray invite`** prints a token or URL. Share it; teammates run **`tray join <token-or-url>`** (optional local alias: **`tray join … nickname`**). See **[`docs/user/trays.md`](docs/user/trays.md)** for owned vs joined trays.
 
-## Configuration
+**Add your own items:** use your tray like a personal inbox—file things for yourself or leave reminders:
 
-Config directory: override with **`TRAY_CONFIG_DIR`**; otherwise **Windows** uses `%APPDATA%\tray`, **macOS/Linux** use `$XDG_CONFIG_HOME/tray` if set, else `~/.config/tray` (see `internal/config/paths.go`).
+```bash
+tray add "Your task title" my-tray
+```
 
-**Supabase:** `TRAY_SUPABASE_URL` (e.g. `https://xxxx.supabase.co`), `TRAY_SUPABASE_ANON_KEY`. At runtime, **environment variables override** values embedded at build time. See [`.env.example`](.env.example).
+**See what’s on your tray:** **`tray list`** shows items on trays **you own** (all of them, or focus with **`tray list my-tray`**). You’ll see lines **you** added and anything **others** filed if they joined—one place to review the whole queue.
 
-## Login & session
+## Upgrades
 
-Run **`tray login`** to open a **local web page** to sign in with **Google** (enable it in Supabase). Use **`tray login --provider <id>`** or **`TRAY_OAUTH_PROVIDER`** in `.env` to skip the page and use a specific provider your project has enabled. If you already have a **valid saved session**, the CLI skips the browser until **`tray login --force`**. After **OAuth**, the CLI **refreshes the access JWT** using the stored refresh token when it is expired or near expiry. **`tray login --token`** stores only an access token—use OAuth for automatic refresh.
+**`tray upgrade`**, or run the [install](#install) `curl` line again for the latest release. Pin a version: **`tray upgrade --version v0.1.x`** or **`TRAY_VERSION=v0.1.x`** before the `curl` command.
 
-**Status:** **`tray status`** checks credentials and validates the session with Supabase (`--format json` for scripts; exit code **0** if signed in, **1** if not).
+## Agent skills
 
-During OAuth, the CLI starts a **short-lived local HTTP server** on `127.0.0.1` with a **random free port** (`:0`) so the browser can return the auth code—that is normal; it is not listening on the network.
+Optional **`curl`** install of the skill file (no clone). Details and updates: **[`skills/README.md`](skills/README.md)**.
 
-**Google / GitHub OAuth apps** (outside Supabase): **Authorized redirect URI** = **`https://<project-ref>.supabase.co/auth/v1/callback`**. Tokens are written to **`credentials.json`** under the config directory.
+**Cursor** (`~/.cursor/skills/tray-cli/SKILL.md`):
 
-**Login (manual token):** `tray login --token '<access_jwt>'` — validates via `GET /auth/v1/user` and writes credentials (no browser).
+```bash
+mkdir -p ~/.cursor/skills/tray-cli
+curl -fsSL "https://raw.githubusercontent.com/tjdsneto/tray-cli/main/skills/tray-cli/SKILL.md" \
+  -o ~/.cursor/skills/tray-cli/SKILL.md
+```
 
-**Troubleshooting OAuth:** If you see `Unsupported provider: provider is not enabled`, open **Supabase Dashboard → Authentication → Providers**, turn the provider on, and paste **Client ID** / **Client secret**. The CLI cannot enable providers from the client.
+**Claude Code** (`~/.claude/skills/tray-cli/SKILL.md`):
+
+```bash
+mkdir -p ~/.claude/skills/tray-cli
+curl -fsSL "https://raw.githubusercontent.com/tjdsneto/tray-cli/main/skills/tray-cli/SKILL.md" \
+  -o ~/.claude/skills/tray-cli/SKILL.md
+```
+
+Use a **release tag** instead of **`main`** in the URL to match a specific [release](https://github.com/tjdsneto/tray-cli/releases). Re-run the same **`curl`** to refresh.
 
 ## Trays
 
@@ -64,9 +76,9 @@ During OAuth, the CLI starts a **short-lived local HTTP server** on `127.0.0.1` 
 
 **`tray add "title" <tray>`** adds a pending item (tray = name, id, or **`remote`** alias). **`list`** shows items on **your** trays; **`list <tray>`** requires an **owned** tray. **`contributed`** lists items you filed on others’ trays; **`remove <item-id>`** (owner deletes any item; contributor can delete own **pending** items).
 
-## Triage (tray owner)
+## Triage your inbox
 
-**`accept`**, **`decline`** (**`--reason`**), **`snooze`** (**`--until` RFC3339**), **`complete`** (**`--message`**), **`archive`**. Use item ids from **`tray list --format json`**.
+If you **own** a tray, items from teammates (and you) show up for you to handle. Scan what’s pending with **`tray review`** or the full-screen **`tray triage`** UI, then move work forward: **`accept`**, **`decline`**, **`snooze`**, **`complete`**, or **`archive`**. Item ids for scripts come from **`tray list --format json`**. Flags and examples: **`tray <command> --help`** and **[`docs/user/`](docs/user/README.md)**.
 
 ## Listen hooks
 
@@ -86,20 +98,22 @@ During OAuth, the CLI starts a **short-lived local HTTP server** on `127.0.0.1` 
 | **`--format json`**, **`--format machine`**, or **`--json`** | Stable JSON for scripts |
 | **`--format markdown`** / **`md`** | Markdown tables |
 
-**Deprecated but still works:** `-o` / `--output` (same values as `--format`). Prefer **`--format`**.
-
 `--json` is shorthand for `--format json` and must not be combined with another explicit format.
 
 For **trays**, the default **human** output shows **name**, **item count**, and **created** (local timezone; set **`TZ`** if needed). Tray **IDs** and **`item_count`** appear in **`--format json`**.
 
-For **items** (`list`, `review`, …), human output includes **who added** the item (`you` vs a short id), **created** as a **relative time** when recent, and **status** colors on a TTY. Set **`NO_COLOR=1`** to disable ANSI colors. **`tray triage`** is an interactive pending queue (TTY); **`tray review`** is non-interactive.
+For **items** (`list`, `review`, …), human output includes **who added** the item (`you` vs a short id), **created** as a **relative time** when recent, and **status** colors on a TTY. **`tray triage`** is an interactive pending queue (TTY); **`tray review`** is non-interactive.
 
-## Debugging
+## Install troubleshooting
 
-**`TRAY_DEBUG=1`** prints full PostgREST response bodies when something fails. By default, errors are shortened for readability.
+**`tray: command not found`** — the installer usually prints a line to add its directory to your **`PATH`** (common when it used **`~/.local/bin`**). Run that, or open a new terminal.
+
+**Permissions / `sudo`** — the script does not use **`sudo`** unless you set **`TRAY_INSTALL_USE_SUDO=1`**. It picks a writable directory; override with **`TRAY_INSTALL_DIR`**.
+
+**Install with Go** (optional): **`go install github.com/tjdsneto/tray-cli/cmd/tray@latest`** (Go **1.25+**; add **`$(go env GOPATH)/bin`** to **`PATH`**).
 
 ---
 
 ## Maintainers and contributors
 
-Everything for **developing this repo**—tests, local builds, releases, migrations, architecture—is in **[`docs/maintainers/README.md`](docs/maintainers/README.md)**. Start there if you are cloning the source, running **`./run.sh`**, or cutting a release.
+Everything for **developing this repo**—tests, local builds, releases, migrations, OAuth internals, **`TRAY_DEBUG`**, install script details, and architecture—is in **[`docs/maintainers/README.md`](docs/maintainers/README.md)**. Start there if you are cloning the source, running **`./run.sh`**, or cutting a release.

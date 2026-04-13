@@ -8,6 +8,9 @@ This is the home for **working on the repository**: tests, local builds, release
 |-----|------|
 | **[Distribution](distribution.md)** | Local builds, release tarballs, `publish-release.sh`, versioning, install script behavior |
 | **[Unit testing](testing.md)** | `make test`, coverage, what to prioritize in tests |
+| **Configuration and runtime** (below) | `TRAY_CONFIG_DIR`, Supabase env overrides — for development and custom builds, not normal installs |
+| **Login and OAuth** (below) | Browser flow, Supabase, JWT refresh, providers, redirect URIs — not required reading for normal CLI users |
+| **Debugging** (below) | **`TRAY_DEBUG`** — verbose API errors when developing or diagnosing failures |
 
 ## Development setup
 
@@ -30,6 +33,34 @@ Or set `TRAY_SUPABASE_URL` and `TRAY_SUPABASE_ANON_KEY` in the environment and u
 **Maintainer-only compile flag:** To embed extra OAuth redirect/callback diagnostics in the binary, set **`TRAY_EMBED_DEV_OAUTH_HINTS=1`** in `.env` when using `./run.sh` / `./build.sh`. Release artifacts for end users should **not** set this.
 
 **Local notes:** keep a **`scratch/`** directory (gitignored) for brainstorming—see [`.cursor/rules/scratch-local-brainstorm.mdc`](../../.cursor/rules/scratch-local-brainstorm.mdc).
+
+## Configuration and runtime (not needed for normal installs)
+
+End users of a **release binary** from the install script do **not** need to set backend variables; defaults are embedded at build time.
+
+**Config directory:** override with **`TRAY_CONFIG_DIR`**; otherwise **Windows** uses **`%APPDATA%\tray`**, **macOS/Linux** use **`$XDG_CONFIG_HOME/tray`** if set, else **`~/.config/tray`** (see `internal/config/paths.go`).
+
+**Supabase overrides:** **`TRAY_SUPABASE_URL`**, **`TRAY_SUPABASE_ANON_KEY`** — environment variables override values embedded at link time (development, self-hosted backend, or custom builds). See **[`.env.example`](../../.env.example)**.
+
+## Login and OAuth (technical)
+
+This is background for **developing** the client or **self-hosting** auth—not needed for people who only install a release binary and run **`tray login`**.
+
+**Flow:** **`tray login`** opens a **local web page** (default sign-in is often **Google**; enable the provider in **Supabase**). **`tray login --provider <id>`** or **`TRAY_OAUTH_PROVIDER`** in `.env` skips the picker and uses a specific provider your project has enabled. If a **saved session** is still valid, the CLI skips the browser until **`tray login --force`**. After OAuth, the CLI **refreshes the access JWT** using the stored refresh token when it is expired or near expiry. **`tray login --token '<jwt>'`** stores only an access token (no refresh)—prefer OAuth for long-term use.
+
+**Status:** **`tray status`** validates the session with Supabase (**`--format json`** for scripts; exit **0** if signed in, **1** if not).
+
+**Local callback:** during OAuth the CLI starts a **short-lived HTTP server** on **`127.0.0.1`** on a **random port** so the browser can return the auth code; it is not meant to be reachable on the network.
+
+**Redirect URI (Google / GitHub OAuth apps outside Supabase):** **`https://<project-ref>.supabase.co/auth/v1/callback`**. Session tokens are written to **`credentials.json`** under the [config directory](#configuration-and-runtime-not-needed-for-normal-installs).
+
+**Manual token:** **`tray login --token`** validates via **`GET /auth/v1/user`** and writes credentials (no browser).
+
+**Troubleshooting:** **`Unsupported provider: provider is not enabled`** — in **Supabase Dashboard → Authentication → Providers**, enable the provider and set **Client ID** / **Client secret**. The CLI cannot enable providers from the client.
+
+## Debugging (CLI)
+
+**`TRAY_DEBUG=1`** prints full PostgREST response bodies when something fails. By default, errors are shortened for readability.
 
 ## Database and migrations
 
