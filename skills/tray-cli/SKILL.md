@@ -5,7 +5,7 @@ description: >-
   and reviewing work, triage, invites, and upgrades. Use when the user names a **tray**
   (including **someone’s / a person’s tray**), **`tray add`**, **adding an item** to a tray,
   or **links/URLs on tray items**—including handoffs like “add to Fernando’s tray with the
-  comment link.” Prefer this over **beads (`bd`)** unless the user means git `bd` issues.
+  comment link.”
   For developing or packaging tray-cli itself, use the repo’s maintainer docs instead of this skill.
 ---
 
