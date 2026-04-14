@@ -42,6 +42,35 @@ const (
 	ansiCyan   = "\x1b[36m"
 )
 
+// StatusSectionTitleANSI colors a tray list section heading (e.g. "Accepted", "Pending") to match status styling.
+func StatusSectionTitleANSI(statusLower, title string, color bool) string {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		title = "—"
+	}
+	if !color {
+		return title
+	}
+	var prefix string
+	switch strings.ToLower(strings.TrimSpace(statusLower)) {
+	case "pending":
+		prefix = ansiYellow
+	case "accepted":
+		prefix = ansiGreen
+	case "declined":
+		prefix = ansiRed
+	case "snoozed":
+		prefix = ansiCyan
+	case "completed":
+		prefix = ansiGreen + ansiBold
+	case "archived":
+		prefix = ansiDim
+	default:
+		prefix = ansiBold
+	}
+	return prefix + title + ansiReset
+}
+
 // FormatStatusANSI returns a left-padded visual width string with optional ANSI color for known statuses.
 func FormatStatusANSI(status string, color bool, width int) string {
 	s := strings.TrimSpace(status)

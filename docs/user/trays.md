@@ -15,7 +15,7 @@ Server-side tray **names** (e.g. `work`) are chosen by the **owner**. Everyone w
 
 | Command | What it shows |
 |--------|----------------|
-| **`tray list`** (no args) | Items on trays **you own** only. Human output is **grouped by status** (Accepted → Pending → … → Completed); **`ORD`** is manual order within each tray (`tray item up` / `down`). |
+| **`tray list`** (no args) | Items on trays **you own** only. Human output is **grouped by status** (Accepted → Pending → … → Completed); section titles use **status colors** when the terminal supports it. **`ORD`** is manual order within each tray (`tray item up` / `down`). The **Completed** block uses a **Completed on** column (relative to completion time) instead of added-on. |
 | **`tray list <tray>`** | Items on that tray only if **you own** it. |
 | **`tray review`**, **`tray triage`** | Pending items on **your** trays only (owner triage). Same tray rules as **`tray list`**. |
 | **`tray listen`** | Pending snapshot/poll targets **owned** trays only (aligned with **`tray review`**). Outbox hooks are separate. |

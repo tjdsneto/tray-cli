@@ -11,6 +11,32 @@ import (
 	"github.com/tjdsneto/tray-cli/internal/domain"
 )
 
+func timeColumnHeader(sectionStatus string) string {
+	switch strings.ToLower(strings.TrimSpace(sectionStatus)) {
+	case "completed":
+		return "COMPLETED ON"
+	default:
+		return "ADDED ON"
+	}
+}
+
+func timeColumnHeaderMarkdown(sectionStatus string) string {
+	switch strings.ToLower(strings.TrimSpace(sectionStatus)) {
+	case "completed":
+		return "Completed on"
+	default:
+		return "Added on"
+	}
+}
+
+// itemTimeDisplayForSection picks the timestamp shown in the last column: completion time for completed rows when set.
+func itemTimeDisplayForSection(it domain.Item, sectionStatus string, now time.Time) string {
+	if strings.EqualFold(strings.TrimSpace(sectionStatus), "completed") && it.CompletedAt != nil {
+		return HumanizeTimeAgo(*it.CompletedAt, now)
+	}
+	return HumanizeTimeAgo(it.CreatedAt, now)
+}
+
 const (
 	colOrd   = 4  // manual order (sort_order) within each tray
 	colTitle = 52 // wider: STATUS column removed from grouped list
@@ -98,7 +124,7 @@ func writeItemsMarkdownGrouped(w io.Writer, items []domain.Item, trayNames map[s
 		if _, err := fmt.Fprintf(w, "### %s\n\n", sectionTitleForStatus(st)); err != nil {
 			return err
 		}
-		_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", "ORD", "Title", "Tray", "By", "Added on")
+		_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", "ORD", "Title", "Tray", "By", timeColumnHeaderMarkdown(st))
 		if err != nil {
 			return err
 		}
@@ -114,13 +140,13 @@ func writeItemsMarkdownGrouped(w io.Writer, items []domain.Item, trayNames map[s
 			tn = strings.ReplaceAll(tn, "|", "\\|")
 			ttl := strings.ReplaceAll(it.Title, "|", "\\|")
 			by := strings.ReplaceAll(FormatSourceUser(it.SourceUserID, currentUserID, displayByID), "|", "\\|")
-			added := truncateRunesPlain(HumanizeTimeAgo(it.CreatedAt, now), 24)
+			when := truncateRunesPlain(itemTimeDisplayForSection(it, st, now), 24)
 			if _, err := fmt.Fprintf(w, "| %d | %s | %s | %s | %s |\n",
 				it.SortOrder,
 				ttl,
 				tn,
 				by,
-				strings.ReplaceAll(added, "|", "\\|")); err != nil {
+				strings.ReplaceAll(when, "|", "\\|")); err != nil {
 				return err
 			}
 		}
@@ -148,21 +174,16 @@ func writeItemsTableGrouped(w io.Writer, items []domain.Item, trayNames map[stri
 		}
 		first = false
 		title := sectionTitleForStatus(st)
-		if color {
-			if _, err := fmt.Fprintf(w, "\x1b[1m%s\x1b[0m\n", title); err != nil {
-				return err
-			}
-		} else {
-			if _, err := fmt.Fprintf(w, "%s\n", title); err != nil {
-				return err
-			}
+		if _, err := fmt.Fprintf(w, "%s\n", StatusSectionTitleANSI(st, title, color)); err != nil {
+			return err
 		}
+		hdr := timeColumnHeader(st)
 		_, err := fmt.Fprintf(w, "%s%s%s%s%s%s%s%s%s\n",
 			padPlain("ORD", colOrd), sep,
 			padPlain("TITLE", colTitle), sep,
 			padPlain("TRAY", colTray), sep,
 			padPlain("BY", colBy), sep,
-			padPlain("ADDED ON", colAdded))
+			padPlain(hdr, colAdded))
 		if err != nil {
 			return err
 		}
@@ -174,7 +195,7 @@ func writeItemsTableGrouped(w io.Writer, items []domain.Item, trayNames map[stri
 			titleCell := padPlain(truncateRunesPlain(it.Title, colTitle), colTitle)
 			trayCell := padPlain(truncateRunesPlain(tn, colTray), colTray)
 			byCell := padPlain(truncateRunesPlain(FormatSourceUser(it.SourceUserID, currentUserID, displayByID), colBy), colBy)
-			when := padPlain(truncateRunesPlain(HumanizeTimeAgo(it.CreatedAt, now), colAdded), colAdded)
+			when := padPlain(truncateRunesPlain(itemTimeDisplayForSection(it, st, now), colAdded), colAdded)
 			ordCell := padPlain(fmt.Sprintf("%d", it.SortOrder), colOrd)
 			_, err := fmt.Fprintf(w, "%s%s%s%s%s%s%s%s%s\n",
 				ordCell, sep,
