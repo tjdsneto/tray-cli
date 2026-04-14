@@ -56,7 +56,7 @@ Semantics that trip people up:
 - **`tray review`**, **`tray triage`**, **`tray listen`** (pending poll) — **owned trays only** for the inbox queue (not joined trays); **`tray contributed`** is the outbox of lines **you** filed elsewhere.
 - **`tray contributed`** — items **you** filed on **others’** trays (outbox). Joining someone’s tray lets you **add** lines there; it does **not** give you their full inbox — only the **owner** sees everything on that tray (server RLS).
 - **`tray add "title" <tray>`** — target tray by **name**, **id**, or **remote alias**; new items are **accepted** on trays **you own**, **pending** when you **contribute** to someone else’s tray.
-- **`tray item up|down <item-id>`** — **owner-only**: swap manual list order (`sort_order`) with the neighbor above or below; lists and triage use this order by default (see `#` / `sort_order` in `tray list --format json`).
+- **`tray item up|down <item-id>`** — **owner-only**: swap manual list order (`sort_order`) with the neighbor above or below; human **`tray list`** shows **`ORD`** per tray; JSON has **`sort_order`**.
 
 ## Output formats
 
