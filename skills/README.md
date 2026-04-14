@@ -2,6 +2,8 @@
 
 These files teach **Claude**, **Cursor**, and similar tools how to help **users** run the `tray` binary (auth, commands, hooks). They are **not** a substitute for [`docs/user/`](../docs/user/README.md)—they compress that material for LLM context.
 
+**Install overview:** **Claude Code** — [plugin marketplace](#claude-code-plugin-marketplace) (installs the **`tray-cli`** plugin and bundled **`SKILL.md`**) or [curl the skill file](#claude-code-personal-skill-curl). **Cursor** — [curl only](#cursor-personal-skill). Copy-paste commands also live in the root **[`README.md`](../README.md#agent-skills)** (**Agent skills**).
+
 ## Contents
 
 | Path | Role |

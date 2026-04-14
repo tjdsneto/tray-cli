@@ -46,9 +46,9 @@ tray add "Your task title" my-tray
 
 ## Agent skills
 
-Optional **`curl`** install of the skill file (no clone). Details and updates: **[`skills/README.md`](skills/README.md)**.
+Skills teach assistants how to help with **`tray`**. **Claude Code** can install the **`tray-cli`** plugin from this repo’s marketplace (bundles **`skills/tray-cli/SKILL.md`**) or you can **`curl`** the skill file alone. **Cursor** has no plugin marketplace for skills—use **`curl`**. More detail and edge cases: **[`skills/README.md`](skills/README.md)**.
 
-**Cursor** (`~/.cursor/skills/tray-cli/SKILL.md`):
+**Cursor** — personal skill (`~/.cursor/skills/tray-cli/SKILL.md`):
 
 ```bash
 mkdir -p ~/.cursor/skills/tray-cli
@@ -58,20 +58,22 @@ curl -fsSL "https://raw.githubusercontent.com/tjdsneto/tray-cli/main/skills/tray
 
 **Claude Code** — pick one:
 
-**Plugin marketplace** (from this repo; Claude Code can fetch updates when you refresh the marketplace):
+**Plugin marketplace** (recommended; refresh after updates on GitHub):
 
 ```bash
 claude plugin marketplace add tjdsneto/tray-cli
 claude plugin install tray-cli@tjdsneto
+claude plugin marketplace update   # re-run when you want the latest from main
 ```
 
-After **`tray-cli`** changes land on GitHub, get the latest skill and manifest with:
+**Working inside a clone of this repo?** From the repository root:
 
 ```bash
-claude plugin marketplace update
+claude plugin marketplace add .
+claude plugin install tray-cli@tjdsneto
 ```
 
-**Manual `curl`** (`~/.claude/skills/tray-cli/SKILL.md`):
+**Manual `curl`** (only the skill file, `~/.claude/skills/tray-cli/SKILL.md`):
 
 ```bash
 mkdir -p ~/.claude/skills/tray-cli
@@ -79,7 +81,7 @@ curl -fsSL "https://raw.githubusercontent.com/tjdsneto/tray-cli/main/skills/tray
   -o ~/.claude/skills/tray-cli/SKILL.md
 ```
 
-Use a **release tag** instead of **`main`** in the **`curl`** URL to match a specific [release](https://github.com/tjdsneto/tray-cli/releases). Re-run the same **`curl`** to refresh.
+For **`curl`**, use a **release tag** instead of **`main`** in the URL to match a specific [release](https://github.com/tjdsneto/tray-cli/releases). Re-run the same **`curl`** to refresh.
 
 ## Trays
 
