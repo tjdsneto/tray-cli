@@ -1,23 +1,24 @@
 ---
 name: tray-cli
 description: >-
-  Operates the tray CLI (shared inbox / attention queue): Supabase auth, trays,
-  items, triage, remotes, and tray listen hooks. Use when the user is using or
-  asking about the tray binary, tray login, hooks.json, TRAY_* env vars, or
-  automation around this CLI.
+  Helps people use the **tray** terminal app: sign-in, shared trays, queueing
+  and reviewing work, triage, invites, and upgrades. Use for everyday tray
+  usage; for developing or packaging tray-cli itself, use the repo’s maintainer
+  docs instead of this skill.
 ---
 
 # Tray CLI (agent skill)
 
-Teach the model how to help **end users** of the **`tray`** binary—not how to hack this repository (that lives in maintainer docs and `CLAUDE.md` / `.cursor/rules`).
+Teach the model how to help **end users** run **tray**—not how to develop or ship this repository (that belongs in maintainer docs in the repo).
 
 ## Tone: help like a product, not a debugger
 
 Most people want a **short, friendly** answer—not a spec sheet.
 
-- **Casual asks** (“check my tray”, “what’s on my tray”, “show my inbox”): Use **plain language** first. If they’re **not signed in**, say that in one sentence and give **one** next step: run **`tray login`** (browser sign-in, usually Google). Do **not** open with **exit codes**, **`tray status` exit 1**, **`--force`**, **`--token` / JWT**, or **`TRAY_DEBUG`** unless they are **debugging a failure** or **explicitly ask** for advanced options.
-- **After they’re signed in**, keep it minimal: e.g. **`tray list`** for items on trays they own, **`tray ls`** for tray names—**briefly say what each shows** instead of dumping every related subcommand at once.
-- **Reserve** technical detail (exit codes, token-only login caveats, verbose debug env) for **troubleshooting** or **power users**—see **Session** below when relevant.
+- **Start with what they want** (“see my inbox”, “hand something off”, “clean up my queue”). Use everyday words; introduce command names as the **how**, not the opening jargon.
+- **Sign-in**: If they’re not signed in or nothing works, one sentence and **one** step: run **`tray login`** (browser sign-in). Don’t lead with flags, env vars, or raw error formats.
+- **Stay small**: prefer **one or two** commands that answer the question (e.g. **`tray list`**, **`tray ls`**, **`tray triage`**) and say what they’ll see—don’t dump the whole CLI.
+- **Deeper technical detail** (debug env vars, machine-readable output, token login, custom backends): only when something **failed**, they’re **scripting**, they **self-host**, or they **explicitly ask**—see **Troubleshooting & advanced** below.
 
 ## Canonical human docs
 
@@ -26,16 +27,10 @@ Most people want a **short, friendly** answer—not a spec sheet.
 - [Owned vs joined trays, list semantics](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/trays.md)
 - [Install & daily commands (root README)](https://github.com/tjdsneto/tray-cli/blob/main/README.md)
 
-## Config and backend
+## Sign-in and status (typical use)
 
-- **Config directory:** `TRAY_CONFIG_DIR`, else Windows `%APPDATA%\tray`, else `$XDG_CONFIG_HOME/tray` or `~/.config/tray`.
-- **Supabase:** `TRAY_SUPABASE_URL`, `TRAY_SUPABASE_ANON_KEY` (env overrides build-time embeds). See `.env.example` in the repo when helping someone clone or self-host the client.
-
-## Session
-
-- **`tray login`** — OAuth in browser (local page is **Google** only; use **`--provider`** for other IdPs); stored refresh token; CLI refreshes JWT when needed. **`tray login --force`** to re-prompt even if a session exists.
-- **`tray login --token '<jwt>'`** — manual access token only; **no refresh**; prefer OAuth for long-term use.
-- **`tray status`** — verify credentials; **`--format json`** for scripts (exit **0** if signed in, **1** if not). **Do not quote exit codes** to casual users—just say “not signed in” and point to **`tray login`**.
+- **`tray login`** — Sign in in the browser (often Google on the first screen). **`tray login --force`** if they need to sign in again or switch accounts.
+- **`tray status`** — Check whether the CLI is signed in. Answer in plain language (“you’re signed in” / “you need to sign in”); don’t lead with exit codes or JSON unless they’re scripting or debugging.
 
 ## Command map (high level)
 
@@ -47,30 +42,35 @@ Most people want a **short, friendly** answer—not a spec sheet.
 | Items | `add`, `list`, `remove`, `contributed`, `item up`, `item down` |
 | Members | `members`, `revoke`, `leave` |
 | Triage (owner) | `review`, `triage`, `accept`, `decline`, `snooze`, `complete`, `archive` |
-| Automation | `listen` (with `hooks.json`) |
+| Automation | `listen` (optional hooks / notifications) |
 
 Semantics that trip people up:
 
 - **`tray ls`** — trays **you own**. **`tray remote ls`** — trays you **joined** + local aliases.
 - **`tray list`** — items on **your** trays; **`tray list <tray>`** only for trays **you own** (names resolve among **owned** trays only, so a joined tray with the same name does not collide).
-- **`tray review`**, **`tray triage`**, **`tray listen`** (pending poll) — **owned trays only** for the inbox queue (not joined trays); **`tray contributed`** is the outbox of lines **you** filed elsewhere.
-- **`tray contributed`** — items **you** filed on **others’** trays (outbox). Joining someone’s tray lets you **add** lines there; it does **not** give you their full inbox — only the **owner** sees everything on that tray (server RLS).
+- **`tray review`**, **`tray triage`**, **`tray listen`** — **owned trays only** for your inbox workflow (joined trays don’t work like your own tray here); **`tray contributed`** is the outbox of lines **you** filed elsewhere.
+- **`tray contributed`** — items **you** filed on **others’** trays (outbox). Joining someone’s tray lets you **add** lines there; it does **not** give you their full inbox — only the **owner** sees the full queue on that tray.
 - **`tray add "title" <tray>`** — target tray by **name**, **id**, or **remote alias**; new items are **accepted** on trays **you own**, **pending** when you **contribute** to someone else’s tray.
-- **`tray item up|down <item-id>`** — **owner-only**: swap manual list order (`sort_order`) with the neighbor above or below; human **`tray list`** shows **`ORD`** per tray; JSON has **`sort_order`**.
+- **`tray item up|down <item-id>`** — **owner-only**: move an item up or down in the list order on that tray.
 
-## Output formats
+## Listen and hooks (typical use)
 
-Stable scripting: **`--format json`**, **`--format machine`**, or **`--json`**. Human default: tables and hints. **`NO_COLOR=1`** disables ANSI where applicable.
+- **`tray listen`** watches for tray activity and can run **hooks** (small scripts) you configure—useful for notifications or glueing tray into other tools.
+- **Details** (config file location, event names, environment variables hooks receive): [hooks.md](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/hooks.md). Don’t dump hook internals unless the user is setting this up or troubleshooting listen.
 
-## Listen and hooks
+## Troubleshooting & advanced
 
-- **`tray listen`** polls/subscribes and runs **`hooks.json`** (default `$TRAY_CONFIG_DIR/hooks.json`; override with `--hooks`, or **`--no-hooks`**).
-- Events such as **`item.pending`**, **`item.accepted`**, **`item.declined`**, **`item.completed`**; hook processes receive **`TRAY_*`** environment variables—**full list and recipes** belong in [hooks.md](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/hooks.md).
-- **`TRAY_DEBUG=1`** — verbose errors (e.g. PostgREST bodies) when something fails; use when diagnosing API issues.
+Use this block when something **failed**, the user is **scripting**, **self-hosting**, or they **ask** for low-level detail—not for first-time “how do I use tray?” questions.
+
+- **Verbose errors:** `TRAY_DEBUG=1` with the same command can surface more detail when diagnosing a failure (see maintainer docs if they’re hacking on the client).
+- **Scripting / stable output:** `--format json`, `--format machine`, or `--json`; **`NO_COLOR=1`** disables ANSI where applicable.
+- **Token-only sign-in:** `tray login --token '<jwt>'` — manual token, **no refresh**; prefer normal **`tray login`** for day-to-day use.
+- **Config directory:** `TRAY_CONFIG_DIR`, else Windows `%APPDATA%\tray`, else `$XDG_CONFIG_HOME/tray` or `~/.config/tray`.
+- **Custom / self-hosted backend:** `TRAY_SUPABASE_URL`, `TRAY_SUPABASE_ANON_KEY` (override built-in defaults). Repo **`.env.example`** and maintainer docs apply—don’t improvise dashboard steps beyond what the README already says for providers and redirect URIs.
 
 ## When unsure
 
-Prefer **`tray <cmd> --help`** and the linked docs over guessing flags. Do not invent Supabase dashboard steps beyond “enable provider / set redirect URI” already described in the README.
+Prefer **`tray <cmd> --help`** and the linked docs over guessing flags.
 
 ## Updating this skill file
 

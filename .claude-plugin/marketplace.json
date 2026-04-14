@@ -1,0 +1,17 @@
+{
+  "name": "tjdsneto",
+  "owner": {
+    "name": "Tiago Neto",
+    "url": "https://github.com/tjdsneto"
+  },
+  "metadata": {
+    "description": "tray-cli plugin for Claude Code (tray shared inbox skill)"
+  },
+  "plugins": [
+    {
+      "name": "tray-cli",
+      "source": "./skills/tray-cli",
+      "description": "Helps people use tray from the terminal: sign-in, shared trays, queueing and reviewing items, triage, invites, and upgrades. For end-user CLI usage, not for developing the tray-cli repository."
+    }
+  ]
+}

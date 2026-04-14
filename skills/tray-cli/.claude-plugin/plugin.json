@@ -1,0 +1,9 @@
+{
+  "name": "tray-cli",
+  "description": "Helps people use tray from the terminal: sign-in, shared trays, queueing and reviewing items, triage, invites, and upgrades. For end-user CLI usage, not for developing the tray-cli repository.",
+  "version": "0.1.8",
+  "author": {
+    "name": "Tiago Neto",
+    "url": "https://github.com/tjdsneto"
+  }
+}
