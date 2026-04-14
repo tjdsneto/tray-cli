@@ -14,7 +14,7 @@ func cmdAdd() *cobra.Command {
 	return &cobra.Command{
 		Use:   `add "title" <tray>`,
 		Short: "Add an item to a tray",
-		Long:  `Creates a pending item. Tray can be a name from tray ls, a joined tray (see tray remote ls), a remote alias, or a tray id.`,
+		Long:  `Adds an item: accepted immediately on trays you own; pending when you contribute to someone else's tray (they triage). Tray can be a name from tray ls, a joined tray (see tray remote ls), a remote alias, or a tray id.`,
 		Args:  cobra.ExactArgs(2),
 		RunE:  runAdd,
 	}

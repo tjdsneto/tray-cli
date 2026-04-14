@@ -166,7 +166,7 @@ type addItemRequest struct {
 	DueDate      *string `json:"due_date,omitempty"`
 }
 
-func newAddItemRequest(userID, trayID, title string, dueDate *string) (addItemRequest, error) {
+func newAddItemRequest(userID, trayID, title string, dueDate *string, trayOwnerID string) (addItemRequest, error) {
 	if strings.TrimSpace(userID) == "" {
 		return addItemRequest{}, fmt.Errorf("postgrest: session missing UserID (set after login)")
 	}
@@ -178,11 +178,19 @@ func newAddItemRequest(userID, trayID, title string, dueDate *string) (addItemRe
 	if tit == "" {
 		return addItemRequest{}, fmt.Errorf("postgrest: empty item title")
 	}
+	owner := strings.TrimSpace(trayOwnerID)
+	if owner == "" {
+		return addItemRequest{}, fmt.Errorf("postgrest: empty tray owner id")
+	}
+	st := "pending"
+	if strings.EqualFold(strings.TrimSpace(userID), owner) {
+		st = "accepted"
+	}
 	req := addItemRequest{
 		TrayID:       tid,
 		SourceUserID: strings.TrimSpace(userID),
 		Title:        tit,
-		Status:       "pending",
+		Status:       st,
 	}
 	if dueDate != nil && strings.TrimSpace(*dueDate) != "" {
 		d := strings.TrimSpace(*dueDate)

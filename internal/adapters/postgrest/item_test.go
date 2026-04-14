@@ -84,10 +84,10 @@ func TestOutboxDomainItems_filtersOwnerAndNilTray(t *testing.T) {
 	require.Equal(t, "3", out[0].ID)
 }
 
-func TestNewAddItemRequest_ok(t *testing.T) {
+func TestNewAddItemRequest_ok_pendingWhenNotOwner(t *testing.T) {
 	t.Parallel()
 	due := "2026-03-21"
-	req, err := newAddItemRequest("u1", "t1", "hi", &due)
+	req, err := newAddItemRequest("u1", "t1", "hi", &due, "owner-2")
 	require.NoError(t, err)
 	require.Equal(t, "t1", req.TrayID)
 	require.Equal(t, "u1", req.SourceUserID)
@@ -97,13 +97,22 @@ func TestNewAddItemRequest_ok(t *testing.T) {
 	require.Equal(t, due, *req.DueDate)
 }
 
+func TestNewAddItemRequest_acceptedWhenOwnerAdds(t *testing.T) {
+	t.Parallel()
+	req, err := newAddItemRequest("u1", "t1", "hi", nil, "u1")
+	require.NoError(t, err)
+	require.Equal(t, "accepted", req.Status)
+}
+
 func TestNewAddItemRequest_validation(t *testing.T) {
 	t.Parallel()
-	_, err := newAddItemRequest("", "t", "x", nil)
+	_, err := newAddItemRequest("", "t", "x", nil, "o")
 	require.Error(t, err)
-	_, err = newAddItemRequest("u", "", "x", nil)
+	_, err = newAddItemRequest("u", "", "x", nil, "o")
 	require.Error(t, err)
-	_, err = newAddItemRequest("u", "t", "", nil)
+	_, err = newAddItemRequest("u", "t", "", nil, "o")
+	require.Error(t, err)
+	_, err = newAddItemRequest("u", "t", "x", nil, "")
 	require.Error(t, err)
 }
 

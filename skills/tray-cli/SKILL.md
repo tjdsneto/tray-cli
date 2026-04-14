@@ -54,7 +54,7 @@ Semantics that trip people up:
 - **`tray ls`** — trays **you own**. **`tray remote ls`** — trays you **joined** + local aliases.
 - **`tray list`** — items on **your** trays; **`tray list <tray>`** only for trays **you own**.
 - **`tray contributed`** — items **you** filed on **others’** trays (outbox).
-- **`tray add "title" <tray>`** — target tray by **name**, **id**, or **remote alias** (for trays you don’t own).
+- **`tray add "title" <tray>`** — target tray by **name**, **id**, or **remote alias**; new items are **accepted** on trays **you own**, **pending** when you **contribute** to someone else’s tray.
 
 ## Output formats
 

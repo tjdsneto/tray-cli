@@ -108,6 +108,52 @@ func TestItemService_Add_notFound(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestItemService_Add_ownerGetsAccepted(t *testing.T) {
+	var postBody addItemRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/v1/trays" && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode([]map[string]string{{"owner_id": "u-owner"}})
+		case r.URL.Path == "/rest/v1/items" && r.Method == http.MethodPost:
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&postBody))
+			require.Equal(t, "accepted", postBody.Status)
+			_, _ = w.Write([]byte(`[{"id":"i1","tray_id":"t1","source_user_id":"u-owner","title":"x","status":"accepted","created_at":"2026-03-20T12:00:00Z","updated_at":"2026-03-20T12:00:00Z"}]`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
+	require.NoError(t, err)
+	svc := newItemService(pghttp.New(c))
+	it, err := svc.Add(context.Background(), domain.Session{AccessToken: "tok", UserID: "u-owner"}, "t1", "x", nil)
+	require.NoError(t, err)
+	require.Equal(t, "accepted", it.Status)
+}
+
+func TestItemService_Add_contributorGetsPending(t *testing.T) {
+	var postBody addItemRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/v1/trays" && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode([]map[string]string{{"owner_id": "owner-1"}})
+		case r.URL.Path == "/rest/v1/items" && r.Method == http.MethodPost:
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&postBody))
+			require.Equal(t, "pending", postBody.Status)
+			_, _ = w.Write([]byte(`[{"id":"i2","tray_id":"t1","source_user_id":"member","title":"y","status":"pending","created_at":"2026-03-20T12:00:00Z","updated_at":"2026-03-20T12:00:00Z"}]`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
+	require.NoError(t, err)
+	svc := newItemService(pghttp.New(c))
+	it, err := svc.Add(context.Background(), domain.Session{AccessToken: "tok", UserID: "member"}, "t1", "y", nil)
+	require.NoError(t, err)
+	require.Equal(t, "pending", it.Status)
+}
+
 func TestItemService_Update_emptyPatch(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	t.Cleanup(srv.Close)

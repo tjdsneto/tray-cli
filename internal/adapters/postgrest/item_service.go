@@ -24,7 +24,15 @@ func newItemService(pg *pghttp.Client) *itemService {
 var _ domain.ItemService = (*itemService)(nil)
 
 func (s *itemService) Add(ctx context.Context, sess domain.Session, trayID, title string, dueDate *string) (*domain.Item, error) {
-	body, err := newAddItemRequest(sess.UserID, trayID, title, dueDate)
+	rawTray, err := s.pg.Request(ctx, sess.AccessToken, http.MethodGet, trayOwnerSelectPath(trayID), nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	trayOwnerID, err := parseTrayOwnerID(rawTray)
+	if err != nil {
+		return nil, err
+	}
+	body, err := newAddItemRequest(sess.UserID, trayID, title, dueDate, trayOwnerID)
 	if err != nil {
 		return nil, err
 	}
@@ -96,6 +104,27 @@ func (s *itemService) Delete(ctx context.Context, sess domain.Session, itemID st
 }
 
 const itemSelectColumns = "id,tray_id,source_user_id,title,status,due_date,snooze_until,decline_reason,completion_message,accepted_at,declined_at,completed_at,archived_at,snoozed_at,created_at,updated_at"
+
+// trayOwnerSelectPath is GET /rest/v1/trays for resolving the tray owner before Add.
+func trayOwnerSelectPath(trayID string) string {
+	q := url.Values{}
+	q.Set("id", "eq."+strings.TrimSpace(trayID))
+	q.Set("select", "owner_id")
+	return "/rest/v1/trays?" + q.Encode()
+}
+
+func parseTrayOwnerID(raw []byte) (string, error) {
+	var rows []struct {
+		OwnerID string `json:"owner_id"`
+	}
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		return "", fmt.Errorf("postgrest: parse tray owner: %w", err)
+	}
+	if len(rows) == 0 || strings.TrimSpace(rows[0].OwnerID) == "" {
+		return "", fmt.Errorf("postgrest: tray not found or inaccessible")
+	}
+	return strings.TrimSpace(rows[0].OwnerID), nil
+}
 
 // itemsCreatePath is the POST /rest/v1/items path with Prefer: return=representation.
 func itemsCreatePath() string {
