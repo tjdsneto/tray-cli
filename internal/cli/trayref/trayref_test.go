@@ -35,6 +35,15 @@ func TestTrayIDFromRef(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestTrayIDFromRef_nameOnlyAmongPassedTrays(t *testing.T) {
+	t.Parallel()
+	// Two different owners could each have a tray named "work"; resolution must use the slice given (e.g. owned-only).
+	owned := []domain.Tray{{ID: "mine", Name: "work"}}
+	id, err := TrayIDFromRef("work", nil, owned)
+	require.NoError(t, err)
+	require.Equal(t, "mine", id)
+}
+
 func TestOverlayTrayAliases_prefersAliasOverServerName(t *testing.T) {
 	base := map[string]string{"tid-1": "lindris"}
 	got := OverlayTrayAliases(base, map[string]string{"my-alias": "tid-1"})

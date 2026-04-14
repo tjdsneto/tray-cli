@@ -32,7 +32,7 @@ func pendingItemsOnOwnedTraysQuery(ctx context.Context, svcs domain.Services, se
 	}
 	ref := strings.TrimSpace(trayRef)
 	if ref != "" {
-		tid, err := trayref.ResolveTrayRef(ctx, svcs, sess, ref, aliases)
+		tid, err := trayref.TrayIDFromRef(ref, aliases, owned)
 		if err != nil {
 			return domain.ListItemsQuery{}, err
 		}

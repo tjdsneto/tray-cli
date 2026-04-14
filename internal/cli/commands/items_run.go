@@ -101,7 +101,8 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 	q := domain.ListItemsQuery{}
 	if len(args) == 1 {
-		tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, strings.TrimSpace(args[0]), cmdDeps.RemoteAliases())
+		// Resolve names only among trays you own — joined trays can share the same server name (e.g. two "work").
+		tid, err := trayref.TrayIDFromRef(strings.TrimSpace(args[0]), cmdDeps.RemoteAliases(), owned)
 		if err != nil {
 			return err
 		}
