@@ -11,7 +11,6 @@ import (
 
 	"github.com/tjdsneto/tray-cli/internal/cli/triageui"
 	"github.com/tjdsneto/tray-cli/internal/cli/trayref"
-	"github.com/tjdsneto/tray-cli/internal/domain"
 )
 
 func cmdTriage() *cobra.Command {
@@ -39,15 +38,10 @@ func runTriage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	q := domain.ListItemsQuery{Status: "pending"}
-	if len(args) == 1 {
-		tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, strings.TrimSpace(args[0]), cmdDeps.RemoteAliases())
-		if err != nil {
-			return err
-		}
-		q.TrayID = tid
+	q, err := pendingItemsOnOwnedTraysQuery(cmd.Context(), svcs, sess, optionalTrayRefArg(args), cmdDeps.RemoteAliases())
+	if err != nil {
+		return err
 	}
-
 	items, err := svcs.Items.List(cmd.Context(), sess, q)
 	if err != nil {
 		return err

@@ -84,13 +84,9 @@ func runListen(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--mode must be one of: auto, realtime, poll")
 	}
 
-	q := domain.ListItemsQuery{Status: "pending"}
-	if len(args) == 1 {
-		tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, strings.TrimSpace(args[0]), cmdDeps.RemoteAliases())
-		if err != nil {
-			return err
-		}
-		q.TrayID = tid
+	q, err := pendingItemsOnOwnedTraysQuery(cmd.Context(), svcs, sess, optionalTrayRefArg(args), cmdDeps.RemoteAliases())
+	if err != nil {
+		return err
 	}
 
 	format, err := output.FormatFromCmd(cmd)

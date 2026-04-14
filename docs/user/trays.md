@@ -17,6 +17,8 @@ Server-side tray **names** (e.g. `work`) are chosen by the **owner**. Everyone w
 |--------|----------------|
 | **`tray list`** (no args) | Items on trays **you own** only. |
 | **`tray list <tray>`** | Items on that tray only if **you own** it. |
+| **`tray review`**, **`tray triage`** | Pending items on **your** trays only (owner triage). Same tray rules as **`tray list`**. |
+| **`tray listen`** | Pending snapshot/poll targets **owned** trays only (aligned with **`tray review`**). Outbox hooks are separate. |
 | **`tray contributed`** | Items **you** added to **someone else’s** trays (your “outbox”). |
 
 To add an item to a tray you **don’t** own, use the tray’s **name** (from `tray remote ls`), a **remote alias**, or the tray id — see **`tray add --help`**.

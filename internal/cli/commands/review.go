@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tjdsneto/tray-cli/internal/cli/trayref"
-	"github.com/tjdsneto/tray-cli/internal/domain"
 	"github.com/tjdsneto/tray-cli/internal/output"
 )
 
@@ -26,15 +25,10 @@ func runReview(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	q := domain.ListItemsQuery{Status: "pending"}
-	if len(args) == 1 {
-		tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, strings.TrimSpace(args[0]), cmdDeps.RemoteAliases())
-		if err != nil {
-			return err
-		}
-		q.TrayID = tid
+	q, err := pendingItemsOnOwnedTraysQuery(cmd.Context(), svcs, sess, optionalTrayRefArg(args), cmdDeps.RemoteAliases())
+	if err != nil {
+		return err
 	}
-
 	items, err := svcs.Items.List(cmd.Context(), sess, q)
 	if err != nil {
 		return err
