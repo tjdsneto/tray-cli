@@ -9,6 +9,8 @@
 
 Server-side tray **names** (e.g. `work`) are chosen by the **owner**. Everyone who can see that tray sees the **same name**. A nickname like `tiago-work` exists only as a **local alias** on your machine (`tray join … <alias>` or `tray remote add`).
 
+**Joined members** can **add** lines to someone else’s tray (invite / `tray join`), but they **do not** get a full read of that tray’s inbox — only the **owner** triages everyone’s items. As a contributor you still see **your own** lines (e.g. via **`tray contributed`** and when you add or follow up on something you filed).
+
 ## Items
 
 | Command | What it shows |
