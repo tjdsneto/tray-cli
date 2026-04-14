@@ -23,6 +23,7 @@ func TestWriteItems_markdown(t *testing.T) {
 	}}
 	var buf bytes.Buffer
 	require.NoError(t, WriteItems(&buf, items, map[string]string{"t1": "inbox"}, "u", nil, FormatMarkdown))
+	require.Contains(t, buf.String(), "### Pending")
 	require.Contains(t, buf.String(), "|")
 	require.Contains(t, buf.String(), "inbox")
 }
@@ -35,6 +36,7 @@ func TestWriteItems_table(t *testing.T) {
 	}}
 	var buf bytes.Buffer
 	require.NoError(t, WriteItems(&buf, items, map[string]string{"t1": "inbox"}, "u", nil, FormatTable))
-	require.Contains(t, buf.String(), "pending")
+	require.Contains(t, buf.String(), "Pending")
+	require.Contains(t, buf.String(), "ADDED ON")
 	require.Contains(t, buf.String(), "inbox")
 }

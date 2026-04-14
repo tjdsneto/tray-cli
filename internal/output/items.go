@@ -12,11 +12,11 @@ import (
 )
 
 const (
-	colOrd    = 4
-	colStatus = 12
-	colTitle  = 42
-	colTray   = 14
-	colBy     = 24 // name or email when profiles exist; otherwise short id
+	colOrd   = 4  // manual order (sort_order) within each tray
+	colTitle = 52 // wider: STATUS column removed from grouped list
+	colTray  = 14
+	colBy    = 24 // name or email when profiles exist; otherwise short id
+	colAdded = 16 // "ADDED ON" / relative time
 )
 
 // WriteItems renders items; trayNames maps tray_id → display name (optional).
@@ -72,19 +72,41 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 		enc.SetIndent("", "  ")
 		return enc.Encode(out)
 	case FormatMarkdown:
-		if len(items) == 0 {
-			_, err := fmt.Fprintln(w, "_No items._")
+		return writeItemsMarkdownGrouped(w, items, trayNames, currentUserID, displayByID, now)
+	default:
+		return writeItemsTableGrouped(w, items, trayNames, currentUserID, displayByID, now)
+	}
+}
+
+func writeItemsMarkdownGrouped(w io.Writer, items []domain.Item, trayNames map[string]string, currentUserID string, displayByID map[string]string, now time.Time) error {
+	if len(items) == 0 {
+		_, err := fmt.Fprintln(w, "_No items._")
+		return err
+	}
+	buckets := partitionItemsByStatus(items)
+	keys := sectionKeysInDisplayOrder(buckets)
+	first := true
+	for _, st := range keys {
+		chunk := buckets[st]
+		sortItemsInTrayOrder(chunk)
+		if !first {
+			if _, err := fmt.Fprintln(w); err != nil {
+				return err
+			}
+		}
+		first = false
+		if _, err := fmt.Fprintf(w, "### %s\n\n", sectionTitleForStatus(st)); err != nil {
 			return err
 		}
-		_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s | %s |\n", "#", "Status", "Title", "Tray", "By", "Created")
+		_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", "ORD", "Title", "Tray", "By", "Added on")
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(w, "| %s | %s | %s | %s | %s | %s |\n", "---", "---", "---", "---", "---", "---")
+		_, err = fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", "---", "---", "---", "---", "---")
 		if err != nil {
 			return err
 		}
-		for _, it := range items {
+		for _, it := range chunk {
 			tn := trayNames[it.TrayID]
 			if tn == "" {
 				tn = it.TrayID
@@ -92,55 +114,77 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 			tn = strings.ReplaceAll(tn, "|", "\\|")
 			ttl := strings.ReplaceAll(it.Title, "|", "\\|")
 			by := strings.ReplaceAll(FormatSourceUser(it.SourceUserID, currentUserID, displayByID), "|", "\\|")
-			_, err := fmt.Fprintf(w, "| %d | %s | %s | %s | %s | %s |\n",
+			added := truncateRunesPlain(HumanizeTimeAgo(it.CreatedAt, now), 24)
+			if _, err := fmt.Fprintf(w, "| %d | %s | %s | %s | %s |\n",
 				it.SortOrder,
-				strings.ReplaceAll(it.Status, "|", "\\|"),
 				ttl,
 				tn,
 				by,
-				strings.ReplaceAll(HumanizeTimeAgo(it.CreatedAt, now), "|", "\\|"))
-			if err != nil {
+				strings.ReplaceAll(added, "|", "\\|")); err != nil {
 				return err
 			}
 		}
-		return nil
-	default:
-		if len(items) == 0 {
-			_, err := fmt.Fprintln(w, "No items.")
-			return err
+	}
+	return nil
+}
+
+func writeItemsTableGrouped(w io.Writer, items []domain.Item, trayNames map[string]string, currentUserID string, displayByID map[string]string, now time.Time) error {
+	if len(items) == 0 {
+		_, err := fmt.Fprintln(w, "No items.")
+		return err
+	}
+	color := ColorEnabled(w)
+	sep := "  "
+	buckets := partitionItemsByStatus(items)
+	keys := sectionKeysInDisplayOrder(buckets)
+	first := true
+	for _, st := range keys {
+		chunk := buckets[st]
+		sortItemsInTrayOrder(chunk)
+		if !first {
+			if _, err := fmt.Fprintln(w); err != nil {
+				return err
+			}
 		}
-		color := ColorEnabled(w)
-		sep := "  "
-		_, err := fmt.Fprintf(w, "%s%s%s%s%s%s%s%s%s%s%s\n",
-			padPlain("#", colOrd), sep,
-			padPlain("STATUS", colStatus), sep,
+		first = false
+		title := sectionTitleForStatus(st)
+		if color {
+			if _, err := fmt.Fprintf(w, "\x1b[1m%s\x1b[0m\n", title); err != nil {
+				return err
+			}
+		} else {
+			if _, err := fmt.Fprintf(w, "%s\n", title); err != nil {
+				return err
+			}
+		}
+		_, err := fmt.Fprintf(w, "%s%s%s%s%s%s%s%s%s\n",
+			padPlain("ORD", colOrd), sep,
 			padPlain("TITLE", colTitle), sep,
 			padPlain("TRAY", colTray), sep,
 			padPlain("BY", colBy), sep,
-			"CREATED")
+			padPlain("ADDED ON", colAdded))
 		if err != nil {
 			return err
 		}
-		for _, it := range items {
+		for _, it := range chunk {
 			tn := trayNames[it.TrayID]
 			if tn == "" {
 				tn = it.TrayID
 			}
-			statusCell := FormatStatusANSI(it.Status, color, colStatus)
 			titleCell := padPlain(truncateRunesPlain(it.Title, colTitle), colTitle)
 			trayCell := padPlain(truncateRunesPlain(tn, colTray), colTray)
 			byCell := padPlain(truncateRunesPlain(FormatSourceUser(it.SourceUserID, currentUserID, displayByID), colBy), colBy)
-			when := HumanizeTimeAgo(it.CreatedAt, now)
+			when := padPlain(truncateRunesPlain(HumanizeTimeAgo(it.CreatedAt, now), colAdded), colAdded)
 			ordCell := padPlain(fmt.Sprintf("%d", it.SortOrder), colOrd)
-			_, err := fmt.Fprintf(w, "%s%s%s%s%s%s%s%s%s%s%s\n",
+			_, err := fmt.Fprintf(w, "%s%s%s%s%s%s%s%s%s\n",
 				ordCell, sep,
-				statusCell, sep, titleCell, sep, trayCell, sep, byCell, sep, when)
+				titleCell, sep, trayCell, sep, byCell, sep, when)
 			if err != nil {
 				return err
 			}
 		}
-		return nil
 	}
+	return nil
 }
 
 func itemTimeJSON(t *time.Time) *string {
