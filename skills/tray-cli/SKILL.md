@@ -2,9 +2,11 @@
 name: tray-cli
 description: >-
   Helps people use the **tray** terminal app: sign-in, shared trays, queueing
-  and reviewing work, triage, invites, and upgrades. Use for everyday tray
-  usage; for developing or packaging tray-cli itself, use the repo’s maintainer
-  docs instead of this skill.
+  and reviewing work, triage, invites, and upgrades. Use when the user names a **tray**
+  (including **someone’s / a person’s tray**), **`tray add`**, **adding an item** to a tray,
+  or **links/URLs on tray items**—including handoffs like “add to Fernando’s tray with the
+  comment link.” Prefer this over **beads (`bd`)** unless the user means git `bd` issues.
+  For developing or packaging tray-cli itself, use the repo’s maintainer docs instead of this skill.
 ---
 
 # Tray CLI (agent skill)
