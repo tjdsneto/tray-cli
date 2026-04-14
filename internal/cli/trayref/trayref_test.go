@@ -35,6 +35,30 @@ func TestTrayIDFromRef(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestOverlayTrayAliases_prefersAliasOverServerName(t *testing.T) {
+	base := map[string]string{"tid-1": "lindris"}
+	got := OverlayTrayAliases(base, map[string]string{"my-alias": "tid-1"})
+	require.Equal(t, "my-alias", got["tid-1"])
+}
+
+func TestOverlayTrayAliases_addsTrayOnlyInRemotes(t *testing.T) {
+	base := map[string]string{}
+	got := OverlayTrayAliases(base, map[string]string{"x": "tid-9"})
+	require.Equal(t, "x", got["tid-9"])
+}
+
+func TestOverlayTrayAliases_stableWhenMultipleAliases(t *testing.T) {
+	base := map[string]string{"t1": "n"}
+	got := OverlayTrayAliases(base, map[string]string{"zebra": "t1", "alpha": "t1"})
+	require.Equal(t, "alpha", got["t1"])
+}
+
+func TestOverlayTrayAliases_noAliasesReturnsSameMap(t *testing.T) {
+	base := map[string]string{"a": "b"}
+	got := OverlayTrayAliases(base, nil)
+	require.Equal(t, base, got)
+}
+
 func TestPickTrayOrError(t *testing.T) {
 	_, err := PickTrayOrError(nil, "x")
 	require.Error(t, err)

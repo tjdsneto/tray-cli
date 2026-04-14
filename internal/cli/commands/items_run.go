@@ -8,6 +8,7 @@ import (
 	"github.com/tjdsneto/tray-cli/internal/cli/trayref"
 	"github.com/tjdsneto/tray-cli/internal/domain"
 	"github.com/tjdsneto/tray-cli/internal/output"
+	"github.com/tjdsneto/tray-cli/internal/remotesfile"
 )
 
 func cmdAdd() *cobra.Command {
@@ -166,6 +167,9 @@ func runContributed(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	m := trayref.TrayNameMap(trays)
+	if f, err := remotesfile.Load(cmdDeps.ConfigDir()); err == nil {
+		m = trayref.OverlayTrayAliases(m, f.Aliases)
+	}
 	by := profileDisplayMap(cmd.Context(), sess, svcs, sourceUserIDsFromItems(items))
 	return output.WriteItems(cmd.OutOrStdout(), items, m, strings.TrimSpace(sess.UserID), by, format)
 }
