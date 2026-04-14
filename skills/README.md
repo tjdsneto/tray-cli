@@ -32,7 +32,24 @@ curl -fsSL "https://raw.githubusercontent.com/tjdsneto/tray-cli/main/skills/tray
   -o ~/.cursor/skills/tray-cli/SKILL.md
 ```
 
-### Claude Code (personal skill)
+### Claude Code (plugin marketplace)
+
+The repo ships **`.claude-plugin/marketplace.json`** so you can add the marketplace from GitHub and install the **tray-cli** plugin (includes the skill):
+
+```bash
+claude plugin marketplace add tjdsneto/tray-cli
+claude plugin install tray-cli@tjdsneto
+```
+
+When the repo updates on GitHub, refresh your local marketplace copy:
+
+```bash
+claude plugin marketplace update
+```
+
+For a **local clone** during development, you can use `claude plugin marketplace add .` from the repository root instead of the `tjdsneto/tray-cli` shorthand.
+
+### Claude Code (personal skill, curl)
 
 ```bash
 mkdir -p ~/.claude/skills/tray-cli
@@ -44,13 +61,13 @@ curl -fsSL "https://raw.githubusercontent.com/tjdsneto/tray-cli/main/skills/tray
 
 ## Keeping the skill updated
 
-There is **no** separate auto-updater: refresh by **re-running the same `curl`** (or your pinned-URL `curl`) so the file is overwritten.
-
 | Approach | What to do |
 |----------|------------|
-| **Track `main`** | Re-run the install `curl` whenever you want the latest doc changes (same URL as above). |
-| **Track releases** | Set the URL to a **git tag** and bump the tag in the URL when you upgrade the CLI and want the skill in lockstep. |
-| **Notifications** | Watch **Releases** on the GitHub repo, or subscribe to the repo’s RSS/activity, then re-`curl` after a release if the release notes mention docs/skills. |
+| **Claude Code plugin marketplace** | Run **`claude plugin marketplace update`** (after **`tray-cli`** changes are on GitHub). |
+| **curl to `~/.claude/skills/…`** | Re-run the same **`curl`** (or your pinned-URL **`curl`**) so the file is overwritten. |
+| **Track `main` with curl** | Re-run the install **`curl`** whenever you want the latest doc changes (same URL as above). |
+| **Track releases with curl** | Set the URL to a **git tag** and bump the tag in the URL when you upgrade the CLI and want the skill in lockstep. |
+| **Notifications** | Watch **Releases** on the GitHub repo, or subscribe to the repo’s RSS/activity, then update the marketplace or re-**`curl`** after a release if the release notes mention docs/skills. |
 
 If a future **release tarball** ships `skills/tray-cli/SKILL.md`, you can unpack that file over your personal skill path instead of `curl`—see [`docs/maintainers/distribution.md`](../docs/maintainers/distribution.md).
 

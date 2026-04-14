@@ -14,6 +14,6 @@ alwaysApply: true
 - **Listen hooks (CLI users):** [`docs/user/hooks.md`](../docs/user/hooks.md) — `tray listen` + `hooks.json`.
 - **Docs:** [`docs/README.md`](../docs/README.md) — `docs/user/` vs `docs/maintainers/`.
 - **Repository `README.md`:** primarily for **CLI users**; contributor hub [`docs/maintainers/README.md`](../docs/maintainers/README.md) (linked from the bottom of `README.md`).
-- **End-user agent skills (Claude/Cursor):** [`skills/README.md`](../skills/README.md) — canonical [`skills/tray-cli/SKILL.md`](../skills/tray-cli/SKILL.md); symlinked from `.cursor/skills/tray-cli/` and `.claude/skills/tray-cli/`. Copy-paste **`curl`** install: [`README.md`](../README.md) § **Agent skills**.
+- **End-user agent skills (Claude/Cursor):** [`skills/README.md`](../skills/README.md) — canonical [`skills/tray-cli/SKILL.md`](../skills/tray-cli/SKILL.md); symlinked from `.cursor/skills/tray-cli/` and `.claude/skills/tray-cli/`. Install: [`README.md`](../README.md) § **Agent skills** (**`curl`** or Claude Code **plugin marketplace** + `claude plugin marketplace update`).
 
 Mirror: [`CLAUDE.md`](../CLAUDE.md) (CLI layout section).

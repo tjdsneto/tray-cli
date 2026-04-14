@@ -56,7 +56,22 @@ curl -fsSL "https://raw.githubusercontent.com/tjdsneto/tray-cli/main/skills/tray
   -o ~/.cursor/skills/tray-cli/SKILL.md
 ```
 
-**Claude Code** (`~/.claude/skills/tray-cli/SKILL.md`):
+**Claude Code** — pick one:
+
+**Plugin marketplace** (from this repo; Claude Code can fetch updates when you refresh the marketplace):
+
+```bash
+claude plugin marketplace add tjdsneto/tray-cli
+claude plugin install tray-cli@tjdsneto
+```
+
+After **`tray-cli`** changes land on GitHub, get the latest skill and manifest with:
+
+```bash
+claude plugin marketplace update
+```
+
+**Manual `curl`** (`~/.claude/skills/tray-cli/SKILL.md`):
 
 ```bash
 mkdir -p ~/.claude/skills/tray-cli
@@ -64,7 +79,7 @@ curl -fsSL "https://raw.githubusercontent.com/tjdsneto/tray-cli/main/skills/tray
   -o ~/.claude/skills/tray-cli/SKILL.md
 ```
 
-Use a **release tag** instead of **`main`** in the URL to match a specific [release](https://github.com/tjdsneto/tray-cli/releases). Re-run the same **`curl`** to refresh.
+Use a **release tag** instead of **`main`** in the **`curl`** URL to match a specific [release](https://github.com/tjdsneto/tray-cli/releases). Re-run the same **`curl`** to refresh.
 
 ## Trays
 

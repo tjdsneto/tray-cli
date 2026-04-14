@@ -39,7 +39,7 @@ The **`scratch/`** directory is **gitignored**—use it for private brainstormin
 
 ## End-user agent skills (`tray` CLI)
 
-Help for **using** the shipped `tray` binary (not developing this repo) lives in **[`skills/README.md`](skills/README.md)**. Copy-paste **`curl`** install for personal skills: **[`README.md`](README.md#agent-skills)** (section **Agent skills**). The canonical body is **[`skills/tray-cli/SKILL.md`](skills/tray-cli/SKILL.md)**; the repository symlinks it into **`.cursor/skills/tray-cli/`** and **`.claude/skills/tray-cli/`** so Cursor and Claude Code load it in a normal clone.
+Help for **using** the shipped `tray` binary (not developing this repo) lives in **[`skills/README.md`](skills/README.md)**. Install options are in **[`README.md`](README.md#agent-skills)** (**Agent skills**): **`curl`** for a standalone skill file, or **Claude Code plugin marketplace** (`claude plugin marketplace add tjdsneto/tray-cli`, then `claude plugin install tray-cli@tjdsneto`; refresh with `claude plugin marketplace update`). The canonical body is **[`skills/tray-cli/SKILL.md`](skills/tray-cli/SKILL.md)**; the repository symlinks it into **`.cursor/skills/tray-cli/`** and **`.claude/skills/tray-cli/`** so Cursor and Claude Code load it in a normal clone.
 
 ---
 
