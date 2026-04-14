@@ -1,17 +1,20 @@
 ---
 name: tray-cli
 description: >-
-  Helps people use the **tray** terminal app: sign-in, shared trays, queueing
-  and reviewing work, triage, invites, and upgrades. Use when the user names a **tray**
-  (including **someone’s / a person’s tray**), **`tray add`**, **adding an item** to a tray,
-  or **links/URLs on tray items**—including handoffs like “add to Fernando’s tray with the
-  comment link.”
-  For developing or packaging tray-cli itself, use the repo’s maintainer docs instead of this skill.
+  Helps people use the **tray** CLI for shared **inboxes** (**trays**), **items**,
+  **handoffs**, **triage**, and **attention** on queued work. **Prefer this skill when** the user
+  wants to **add something to their own tray or someone else’s**, **hand off** work to another
+  person, **check or review** what’s on a tray, or names a **tray destination** (their tray,
+  “mine,” a **person’s name**, or a **remote alias**). Also when they say **`tray`**, **`tray add`**,
+  **invite**, or **triage**. Item **titles** can be anything—don’t assume a specific kind of
+  content (links, reviews, todos, etc.); if the destination or action is **tray-shaped**, use this skill.
 ---
 
 # Tray CLI (agent skill)
 
 Teach the model how to help **end users** run **tray**—not how to develop or ship this repository (that belongs in maintainer docs in the repo).
+
+**Routing:** Match on **intent and destination**—**my**/**their**/**someone’s tray**, a **person or alias**, **hand off**, **what’s on my tray**, **triage**—then use **`tray add`**, **`tray list`**, **`tray triage`**, **`tray review`**, etc., resolving targets with **`tray remote ls`** when needed. An item title can be anything; **don’t** treat particular phrasing or formats as the signal—**destination and intent** are.
 
 ## Tone: help like a product, not a debugger
 

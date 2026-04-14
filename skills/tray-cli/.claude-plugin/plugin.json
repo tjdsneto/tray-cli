@@ -1,6 +1,6 @@
 {
   "name": "tray-cli",
-  "description": "Helps people use tray from the terminal: sign-in, shared trays, queueing and reviewing items, triage, invites, and upgrades. For end-user CLI usage, not for developing the tray-cli repository.",
+  "description": "Tray is a terminal CLI for shared attention queues: you hand off work by adding items (asks, todos, links) to someone else's tray; they triage and manage their own queue so requests don't disappear in chat. Optional tray listen automation.",
   "version": "0.1.8",
   "author": {
     "name": "Tiago Neto",

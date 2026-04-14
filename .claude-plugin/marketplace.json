@@ -5,13 +5,13 @@
     "url": "https://github.com/tjdsneto"
   },
   "metadata": {
-    "description": "tray-cli plugin for Claude Code (tray shared inbox skill)"
+    "description": "Tray CLI: handoffs and shared attention queues (trays) in the terminal."
   },
   "plugins": [
     {
       "name": "tray-cli",
       "source": "./skills/tray-cli",
-      "description": "Helps people use tray from the terminal: sign-in, shared trays, queueing and reviewing items, triage, invites, and upgrades. For end-user CLI usage, not for developing the tray-cli repository."
+      "description": "Tray is a terminal CLI for shared attention queues: you hand off work by adding items (asks, todos, links) to someone else's tray; they triage and manage their own queue so requests don't disappear in chat. Optional tray listen automation."
     }
   ]
 }
