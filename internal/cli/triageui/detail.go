@@ -26,6 +26,7 @@ func detailLines(it domain.Item, trayNames map[string]string, displayByID map[st
 	now := time.Now()
 	lines := []string{
 		fmt.Sprintf("Tray: %s", tn),
+		fmt.Sprintf("Order: %d", it.SortOrder),
 		fmt.Sprintf("By:   %s", by),
 		fmt.Sprintf("Created: %s (%s)", output.HumanizeTimeAgo(it.CreatedAt, now), it.CreatedAt.UTC().Format(time.RFC3339)),
 	}

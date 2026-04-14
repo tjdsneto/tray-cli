@@ -17,7 +17,7 @@ func Register(root *cobra.Command, deps Deps) {
 	root.AddCommand(cmdInvite(), cmdRotateInvite(), cmdJoin())
 
 	// --- Items ---
-	root.AddCommand(cmdAdd(), cmdList(), cmdRemove(), cmdContributed())
+	root.AddCommand(cmdAdd(), cmdList(), cmdRemove(), cmdContributed(), cmdItem())
 
 	// --- Remotes & membership ---
 	root.AddCommand(cmdRemote())

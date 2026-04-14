@@ -129,3 +129,11 @@ func TestItemPatchBody_empty(t *testing.T) {
 	_, err := itemPatchBody(domain.ItemPatch{})
 	require.Error(t, err)
 }
+
+func TestItemPatchBody_sortOrder(t *testing.T) {
+	t.Parallel()
+	n := 3
+	b, err := itemPatchBody(domain.ItemPatch{SortOrder: &n})
+	require.NoError(t, err)
+	require.EqualValues(t, 3, b["sort_order"])
+}

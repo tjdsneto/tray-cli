@@ -9,6 +9,7 @@ import (
 type Item struct {
 	ID                string
 	TrayID            string
+	SortOrder         int
 	SourceUserID      string
 	Title             string
 	Status            string
@@ -33,12 +34,14 @@ type ListItemsQuery struct {
 	TrayIDIn []string
 	Status       string
 	UpdatedAfter *time.Time
-	OrderCreated string // "asc" | "desc"
+	// OrderCreated: "asc" | "desc" sorts by created_at only. Empty uses manual tray order (sort_order, then created_at).
+	OrderCreated string
 }
 
 // ItemPatch is owner-only triage updates (partial).
 type ItemPatch struct {
 	Status            *string
+	SortOrder         *int
 	DeclineReason     *string
 	CompletionMessage *string
 	SnoozeUntil       *time.Time
@@ -52,4 +55,7 @@ type ItemService interface {
 	ListOutbox(ctx context.Context, sess Session) ([]Item, error)
 	Update(ctx context.Context, sess Session, itemID string, patch ItemPatch) error
 	Delete(ctx context.Context, sess Session, itemID string) error
+	// MoveUp / MoveDown swap sort_order with the adjacent item on the same tray (owner-only).
+	MoveUp(ctx context.Context, sess Session, itemID string) error
+	MoveDown(ctx context.Context, sess Session, itemID string) error
 }

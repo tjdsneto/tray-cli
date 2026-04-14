@@ -30,10 +30,11 @@ func TestItemsListPath_filtersAndOrder(t *testing.T) {
 	require.Contains(t, p, "order=created_at.asc")
 }
 
-func TestItemsListPath_defaultOrderDesc(t *testing.T) {
+func TestItemsListPath_defaultOrderManual(t *testing.T) {
 	t.Parallel()
 	p := itemsListPath(domain.ListItemsQuery{})
-	require.Contains(t, p, "order=created_at.desc")
+	require.Contains(t, p, "order=sort_order.asc")
+	require.Contains(t, p, "created_at.asc")
 }
 
 func TestItemsListPath_trayIDIn(t *testing.T) {
@@ -196,4 +197,44 @@ func TestItemService_Delete(t *testing.T) {
 	svc := newItemService(pghttp.New(c))
 	err = svc.Delete(context.Background(), domain.Session{AccessToken: "x", UserID: "u"}, "00000000-0000-0000-0000-000000000099")
 	require.NoError(t, err)
+}
+
+func TestItemService_MoveUp_swapsSortOrder(t *testing.T) {
+	row := func(id string, sort int) map[string]any {
+		return map[string]any{
+			"id": id, "tray_id": "t1", "sort_order": sort, "source_user_id": "u", "title": "x",
+			"status": "pending", "created_at": "2026-03-20T12:00:00Z", "updated_at": "2026-03-20T12:00:00Z",
+		}
+	}
+	var patchBodies []map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/v1/items" && r.Method == http.MethodGet:
+			q := r.URL.Query()
+			switch {
+			case q.Get("id") == "eq.i2":
+				_ = json.NewEncoder(w).Encode([]map[string]any{row("i2", 2)})
+			case q.Get("tray_id") == "eq.t1":
+				_ = json.NewEncoder(w).Encode([]map[string]any{row("i1", 1), row("i2", 2)})
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		case r.URL.Path == "/rest/v1/items" && r.Method == http.MethodPatch:
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			patchBodies = append(patchBodies, body)
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
+	require.NoError(t, err)
+	svc := newItemService(pghttp.New(c))
+	err = svc.MoveUp(context.Background(), domain.Session{AccessToken: "tok", UserID: "u"}, "i2")
+	require.NoError(t, err)
+	require.Len(t, patchBodies, 2)
+	require.EqualValues(t, 1, patchBodies[0]["sort_order"])
+	require.EqualValues(t, 2, patchBodies[1]["sort_order"])
 }

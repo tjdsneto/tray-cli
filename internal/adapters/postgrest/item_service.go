@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -103,7 +104,60 @@ func (s *itemService) Delete(ctx context.Context, sess domain.Session, itemID st
 	return err
 }
 
-const itemSelectColumns = "id,tray_id,source_user_id,title,status,due_date,snooze_until,decline_reason,completion_message,accepted_at,declined_at,completed_at,archived_at,snoozed_at,created_at,updated_at"
+func (s *itemService) MoveUp(ctx context.Context, sess domain.Session, itemID string) error {
+	return s.moveAdjacent(ctx, sess, itemID, -1)
+}
+
+func (s *itemService) MoveDown(ctx context.Context, sess domain.Session, itemID string) error {
+	return s.moveAdjacent(ctx, sess, itemID, 1)
+}
+
+func (s *itemService) moveAdjacent(ctx context.Context, sess domain.Session, itemID string, delta int) error {
+	if delta != -1 && delta != 1 {
+		return fmt.Errorf("postgrest: move delta must be ±1")
+	}
+	id := strings.TrimSpace(itemID)
+	if id == "" {
+		return fmt.Errorf("postgrest: empty item id")
+	}
+	selfRows, err := s.List(ctx, sess, domain.ListItemsQuery{ItemID: id})
+	if err != nil {
+		return err
+	}
+	if len(selfRows) != 1 {
+		return fmt.Errorf("postgrest: item not found or inaccessible")
+	}
+	self := selfRows[0]
+	trayID := strings.TrimSpace(self.TrayID)
+	if trayID == "" {
+		return fmt.Errorf("postgrest: item missing tray_id")
+	}
+	trayItems, err := s.List(ctx, sess, domain.ListItemsQuery{TrayID: trayID})
+	if err != nil {
+		return err
+	}
+	idx := slices.IndexFunc(trayItems, func(it domain.Item) bool { return strings.TrimSpace(it.ID) == id })
+	if idx < 0 {
+		return fmt.Errorf("postgrest: item not found on tray")
+	}
+	j := idx + delta
+	if j < 0 || j >= len(trayItems) {
+		return nil // already at boundary
+	}
+	other := trayItems[j]
+	a, b := self.SortOrder, other.SortOrder
+	patchSelf := domain.ItemPatch{SortOrder: &b}
+	patchOther := domain.ItemPatch{SortOrder: &a}
+	if err := s.Update(ctx, sess, self.ID, patchSelf); err != nil {
+		return err
+	}
+	if err := s.Update(ctx, sess, other.ID, patchOther); err != nil {
+		return err
+	}
+	return nil
+}
+
+const itemSelectColumns = "id,tray_id,sort_order,source_user_id,title,status,due_date,snooze_until,decline_reason,completion_message,accepted_at,declined_at,completed_at,archived_at,snoozed_at,created_at,updated_at"
 
 // trayOwnerSelectPath is GET /rest/v1/trays for resolving the tray owner before Add.
 func trayOwnerSelectPath(trayID string) string {
@@ -151,9 +205,13 @@ func itemsListPath(q domain.ListItemsQuery) string {
 	if q.UpdatedAfter != nil && !q.UpdatedAfter.IsZero() {
 		u.Set("updated_at", "gt."+q.UpdatedAfter.UTC().Format(time.RFC3339Nano))
 	}
-	order := "created_at.desc"
-	if strings.EqualFold(strings.TrimSpace(q.OrderCreated), "asc") {
-		order = "created_at.asc"
+	order := "sort_order.asc,created_at.asc"
+	if oc := strings.TrimSpace(q.OrderCreated); oc != "" {
+		if strings.EqualFold(oc, "asc") {
+			order = "created_at.asc"
+		} else {
+			order = "created_at.desc"
+		}
 	}
 	u.Set("order", order)
 	return "/rest/v1/items?" + u.Encode()
@@ -164,7 +222,7 @@ func itemsOutboxPath(userID string) string {
 	u := url.Values{}
 	u.Set("select", itemSelectColumns+",trays(owner_id)")
 	u.Set("source_user_id", "eq."+strings.TrimSpace(userID))
-	u.Set("order", "created_at.desc")
+	u.Set("order", "sort_order.asc,created_at.asc")
 	return "/rest/v1/items?" + u.Encode()
 }
 

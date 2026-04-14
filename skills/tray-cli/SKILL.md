@@ -44,7 +44,7 @@ Most people want a **short, friendly** answer—not a spec sheet.
 | Account | `login`, `status`, `upgrade` |
 | Trays (owned) | `create`, `ls`, `rename`, `delete-tray`, `invite`, `rotate-invite` |
 | Join / remotes | `join`, `remote` (`add`, `rename`, `ls`, `remove`) |
-| Items | `add`, `list`, `remove`, `contributed` |
+| Items | `add`, `list`, `remove`, `contributed`, `item up`, `item down` |
 | Members | `members`, `revoke`, `leave` |
 | Triage (owner) | `review`, `triage`, `accept`, `decline`, `snooze`, `complete`, `archive` |
 | Automation | `listen` (with `hooks.json`) |
@@ -55,6 +55,7 @@ Semantics that trip people up:
 - **`tray list`** — items on **your** trays; **`tray list <tray>`** only for trays **you own**.
 - **`tray contributed`** — items **you** filed on **others’** trays (outbox).
 - **`tray add "title" <tray>`** — target tray by **name**, **id**, or **remote alias**; new items are **accepted** on trays **you own**, **pending** when you **contribute** to someone else’s tray.
+- **`tray item up|down <item-id>`** — **owner-only**: swap manual list order (`sort_order`) with the neighbor above or below; lists and triage use this order by default (see `#` / `sort_order` in `tray list --format json`).
 
 ## Output formats
 

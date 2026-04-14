@@ -84,7 +84,7 @@ func runListen(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--mode must be one of: auto, realtime, poll")
 	}
 
-	q := domain.ListItemsQuery{Status: "pending", OrderCreated: "desc"}
+	q := domain.ListItemsQuery{Status: "pending"}
 	if len(args) == 1 {
 		tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, strings.TrimSpace(args[0]), cmdDeps.RemoteAliases())
 		if err != nil {
@@ -748,10 +748,26 @@ func itemFromRealtime(m map[string]any) (domain.Item, bool) {
 	if t, ok := asTime(m["completed_at"]); ok {
 		it.CompletedAt = &t
 	}
+	if v, ok := asInt(m["sort_order"]); ok {
+		it.SortOrder = v
+	}
 	if strings.TrimSpace(it.ID) == "" {
 		return domain.Item{}, false
 	}
 	return it, true
+}
+
+func asInt(v any) (int, bool) {
+	switch t := v.(type) {
+	case int:
+		return t, true
+	case int64:
+		return int(t), true
+	case float64:
+		return int(t), true
+	default:
+		return 0, false
+	}
 }
 
 func asString(v any) (string, bool) {

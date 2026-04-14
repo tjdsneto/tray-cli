@@ -12,7 +12,7 @@ func TestDetailLines_includesStatusTimes(t *testing.T) {
 	t.Parallel()
 	ts := time.Date(2026, 3, 22, 10, 0, 0, 0, time.UTC)
 	it := domain.Item{
-		ID: "i1", TrayID: "t1", SourceUserID: "u1",
+		ID: "i1", TrayID: "t1", SourceUserID: "u1", SortOrder: 1,
 		Title: "Hi", Status: "accepted",
 		AcceptedAt: &ts,
 		CreatedAt:  ts,
@@ -23,6 +23,7 @@ func TestDetailLines_includesStatusTimes(t *testing.T) {
 	for _, ln := range lines {
 		joined += ln + "\n"
 	}
+	require.Contains(t, joined, "Order: 1")
 	require.Contains(t, joined, "Accepted:")
 	require.Contains(t, joined, "2026-03-22T10:00:00Z")
 }

@@ -21,6 +21,7 @@ type itemRowWithTray struct {
 type itemRow struct {
 	ID                string  `json:"id"`
 	TrayID            string  `json:"tray_id"`
+	SortOrder         int     `json:"sort_order"`
 	SourceUserID      string  `json:"source_user_id"`
 	Title             string  `json:"title"`
 	Status            string  `json:"status"`
@@ -77,6 +78,7 @@ func (r itemRow) ToDomain() (domain.Item, error) {
 	return domain.Item{
 		ID:                r.ID,
 		TrayID:            r.TrayID,
+		SortOrder:         r.SortOrder,
 		SourceUserID:      r.SourceUserID,
 		Title:             r.Title,
 		Status:            r.Status,
@@ -203,6 +205,9 @@ func itemPatchBody(p domain.ItemPatch) (map[string]any, error) {
 	body := map[string]any{}
 	if p.Status != nil {
 		body["status"] = strings.TrimSpace(*p.Status)
+	}
+	if p.SortOrder != nil {
+		body["sort_order"] = *p.SortOrder
 	}
 	if p.DeclineReason != nil {
 		body["decline_reason"] = strings.TrimSpace(*p.DeclineReason)

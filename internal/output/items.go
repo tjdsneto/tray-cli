@@ -12,6 +12,7 @@ import (
 )
 
 const (
+	colOrd    = 4
 	colStatus = 12
 	colTitle  = 42
 	colTray   = 14
@@ -32,6 +33,7 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 			ID               string  `json:"id"`
 			TrayID           string  `json:"tray_id"`
 			TrayName         string  `json:"tray_name,omitempty"`
+			SortOrder        int     `json:"sort_order"`
 			Title            string  `json:"title"`
 			Status           string  `json:"status"`
 			DueDate          *string `json:"due_date,omitempty"`
@@ -51,6 +53,7 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 				ID:              it.ID,
 				TrayID:          it.TrayID,
 				TrayName:        trayNames[it.TrayID],
+				SortOrder:       it.SortOrder,
 				Title:           it.Title,
 				Status:          it.Status,
 				DueDate:         it.DueDate,
@@ -73,11 +76,11 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 			_, err := fmt.Fprintln(w, "_No items._")
 			return err
 		}
-		_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", "Status", "Title", "Tray", "By", "Created")
+		_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s | %s |\n", "#", "Status", "Title", "Tray", "By", "Created")
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", "---", "---", "---", "---", "---")
+		_, err = fmt.Fprintf(w, "| %s | %s | %s | %s | %s | %s |\n", "---", "---", "---", "---", "---", "---")
 		if err != nil {
 			return err
 		}
@@ -89,7 +92,8 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 			tn = strings.ReplaceAll(tn, "|", "\\|")
 			ttl := strings.ReplaceAll(it.Title, "|", "\\|")
 			by := strings.ReplaceAll(FormatSourceUser(it.SourceUserID, currentUserID, displayByID), "|", "\\|")
-			_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n",
+			_, err := fmt.Fprintf(w, "| %d | %s | %s | %s | %s | %s |\n",
+				it.SortOrder,
 				strings.ReplaceAll(it.Status, "|", "\\|"),
 				ttl,
 				tn,
@@ -107,7 +111,8 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 		}
 		color := ColorEnabled(w)
 		sep := "  "
-		_, err := fmt.Fprintf(w, "%s%s%s%s%s%s%s%s%s\n",
+		_, err := fmt.Fprintf(w, "%s%s%s%s%s%s%s%s%s%s%s\n",
+			padPlain("#", colOrd), sep,
 			padPlain("STATUS", colStatus), sep,
 			padPlain("TITLE", colTitle), sep,
 			padPlain("TRAY", colTray), sep,
@@ -126,7 +131,9 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 			trayCell := padPlain(truncateRunesPlain(tn, colTray), colTray)
 			byCell := padPlain(truncateRunesPlain(FormatSourceUser(it.SourceUserID, currentUserID, displayByID), colBy), colBy)
 			when := HumanizeTimeAgo(it.CreatedAt, now)
-			_, err := fmt.Fprintf(w, "%s%s%s%s%s%s%s%s%s\n",
+			ordCell := padPlain(fmt.Sprintf("%d", it.SortOrder), colOrd)
+			_, err := fmt.Fprintf(w, "%s%s%s%s%s%s%s%s%s%s%s\n",
+				ordCell, sep,
 				statusCell, sep, titleCell, sep, trayCell, sep, byCell, sep, when)
 			if err != nil {
 				return err

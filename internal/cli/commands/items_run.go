@@ -98,7 +98,7 @@ func runList(cmd *cobra.Command, args []string) error {
 	for i := range owned {
 		ownedIDs[strings.TrimSpace(owned[i].ID)] = struct{}{}
 	}
-	q := domain.ListItemsQuery{OrderCreated: "desc"}
+	q := domain.ListItemsQuery{}
 	if len(args) == 1 {
 		tid, err := trayref.ResolveTrayRef(cmd.Context(), svcs, sess, strings.TrimSpace(args[0]), cmdDeps.RemoteAliases())
 		if err != nil {
