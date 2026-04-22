@@ -71,7 +71,7 @@ func StatusSectionTitleANSI(statusLower, title string, color bool) string {
 	return prefix + title + ansiReset
 }
 
-// TrayGroupTitleANSI renders a tray name under a status section (dim when color is on).
+// TrayGroupTitleANSI renders a tray name under a status section (highlighted when color is on).
 func TrayGroupTitleANSI(trayName string, color bool) string {
 	name := strings.TrimSpace(trayName)
 	if name == "" {
@@ -80,7 +80,7 @@ func TrayGroupTitleANSI(trayName string, color bool) string {
 	if !color {
 		return name
 	}
-	return ansiDim + name + ansiReset
+	return ansiBold + ansiBlue + name + ansiReset
 }
 
 // FormatStatusANSI returns a left-padded visual width string with optional ANSI color for known statuses.

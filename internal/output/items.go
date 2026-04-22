@@ -132,7 +132,7 @@ func writeItemsMarkdownGrouped(w io.Writer, items []domain.Item, trayNames map[s
 			if _, err := fmt.Fprintf(w, "#### %s\n\n", heading); err != nil {
 				return err
 			}
-			_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", "Ord", "id", "Title", "By", timeColumnHeaderMarkdown(st))
+			_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", "#", "id", "Title", "By", timeColumnHeaderMarkdown(st))
 			if err != nil {
 				return err
 			}
@@ -140,13 +140,13 @@ func writeItemsMarkdownGrouped(w io.Writer, items []domain.Item, trayNames map[s
 			if err != nil {
 				return err
 			}
-			for _, it := range group {
+			for i, it := range group {
 				ttl := strings.ReplaceAll(it.Title, "|", "\\|")
 				by := strings.ReplaceAll(FormatSourceUser(it.SourceUserID, currentUserID, displayByID), "|", "\\|")
 				when := itemTimeDisplayForSection(it, st, now)
 				idCell := "`" + strings.ReplaceAll(it.ID, "`", "") + "`"
 				if _, err := fmt.Fprintf(w, "| %d | %s | %s | %s | %s |\n",
-					it.SortOrder,
+					i+1,
 					idCell,
 					ttl,
 					by,
@@ -222,15 +222,14 @@ func writeItemsTableGrouped(w io.Writer, items []domain.Item, trayNames map[stri
 				}
 				by := FormatSourceUser(it.SourceUserID, currentUserID, displayByID)
 				when := itemTimeDisplayForSection(it, st, now)
-				// "ord" is manual order on that tray (tray item up/down), not a 1-based display index.
-				metaHead := fmt.Sprintf("ord %d  %s · %s", it.SortOrder, by, when)
-				suffix := " · " + strings.TrimSpace(it.ID)
-				meta := fitMetaLineWithID(metaHead, suffix, lineWidth)
+				head := by + " · " + when
+				suffixPlain := " · " + strings.TrimSpace(it.ID)
+				meta := formatItemMetaHuman(ii+1, head, suffixPlain, lineWidth, color)
 				if _, err := fmt.Fprintln(w, meta); err != nil {
 					return err
 				}
 				for _, line := range wrapPlainTitle(it.Title, titleWrap) {
-					if _, err := fmt.Fprintf(w, "  %s\n", line); err != nil {
+					if _, err := fmt.Fprintf(w, "%s\n", formatItemTitleLine(line, color)); err != nil {
 						return err
 					}
 				}
@@ -240,25 +239,44 @@ func writeItemsTableGrouped(w io.Writer, items []domain.Item, trayNames map[stri
 	return nil
 }
 
-// fitMetaLineWithID appends suffix (typically " · "+uuid) to head; if the line is wider than lineWidth,
-// head is truncated with an ellipsis so the full suffix remains visible.
-func fitMetaLineWithID(head, suffix string, lineWidth int) string {
+// formatItemMetaHuman builds one meta line: display item number (1-based within this tray block),
+// contributor and time, then uuid. sort_order is not shown; it only affects sort order upstream.
+func formatItemMetaHuman(displayN int, headPlain, suffixPlain string, lineWidth int, color bool) string {
+	var prefix, suffix string
+	if color {
+		prefix = ansiBold + ansiCyan + fmt.Sprintf("%3d", displayN) + ansiReset + "  "
+		suffix = ansiDim + suffixPlain + ansiReset
+	} else {
+		prefix = fmt.Sprintf("%3d  ", displayN)
+		suffix = suffixPlain
+	}
+	return fitItemMetaLine(prefix, headPlain, suffix, lineWidth)
+}
+
+func formatItemTitleLine(line string, color bool) string {
+	if !color {
+		return "  " + line
+	}
+	return "  " + ansiDim + line + ansiReset
+}
+
+// fitItemMetaLine joins prefix (may contain ANSI), plain head, and suffix (may contain ANSI).
+// If the visible width exceeds lineWidth, head is truncated with an ellipsis so the full suffix stays.
+func fitItemMetaLine(prefix, head, suffix string, lineWidth int) string {
 	if lineWidth < 48 {
 		lineWidth = 48
 	}
-	full := head + suffix
-	if utf8.RuneCountInString(full) <= lineWidth {
-		return full
+	pLen := utf8.RuneCountInString(StripANSI(prefix))
+	sLen := utf8.RuneCountInString(StripANSI(suffix))
+	hLen := utf8.RuneCountInString(head)
+	if pLen+hLen+sLen <= lineWidth {
+		return prefix + head + suffix
 	}
-	sfxLen := utf8.RuneCountInString(suffix)
-	if sfxLen >= lineWidth {
-		return truncateRunesPlain(full, lineWidth)
+	maxHead := lineWidth - pLen - sLen
+	if maxHead < 1 {
+		maxHead = 1
 	}
-	maxHead := lineWidth - sfxLen
-	if maxHead < 16 {
-		maxHead = 16
-	}
-	return truncateRunesPlain(head, maxHead) + suffix
+	return prefix + truncateRunesPlain(head, maxHead) + suffix
 }
 
 // resolvedLineWidth returns stdout width when w is a TTY *os.File, else a default suitable for pipes and tests.

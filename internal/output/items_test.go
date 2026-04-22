@@ -2,8 +2,10 @@ package output
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 	"github.com/tjdsneto/tray-cli/internal/domain"
@@ -26,7 +28,7 @@ func TestWriteItems_markdown(t *testing.T) {
 	out := buf.String()
 	require.Contains(t, out, "### Pending")
 	require.Contains(t, out, "#### inbox")
-	require.Contains(t, out, "| Ord | id | Title |")
+	require.Contains(t, out, "| # | id | Title |")
 	require.NotContains(t, out, "| Tray |")
 	require.Contains(t, out, "`11111111-1111-1111-1111-111111111111`")
 	require.Contains(t, out, "inbox")
@@ -46,7 +48,7 @@ func TestWriteItems_table(t *testing.T) {
 	require.Contains(t, out, "Do")
 	require.Contains(t, out, "you") // FormatSourceUser for self
 	require.Contains(t, out, "inbox\n") // tray group title (dim on TTY)
-	require.Contains(t, out, "ord 0")
+	require.Contains(t, out, "  1  you")
 	require.Contains(t, out, "· 11111111-1111-1111-1111-111111111111")
 	require.Contains(t, out, "you") // meta line still lists contributor
 }
@@ -64,8 +66,7 @@ func TestWriteItems_table_longTitleFullyShown(t *testing.T) {
 	out := buf.String()
 	require.Contains(t, out, needle, "full title must not be truncated")
 	require.Contains(t, out, "work\n")
-	require.Contains(t, out, "ord 3")
-	require.Contains(t, out, "Fernando Duro")
+	require.Contains(t, out, "  1  Fernando Duro")
 	require.Contains(t, out, "· 22222222-2222-2222-2222-222222222222")
 }
 
@@ -77,4 +78,12 @@ func TestWrapPlainTitle_wordWrap(t *testing.T) {
 func TestWrapPlainTitle_longToken(t *testing.T) {
 	lines := wrapPlainTitle("abcdefghijklmnop", 8)
 	require.Equal(t, []string{"abcdefgh", "ijklmnop"}, lines)
+}
+
+func TestFitItemMetaLine_countsANSIWidth(t *testing.T) {
+	prefix := ansiBold + ansiCyan + "  1" + ansiReset + "  "
+	suffix := ansiDim + " · uuid" + ansiReset
+	out := fitItemMetaLine(prefix, strings.Repeat("x", 200), suffix, 72)
+	require.Contains(t, out, "uuid")
+	require.LessOrEqual(t, utf8.RuneCountInString(StripANSI(out)), 72)
 }
