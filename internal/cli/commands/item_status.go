@@ -13,6 +13,7 @@ func cmdSnooze() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "snooze <item-id>",
 		Short: "Set item status to snoozed until a time (owner triage)",
+		Long:  `Item id: full uuid from tray review / list, or a unique hex prefix (at least 8 characters).`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runSnooze,
 	}
@@ -36,8 +37,11 @@ func runSnooze(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("parse --until: %w", err)
 	}
-	id := strings.TrimSpace(args[0])
 	svcs, sess, err := cmdDeps.RequireAuth()
+	if err != nil {
+		return err
+	}
+	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0])
 	if err != nil {
 		return err
 	}
@@ -53,6 +57,7 @@ func cmdComplete() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "complete <item-id>",
 		Short: "Mark an item completed (owner triage)",
+		Long:  `Item id: full uuid from tray review / list, or a unique hex prefix (at least 8 characters).`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runComplete,
 	}
@@ -61,12 +66,15 @@ func cmdComplete() *cobra.Command {
 }
 
 func runComplete(cmd *cobra.Command, args []string) error {
-	id := strings.TrimSpace(args[0])
 	msg, err := cmd.Flags().GetString("message")
 	if err != nil {
 		return err
 	}
 	svcs, sess, err := cmdDeps.RequireAuth()
+	if err != nil {
+		return err
+	}
+	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0])
 	if err != nil {
 		return err
 	}
@@ -86,14 +94,18 @@ func cmdArchive() *cobra.Command {
 	return &cobra.Command{
 		Use:   "archive <item-id>",
 		Short: "Mark an item archived (owner triage)",
+		Long:  `Item id: full uuid from tray review / list, or a unique hex prefix (at least 8 characters).`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runArchive,
 	}
 }
 
 func runArchive(cmd *cobra.Command, args []string) error {
-	id := strings.TrimSpace(args[0])
 	svcs, sess, err := cmdDeps.RequireAuth()
+	if err != nil {
+		return err
+	}
+	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0])
 	if err != nil {
 		return err
 	}

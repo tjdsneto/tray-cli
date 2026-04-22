@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -20,7 +19,7 @@ func cmdItemUp() *cobra.Command {
 	return &cobra.Command{
 		Use:   "up <item-id>",
 		Short: "Move an item up in the tray list (owner only)",
-			Long:  `Swaps manual order with the item above it. Order is the same as in tray list (sort_order).`,
+		Long:  `Swaps manual order with the item above it. Order is the same as in tray list (sort_order). Item id: full uuid from tray review / list, or a unique hex prefix (at least 8 characters).`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runItemUp,
 	}
@@ -30,7 +29,7 @@ func cmdItemDown() *cobra.Command {
 	return &cobra.Command{
 		Use:   "down <item-id>",
 		Short: "Move an item down in the tray list (owner only)",
-		Long:  `Swaps manual order with the item below it. Order is the same as in tray list (sort_order).`,
+		Long:  `Swaps manual order with the item below it. Order is the same as in tray list (sort_order). Item id: full uuid from tray review / list, or a unique hex prefix (at least 8 characters).`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runItemDown,
 	}
@@ -45,11 +44,11 @@ func runItemDown(cmd *cobra.Command, args []string) error {
 }
 
 func runItemMove(cmd *cobra.Command, itemID string, dir int) error {
-	id := strings.TrimSpace(itemID)
-	if id == "" {
-		return fmt.Errorf("pass the item id from tray list (see column id with --format json)")
-	}
 	svcs, sess, err := cmdDeps.RequireAuth()
+	if err != nil {
+		return err
+	}
+	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, itemID)
 	if err != nil {
 		return err
 	}

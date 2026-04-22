@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -11,17 +10,18 @@ func cmdRemove() *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove <item-id>",
 		Short: "Remove an item (tray owner: any item; contributor: pending only)",
+		Long:  `Item id: full uuid from tray review / list / contributed, or a unique hex prefix (at least 8 characters) among items you own or filed on others' trays.`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runRemove,
 	}
 }
 
 func runRemove(cmd *cobra.Command, args []string) error {
-	id := strings.TrimSpace(args[0])
-	if id == "" {
-		return fmt.Errorf("pass the item id from `tray list --format json`")
-	}
 	svcs, sess, err := cmdDeps.RequireAuth()
+	if err != nil {
+		return err
+	}
+	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0])
 	if err != nil {
 		return err
 	}

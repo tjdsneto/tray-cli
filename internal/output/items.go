@@ -117,11 +117,11 @@ func writeItemsMarkdownGrouped(w io.Writer, items []domain.Item, trayNames map[s
 		if _, err := fmt.Fprintf(w, "### %s\n\n", sectionTitleForStatus(st)); err != nil {
 			return err
 		}
-		_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", "ORD", "Title", "Tray", "By", timeColumnHeaderMarkdown(st))
+		_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s | %s |\n", "ORD", "id", "Title", "Tray", "By", timeColumnHeaderMarkdown(st))
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", "---", "---", "---", "---", "---")
+		_, err = fmt.Fprintf(w, "| %s | %s | %s | %s | %s | %s |\n", "---", "---", "---", "---", "---", "---")
 		if err != nil {
 			return err
 		}
@@ -134,8 +134,10 @@ func writeItemsMarkdownGrouped(w io.Writer, items []domain.Item, trayNames map[s
 			ttl := strings.ReplaceAll(it.Title, "|", "\\|")
 			by := strings.ReplaceAll(FormatSourceUser(it.SourceUserID, currentUserID, displayByID), "|", "\\|")
 			when := itemTimeDisplayForSection(it, st, now)
-			if _, err := fmt.Fprintf(w, "| %d | %s | %s | %s | %s |\n",
+			idCell := "`" + strings.ReplaceAll(it.ID, "`", "") + "`"
+			if _, err := fmt.Fprintf(w, "| %d | %s | %s | %s | %s | %s |\n",
 				it.SortOrder,
+				idCell,
 				ttl,
 				tn,
 				by,
@@ -191,6 +193,9 @@ func writeItemsTableGrouped(w io.Writer, items []domain.Item, trayNames map[stri
 			meta := fmt.Sprintf("%4d  %s · %s · %s", it.SortOrder, tn, by, when)
 			meta = truncateRunesPlain(meta, lineWidth)
 			if _, err := fmt.Fprintln(w, meta); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(w, "  %s\n", it.ID); err != nil {
 				return err
 			}
 			for _, line := range wrapPlainTitle(it.Title, titleWrap) {

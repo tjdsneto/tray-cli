@@ -12,18 +12,18 @@ func cmdAccept() *cobra.Command {
 	return &cobra.Command{
 		Use:   "accept <item-id>",
 		Short: "Accept a pending item (tray owner)",
-		Long:  `Sets the item status to "accepted". Use the item id from tray list --format json.`,
+		Long:  `Sets the item status to "accepted". Use the full id from tray review / tray list, or a unique hex prefix (at least 8 characters, hyphens optional).`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runAccept,
 	}
 }
 
 func runAccept(cmd *cobra.Command, args []string) error {
-	id := strings.TrimSpace(args[0])
-	if id == "" {
-		return fmt.Errorf("pass the item id from `tray list --format json`")
-	}
 	svcs, sess, err := cmdDeps.RequireAuth()
+	if err != nil {
+		return err
+	}
+	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0])
 	if err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func cmdDecline() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "decline <item-id>",
 		Short: "Decline a pending item (tray owner)",
-		Long:  `Sets the item status to "declined". Optional --reason is stored for the contributor.`,
+		Long:  `Sets the item status to "declined". Optional --reason is stored for the contributor. Item id: full uuid from tray review / list, or a unique hex prefix (≥8 digits).`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runDecline,
 	}
@@ -47,11 +47,11 @@ func cmdDecline() *cobra.Command {
 }
 
 func runDecline(cmd *cobra.Command, args []string) error {
-	id := strings.TrimSpace(args[0])
-	if id == "" {
-		return fmt.Errorf("pass the item id from `tray list --format json`")
-	}
 	svcs, sess, err := cmdDeps.RequireAuth()
+	if err != nil {
+		return err
+	}
+	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0])
 	if err != nil {
 		return err
 	}
