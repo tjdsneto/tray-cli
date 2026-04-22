@@ -241,7 +241,7 @@ func writeItemsTableGrouped(w io.Writer, items []domain.Item, trayNames map[stri
 
 // formatItemMetaHuman builds one meta line: display item number (1-based within this tray block),
 // contributor and time, then uuid. sort_order is not shown; it only affects sort order upstream.
-// On a TTY, index and "who · when" are dim; the uuid stays default brightness for copy/paste.
+// On a TTY: bold cyan line number, dim "who · when", yellow id (tray name is colored separately).
 func formatItemMetaHuman(displayN int, headPlain, suffixPlain string, lineWidth int, color bool) string {
 	prefix := fmt.Sprintf("%3d  ", displayN)
 	s := fitItemMetaLine(prefix, headPlain, suffixPlain, lineWidth)
@@ -249,8 +249,11 @@ func formatItemMetaHuman(displayN int, headPlain, suffixPlain string, lineWidth 
 		return s
 	}
 	if strings.HasSuffix(s, suffixPlain) {
-		muted := s[:len(s)-len(suffixPlain)]
-		return ansiDim + muted + ansiReset + suffixPlain
+		headPart := s[len(prefix) : len(s)-len(suffixPlain)]
+		numColored := ansiBold + ansiCyan + fmt.Sprintf("%3d", displayN) + ansiReset + "  "
+		dimHead := ansiDim + headPart + ansiReset
+		idColored := ansiYellow + suffixPlain + ansiReset
+		return numColored + dimHead + idColored
 	}
 	return ansiDim + s + ansiReset
 }
