@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/tjdsneto/tray-cli/internal/domain"
 	"golang.org/x/term"
@@ -107,7 +108,7 @@ func writeItemsMarkdownGrouped(w io.Writer, items []domain.Item, trayNames map[s
 	first := true
 	for _, st := range keys {
 		chunk := buckets[st]
-		sortItemsInTrayOrder(chunk)
+		sortItemsForDisplay(chunk, trayNames)
 		if !first {
 			if _, err := fmt.Fprintln(w); err != nil {
 				return err
@@ -117,36 +118,62 @@ func writeItemsMarkdownGrouped(w io.Writer, items []domain.Item, trayNames map[s
 		if _, err := fmt.Fprintf(w, "### %s\n\n", sectionTitleForStatus(st)); err != nil {
 			return err
 		}
-		_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s | %s |\n", "ORD", "id", "Title", "Tray", "By", timeColumnHeaderMarkdown(st))
-		if err != nil {
-			return err
-		}
-		_, err = fmt.Fprintf(w, "| %s | %s | %s | %s | %s | %s |\n", "---", "---", "---", "---", "---", "---")
-		if err != nil {
-			return err
-		}
-		for _, it := range chunk {
-			tn := trayNames[it.TrayID]
-			if tn == "" {
-				tn = it.TrayID
+		groups := groupConsecutiveByTrayID(chunk)
+		firstGroup := true
+		for _, group := range groups {
+			if !firstGroup {
+				if _, err := fmt.Fprintln(w); err != nil {
+					return err
+				}
 			}
-			tn = strings.ReplaceAll(tn, "|", "\\|")
-			ttl := strings.ReplaceAll(it.Title, "|", "\\|")
-			by := strings.ReplaceAll(FormatSourceUser(it.SourceUserID, currentUserID, displayByID), "|", "\\|")
-			when := itemTimeDisplayForSection(it, st, now)
-			idCell := "`" + strings.ReplaceAll(it.ID, "`", "") + "`"
-			if _, err := fmt.Fprintf(w, "| %d | %s | %s | %s | %s | %s |\n",
-				it.SortOrder,
-				idCell,
-				ttl,
-				tn,
-				by,
-				strings.ReplaceAll(when, "|", "\\|")); err != nil {
+			firstGroup = false
+			tn := itemTrayDisplayName(group[0], trayNames)
+			heading := markdownTrayHeading(tn)
+			if _, err := fmt.Fprintf(w, "#### %s\n\n", heading); err != nil {
 				return err
+			}
+			_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", "ORD", "id", "Title", "By", timeColumnHeaderMarkdown(st))
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", "---", "---", "---", "---", "---")
+			if err != nil {
+				return err
+			}
+			for _, it := range group {
+				ttl := strings.ReplaceAll(it.Title, "|", "\\|")
+				by := strings.ReplaceAll(FormatSourceUser(it.SourceUserID, currentUserID, displayByID), "|", "\\|")
+				when := itemTimeDisplayForSection(it, st, now)
+				idCell := "`" + strings.ReplaceAll(it.ID, "`", "") + "`"
+				if _, err := fmt.Fprintf(w, "| %d | %s | %s | %s | %s |\n",
+					it.SortOrder,
+					idCell,
+					ttl,
+					by,
+					strings.ReplaceAll(when, "|", "\\|")); err != nil {
+					return err
+				}
 			}
 		}
 	}
 	return nil
+}
+
+func itemTrayDisplayName(it domain.Item, trayNames map[string]string) string {
+	if trayNames == nil {
+		trayNames = map[string]string{}
+	}
+	tn := trayNames[it.TrayID]
+	if tn == "" {
+		return it.TrayID
+	}
+	return tn
+}
+
+func markdownTrayHeading(name string) string {
+	s := strings.TrimSpace(strings.ReplaceAll(name, "\n", " "))
+	s = strings.ReplaceAll(s, "#", "")
+	return strings.TrimSpace(s)
 }
 
 func writeItemsTableGrouped(w io.Writer, items []domain.Item, trayNames map[string]string, currentUserID string, displayByID map[string]string, now time.Time) error {
@@ -165,7 +192,7 @@ func writeItemsTableGrouped(w io.Writer, items []domain.Item, trayNames map[stri
 	first := true
 	for _, st := range keys {
 		chunk := buckets[st]
-		sortItemsInTrayOrder(chunk)
+		sortItemsForDisplay(chunk, trayNames)
 		if !first {
 			if _, err := fmt.Fprintln(w); err != nil {
 				return err
@@ -176,36 +203,61 @@ func writeItemsTableGrouped(w io.Writer, items []domain.Item, trayNames map[stri
 		if _, err := fmt.Fprintf(w, "%s\n", StatusSectionTitleANSI(st, title, color)); err != nil {
 			return err
 		}
-		firstItem := true
-		for _, it := range chunk {
-			if !firstItem {
+		groups := groupConsecutiveByTrayID(chunk)
+		for gi, group := range groups {
+			if gi > 0 {
 				if _, err := fmt.Fprintln(w); err != nil {
 					return err
 				}
 			}
-			firstItem = false
-			tn := trayNames[it.TrayID]
-			if tn == "" {
-				tn = it.TrayID
-			}
-			by := FormatSourceUser(it.SourceUserID, currentUserID, displayByID)
-			when := itemTimeDisplayForSection(it, st, now)
-			meta := fmt.Sprintf("%4d  %s · %s · %s", it.SortOrder, tn, by, when)
-			meta = truncateRunesPlain(meta, lineWidth)
-			if _, err := fmt.Fprintln(w, meta); err != nil {
+			tn := itemTrayDisplayName(group[0], trayNames)
+			if _, err := fmt.Fprintf(w, "%s\n", TrayGroupTitleANSI(tn, color)); err != nil {
 				return err
 			}
-			if _, err := fmt.Fprintf(w, "  %s\n", it.ID); err != nil {
-				return err
-			}
-			for _, line := range wrapPlainTitle(it.Title, titleWrap) {
-				if _, err := fmt.Fprintf(w, "  %s\n", line); err != nil {
+			for ii, it := range group {
+				if ii > 0 {
+					if _, err := fmt.Fprintln(w); err != nil {
+						return err
+					}
+				}
+				by := FormatSourceUser(it.SourceUserID, currentUserID, displayByID)
+				when := itemTimeDisplayForSection(it, st, now)
+				metaHead := fmt.Sprintf("%4d  %s · %s", it.SortOrder, by, when)
+				suffix := " · " + strings.TrimSpace(it.ID)
+				meta := fitMetaLineWithID(metaHead, suffix, lineWidth)
+				if _, err := fmt.Fprintln(w, meta); err != nil {
 					return err
+				}
+				for _, line := range wrapPlainTitle(it.Title, titleWrap) {
+					if _, err := fmt.Fprintf(w, "  %s\n", line); err != nil {
+						return err
+					}
 				}
 			}
 		}
 	}
 	return nil
+}
+
+// fitMetaLineWithID appends suffix (typically " · "+uuid) to head; if the line is wider than lineWidth,
+// head is truncated with an ellipsis so the full suffix remains visible.
+func fitMetaLineWithID(head, suffix string, lineWidth int) string {
+	if lineWidth < 48 {
+		lineWidth = 48
+	}
+	full := head + suffix
+	if utf8.RuneCountInString(full) <= lineWidth {
+		return full
+	}
+	sfxLen := utf8.RuneCountInString(suffix)
+	if sfxLen >= lineWidth {
+		return truncateRunesPlain(full, lineWidth)
+	}
+	maxHead := lineWidth - sfxLen
+	if maxHead < 16 {
+		maxHead = 16
+	}
+	return truncateRunesPlain(head, maxHead) + suffix
 }
 
 // resolvedLineWidth returns stdout width when w is a TTY *os.File, else a default suitable for pipes and tests.

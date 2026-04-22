@@ -56,9 +56,17 @@ func sectionKeysInDisplayOrder(buckets map[string][]domain.Item) []string {
 	return append(keys, rest...)
 }
 
-func sortItemsInTrayOrder(items []domain.Item) {
+// sortItemsForDisplay sorts by tray display name (case-insensitive), then tray id, manual order, then created time.
+func sortItemsForDisplay(items []domain.Item, trayNames map[string]string) {
+	if trayNames == nil {
+		trayNames = map[string]string{}
+	}
 	sort.SliceStable(items, func(i, j int) bool {
 		a, b := items[i], items[j]
+		ka, kb := trayDisplaySortKey(a.TrayID, trayNames), trayDisplaySortKey(b.TrayID, trayNames)
+		if ka != kb {
+			return ka < kb
+		}
 		if a.TrayID != b.TrayID {
 			return a.TrayID < b.TrayID
 		}
@@ -67,6 +75,40 @@ func sortItemsInTrayOrder(items []domain.Item) {
 		}
 		return a.CreatedAt.Before(b.CreatedAt)
 	})
+}
+
+func trayDisplaySortKey(trayID string, trayNames map[string]string) string {
+	id := strings.TrimSpace(trayID)
+	name := strings.TrimSpace(trayNames[id])
+	if name == "" {
+		name = id
+	}
+	return strings.ToLower(name) + "\x00" + id
+}
+
+// groupConsecutiveByTrayID splits items into runs with the same tray_id (slice must already be sorted by tray).
+func groupConsecutiveByTrayID(items []domain.Item) [][]domain.Item {
+	if len(items) == 0 {
+		return nil
+	}
+	var groups [][]domain.Item
+	var cur []domain.Item
+	curTray := ""
+	for _, it := range items {
+		tid := strings.TrimSpace(it.TrayID)
+		if len(cur) == 0 || tid != curTray {
+			if len(cur) > 0 {
+				groups = append(groups, cur)
+			}
+			cur = nil
+			curTray = tid
+		}
+		cur = append(cur, it)
+	}
+	if len(cur) > 0 {
+		groups = append(groups, cur)
+	}
+	return groups
 }
 
 func sectionTitleForStatus(st string) string {
