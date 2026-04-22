@@ -132,7 +132,7 @@ func writeItemsMarkdownGrouped(w io.Writer, items []domain.Item, trayNames map[s
 			if _, err := fmt.Fprintf(w, "#### %s\n\n", heading); err != nil {
 				return err
 			}
-			_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", "ORD", "id", "Title", "By", timeColumnHeaderMarkdown(st))
+			_, err := fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n", "Ord", "id", "Title", "By", timeColumnHeaderMarkdown(st))
 			if err != nil {
 				return err
 			}
@@ -222,7 +222,8 @@ func writeItemsTableGrouped(w io.Writer, items []domain.Item, trayNames map[stri
 				}
 				by := FormatSourceUser(it.SourceUserID, currentUserID, displayByID)
 				when := itemTimeDisplayForSection(it, st, now)
-				metaHead := fmt.Sprintf("%4d  %s · %s", it.SortOrder, by, when)
+				// "ord" is manual order on that tray (tray item up/down), not a 1-based display index.
+				metaHead := fmt.Sprintf("ord %d  %s · %s", it.SortOrder, by, when)
 				suffix := " · " + strings.TrimSpace(it.ID)
 				meta := fitMetaLineWithID(metaHead, suffix, lineWidth)
 				if _, err := fmt.Fprintln(w, meta); err != nil {

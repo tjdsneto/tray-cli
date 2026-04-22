@@ -26,7 +26,7 @@ func TestWriteItems_markdown(t *testing.T) {
 	out := buf.String()
 	require.Contains(t, out, "### Pending")
 	require.Contains(t, out, "#### inbox")
-	require.Contains(t, out, "| ORD | id | Title |")
+	require.Contains(t, out, "| Ord | id | Title |")
 	require.NotContains(t, out, "| Tray |")
 	require.Contains(t, out, "`11111111-1111-1111-1111-111111111111`")
 	require.Contains(t, out, "inbox")
@@ -46,6 +46,7 @@ func TestWriteItems_table(t *testing.T) {
 	require.Contains(t, out, "Do")
 	require.Contains(t, out, "you") // FormatSourceUser for self
 	require.Contains(t, out, "inbox\n") // tray group title (dim on TTY)
+	require.Contains(t, out, "ord 0")
 	require.Contains(t, out, "· 11111111-1111-1111-1111-111111111111")
 	require.Contains(t, out, "you") // meta line still lists contributor
 }
@@ -63,6 +64,7 @@ func TestWriteItems_table_longTitleFullyShown(t *testing.T) {
 	out := buf.String()
 	require.Contains(t, out, needle, "full title must not be truncated")
 	require.Contains(t, out, "work\n")
+	require.Contains(t, out, "ord 3")
 	require.Contains(t, out, "Fernando Duro")
 	require.Contains(t, out, "· 22222222-2222-2222-2222-222222222222")
 }
