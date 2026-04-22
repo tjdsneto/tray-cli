@@ -229,7 +229,7 @@ func writeItemsTableGrouped(w io.Writer, items []domain.Item, trayNames map[stri
 					return err
 				}
 				for _, line := range wrapPlainTitle(it.Title, titleWrap) {
-					if _, err := fmt.Fprintf(w, "%s\n", formatItemTitleLine(line, color)); err != nil {
+					if _, err := fmt.Fprintf(w, "  %s\n", line); err != nil {
 						return err
 					}
 				}
@@ -241,23 +241,18 @@ func writeItemsTableGrouped(w io.Writer, items []domain.Item, trayNames map[stri
 
 // formatItemMetaHuman builds one meta line: display item number (1-based within this tray block),
 // contributor and time, then uuid. sort_order is not shown; it only affects sort order upstream.
+// On a TTY, index and "who · when" are dim; the uuid stays default brightness for copy/paste.
 func formatItemMetaHuman(displayN int, headPlain, suffixPlain string, lineWidth int, color bool) string {
-	var prefix, suffix string
-	if color {
-		prefix = ansiBold + ansiCyan + fmt.Sprintf("%3d", displayN) + ansiReset + "  "
-		suffix = ansiDim + suffixPlain + ansiReset
-	} else {
-		prefix = fmt.Sprintf("%3d  ", displayN)
-		suffix = suffixPlain
-	}
-	return fitItemMetaLine(prefix, headPlain, suffix, lineWidth)
-}
-
-func formatItemTitleLine(line string, color bool) string {
+	prefix := fmt.Sprintf("%3d  ", displayN)
+	s := fitItemMetaLine(prefix, headPlain, suffixPlain, lineWidth)
 	if !color {
-		return "  " + line
+		return s
 	}
-	return "  " + ansiDim + line + ansiReset
+	if strings.HasSuffix(s, suffixPlain) {
+		muted := s[:len(s)-len(suffixPlain)]
+		return ansiDim + muted + ansiReset + suffixPlain
+	}
+	return ansiDim + s + ansiReset
 }
 
 // fitItemMetaLine joins prefix (may contain ANSI), plain head, and suffix (may contain ANSI).
