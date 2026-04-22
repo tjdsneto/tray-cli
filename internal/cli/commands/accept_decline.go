@@ -12,7 +12,7 @@ func cmdAccept() *cobra.Command {
 	return &cobra.Command{
 		Use:   "accept <item-id>",
 		Short: "Accept a pending item (tray owner)",
-		Long:  `Sets the item status to "accepted". Use the full id from tray review / tray list, or a unique hex prefix (at least 8 characters, hyphens optional).`,
+		Long:  `Sets the item status to "accepted". Use the full id from tray review / tray list, or a unique hex prefix (at least 8 characters, hyphens optional) among pending items on trays you own.`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runAccept,
 	}
@@ -23,7 +23,7 @@ func runAccept(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0])
+	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0], poolReviewPending)
 	if err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func cmdDecline() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "decline <item-id>",
 		Short: "Decline a pending item (tray owner)",
-		Long:  `Sets the item status to "declined". Optional --reason is stored for the contributor. Item id: full uuid from tray review / list, or a unique hex prefix (≥8 digits).`,
+		Long:  `Sets the item status to "declined". Optional --reason is stored for the contributor. Item id: full uuid from tray review / list, or a unique hex prefix (≥8 digits) among pending items on trays you own.`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runDecline,
 	}
@@ -51,7 +51,7 @@ func runDecline(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0])
+	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0], poolReviewPending)
 	if err != nil {
 		return err
 	}

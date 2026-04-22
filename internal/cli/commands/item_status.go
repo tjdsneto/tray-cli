@@ -13,7 +13,7 @@ func cmdSnooze() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "snooze <item-id>",
 		Short: "Set item status to snoozed until a time (owner triage)",
-		Long:  `Item id: full uuid from tray review / list, or a unique hex prefix (at least 8 characters).`,
+		Long:  `Item id: full uuid from tray review / list, or a unique hex prefix (at least 8 characters) among pending and accepted items on trays you own.`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runSnooze,
 	}
@@ -41,7 +41,7 @@ func runSnooze(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0])
+	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0], poolPendingAcceptedOwned)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func cmdComplete() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "complete <item-id>",
 		Short: "Mark an item completed (owner triage)",
-		Long:  `Item id: full uuid from tray review / list, or a unique hex prefix (at least 8 characters).`,
+		Long:  `Item id: full uuid from tray review / list, or a unique hex prefix (at least 8 characters) among pending and accepted items on trays you own (short list — not your whole history).`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runComplete,
 	}
@@ -74,7 +74,7 @@ func runComplete(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0])
+	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0], poolPendingAcceptedOwned)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func cmdArchive() *cobra.Command {
 	return &cobra.Command{
 		Use:   "archive <item-id>",
 		Short: "Mark an item archived (owner triage)",
-		Long:  `Item id: full uuid from tray review / list, or a unique hex prefix (at least 8 characters).`,
+		Long:  `Item id: full uuid from tray review / list, or a unique hex prefix (at least 8 characters) among pending, accepted, and snoozed items on trays you own.`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runArchive,
 	}
@@ -105,7 +105,7 @@ func runArchive(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0])
+	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0], poolArchiveCandidates)
 	if err != nil {
 		return err
 	}

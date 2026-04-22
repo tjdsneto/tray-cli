@@ -21,7 +21,7 @@ func runRemove(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0])
+	id, err := resolveItemIDArg(cmd.Context(), svcs, sess, args[0], poolRemoveCandidates)
 	if err != nil {
 		return err
 	}
