@@ -1,0 +1,646 @@
+openapi: 3.1.0
+info:
+  title: Tray Gateway OAuth API
+  version: "0.1.0"
+  description: >
+    Supabase Edge Function gateway for ChatGPT Actions.
+    OAuth bootstrap endpoints plus a protected identity endpoint.
+
+# Replace YOUR_PROJECT_REF when publishing this schema (e.g. ChatGPT Actions import).
+servers:
+  - url: https://YOUR_PROJECT_REF.supabase.co/functions/v1/gateway
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required: [ok, service]
+      properties:
+        ok:
+          type: boolean
+        service:
+          type: string
+    GatewayMeResponse:
+      type: object
+      description: >
+        Unauthenticated requests return { "connected": false }.
+        With a valid gateway bearer token, user_id and related claims are returned.
+      properties:
+        connected:
+          type: boolean
+        user_id:
+          type: string
+        scope:
+          type: string
+        issuer:
+          type: string
+        audience:
+          type: string
+    TraySummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        owner_id:
+          type: string
+          format: uuid
+        is_owner:
+          type: boolean
+          description: Always true for listTrays (owned-only). Present for a stable shape if joined trays are added later.
+        created_at:
+          type: string
+        item_count:
+          type: integer
+    TraysListResponse:
+      type: object
+      properties:
+        trays:
+          type: array
+          items:
+            $ref: "#/components/schemas/TraySummary"
+    TrayItemsResponse:
+      type: object
+      properties:
+        tray_id:
+          type: string
+          format: uuid
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    RemoteTraySummary:
+      type: object
+      description: A tray you joined (member), not one you own — same idea as CLI `tray remote ls`.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        owner_id:
+          type: string
+          format: uuid
+        joined_at:
+          type: string
+        is_owner:
+          type: boolean
+        item_count:
+          type: integer
+    RemotesListResponse:
+      type: object
+      properties:
+        remotes:
+          type: array
+          items:
+            $ref: "#/components/schemas/RemoteTraySummary"
+    ItemsAllListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            description: Item rows visible under RLS (any tray you own, joined, or contributed to).
+    ItemsContributedListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            description: >
+              Item fields plus `tray_owner_id` (uuid of the tray owner). Only items filed on trays you do not own.
+    CreatedItemResponse:
+      type: object
+      properties:
+        item:
+          type: object
+          additionalProperties: true
+    DeleteItemResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        deleted_id:
+          type: string
+          format: uuid
+    TriageOkResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        item_id:
+          type: string
+          format: uuid
+        action:
+          type: string
+  securitySchemes:
+    gatewayBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Gateway JWT from /oauth/token. Include `tray.read` and `tray.write` in the OAuth authorize scope so
+        mutations are permitted.
+
+paths:
+  /health:
+    get:
+      operationId: gatewayHealth
+      summary: Health check
+      responses:
+        "200":
+          description: Service health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /oauth/authorize:
+    get:
+      operationId: oauthAuthorize
+      summary: OAuth authorize endpoint
+      description: >
+        Returns HTTP 302 to Supabase Auth (PKCE). After sign-in, the user returns to
+        /oauth/supabase-callback/{id} on this gateway, then is redirected to redirect_uri
+        with authorization code and state.
+      parameters:
+        - name: response_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [code]
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: redirect_uri
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            Space-separated scopes on the gateway JWT. Use `tray.read` for reads; add `tray.write` for
+            add/delete/triage. Example: `tray.read tray.write`.
+      responses:
+        "302":
+          description: Redirect with code and state
+        "400":
+          description: Invalid request
+        "401":
+          description: Missing/invalid user proof
+
+  /oauth/token:
+    post:
+      operationId: oauthToken
+      summary: OAuth token endpoint
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [grant_type, client_id]
+              properties:
+                grant_type:
+                  type: string
+                  enum: [authorization_code, refresh_token]
+                client_id:
+                  type: string
+                code:
+                  type: string
+                redirect_uri:
+                  type: string
+                  format: uri
+                refresh_token:
+                  type: string
+      responses:
+        "200":
+          description: Access/refresh token response
+        "400":
+          description: Invalid grant or unsupported grant type
+
+  /v1/me:
+    get:
+      operationId: gatewayMe
+      summary: Current gateway token identity
+      security:
+        - gatewayBearer: []
+      responses:
+        "200":
+          description: Token identity (always JSON; see schema)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayMeResponse"
+        "401":
+          description: Missing or invalid bearer token
+
+  /v1/trays:
+    get:
+      operationId: listTrays
+      summary: List trays you own
+      description: >
+        Requires gateway OAuth with scope tray.read. Same scope as CLI `tray ls` — owned trays only
+        (`owner_id` = you). Joined trays are listed via `listRemotes`.
+      security:
+        - gatewayBearer: []
+      responses:
+        "200":
+          description: Tray summaries with embedded item counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TraysListResponse"
+        "401":
+          description: Missing gateway token or stale Supabase session (reconnect OAuth)
+        "403":
+          description: Missing tray.read scope
+
+  /v1/remotes:
+    get:
+      operationId: listRemotes
+      summary: List trays you joined (remotes)
+      description: >
+        Same idea as CLI `tray remote ls`: membership rows where you are not the owner.
+        For owned trays, use `listTrays`.
+      security:
+        - gatewayBearer: []
+      responses:
+        "200":
+          description: Joined tray summaries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemotesListResponse"
+        "401":
+          description: Missing gateway token or stale Supabase session
+        "403":
+          description: Missing tray.read scope
+
+  /v1/items/contributed:
+    get:
+      operationId: listContributedItems
+      summary: Items you filed on trays you do not own (tray contributed)
+      description: >
+        Same idea as CLI `tray contributed`: items where you are `source_user_id` and the tray owner is not you.
+        Each item includes `tray_owner_id` (the tray owner’s user id).
+      security:
+        - gatewayBearer: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, accepted, declined, snoozed, completed, archived]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 100
+      responses:
+        "200":
+          description: Contributed items (excluding lines on trays you own)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemsContributedListResponse"
+        "401":
+          description: Missing gateway token or stale Supabase session
+        "403":
+          description: Missing tray.read scope
+
+  /v1/items:
+    get:
+      operationId: listAllItems
+      summary: List items across all visible trays
+      description: >
+        One query with no required tray id: PostgREST returns every item your session may see under RLS
+        (owned trays, joined trays, items you filed elsewhere, etc.). Ordered by updated_at descending.
+        Optional `tray_id` narrows to one tray.
+      security:
+        - gatewayBearer: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, accepted, declined, snoozed, completed, archived]
+        - name: tray_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 100
+      responses:
+        "200":
+          description: Items visible to the user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemsAllListResponse"
+        "401":
+          description: Missing gateway token or stale Supabase session
+        "403":
+          description: Missing tray.read scope
+
+  /v1/trays/{trayId}/items:
+    get:
+      operationId: listTrayItems
+      summary: List items on a tray
+      security:
+        - gatewayBearer: []
+      parameters:
+        - name: trayId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, accepted, declined, snoozed, completed, archived]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Items (newest ordering by sort_order, created_at)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrayItemsResponse"
+        "401":
+          description: Missing gateway token or stale Supabase session
+        "403":
+          description: Missing tray.read scope
+    post:
+      operationId: addTrayItem
+      summary: Add an item to a tray
+      description: >
+        Requires `tray.write`. Same rules as CLI `tray add`: accepted immediately on trays you own; pending when
+        contributing to someone else tray.
+      security:
+        - gatewayBearer: []
+      parameters:
+        - name: trayId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                due_date:
+                  type: string
+                  description: Optional ISO date (YYYY-MM-DD)
+      responses:
+        "200":
+          description: Created item (representation)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedItemResponse"
+        "400":
+          description: Invalid body or tray
+        "401":
+          description: Unauthorized or stale Supabase session
+        "403":
+          description: Missing tray.write scope
+        "404":
+          description: Tray not found or inaccessible
+
+  /v1/items/{itemId}:
+    delete:
+      operationId: deleteItem
+      summary: Delete an item
+      description: >
+        Requires `tray.write`. Owner may delete any item on their tray; contributors may delete own pending items (RLS).
+      security:
+        - gatewayBearer: []
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteItemResponse"
+        "401":
+          description: Unauthorized or stale Supabase session
+        "403":
+          description: Missing tray.write or not allowed by RLS
+
+  /v1/items/{itemId}/complete:
+    post:
+      operationId: completeItem
+      summary: Mark item completed (owner triage)
+      security:
+        - gatewayBearer: []
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                completion_message:
+                  type: string
+      responses:
+        "200":
+          description: Item marked completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriageOkResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Missing tray.write
+
+  /v1/items/{itemId}/accept:
+    post:
+      operationId: acceptItem
+      summary: Accept pending item (owner triage)
+      security:
+        - gatewayBearer: []
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Item accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriageOkResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Missing tray.write
+
+  /v1/items/{itemId}/decline:
+    post:
+      operationId: declineItem
+      summary: Decline pending item (owner triage)
+      security:
+        - gatewayBearer: []
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Item declined
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriageOkResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Missing tray.write
+
+  /v1/items/{itemId}/snooze:
+    post:
+      operationId: snoozeItem
+      summary: Snooze item until a time (owner triage)
+      security:
+        - gatewayBearer: []
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [snooze_until]
+              properties:
+                snooze_until:
+                  type: string
+                  format: date-time
+                  description: ISO-8601 instant, e.g. 2026-05-10T15:00:00Z
+                until:
+                  type: string
+                  description: Alias for snooze_until
+      responses:
+        "200":
+          description: Item snoozed until the given time
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriageOkResponse"
+        "400":
+          description: Missing or invalid snooze_until
+        "401":
+          description: Unauthorized
+        "403":
+          description: Missing tray.write
+
+  /v1/items/{itemId}/archive:
+    post:
+      operationId: archiveItem
+      summary: Archive item (owner triage)
+      security:
+        - gatewayBearer: []
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Item archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriageOkResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Missing tray.write

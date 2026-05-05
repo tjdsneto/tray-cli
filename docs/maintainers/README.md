@@ -8,6 +8,8 @@ This is the home for **working on the repository**: tests, local builds, release
 |-----|------|
 | **[Distribution](distribution.md)** | Local builds, release tarballs, `publish-release.sh`, versioning, install script behavior |
 | **[Unit testing](testing.md)** | `make test`, coverage, what to prioritize in tests |
+| **[ChatGPT gateway plan](chatgpt-gateway.md)** | One shared GPT + per-user OAuth + gateway-issued tokens (design + phased rollout) |
+| **[ChatGPT Custom GPT setup](chatgpt-custom-gpt.md)** | Step-by-step: Actions schema, OAuth URLs, scopes, privacy URL, troubleshooting |
 | **Configuration and runtime** (below) | `TRAY_CONFIG_DIR`, Supabase env overrides — for development and custom builds, not normal installs |
 | **Login and OAuth** (below) | Browser flow, Supabase, JWT refresh, providers, redirect URIs — not required reading for normal CLI users |
 | **Debugging** (below) | **`TRAY_DEBUG`** — verbose API errors when developing or diagnosing failures |
