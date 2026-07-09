@@ -51,3 +51,11 @@ Help for **using** the shipped `tray` binary (not developing this repo) lives in
 | **Claude** | this file (`CLAUDE.md`) |
 
 **When creating, updating, or removing project-wide AI guidance in one place, apply the same change to the other** so Cursor and Claude stay aligned. If guidance is intentionally tool-specific, note that in **both** places in one line.
+
+---
+
+## Backlog
+
+`todos.md` at the repo root is my self-authored backlog of feature ideas (managed by the
+`app-backlog` skill). Read it when I ask to pick something to work on — don't surface it
+proactively.

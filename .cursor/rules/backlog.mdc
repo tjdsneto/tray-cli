@@ -1,0 +1,12 @@
+---
+description: todos.md at the repo root is the self-authored feature backlog
+alwaysApply: true
+---
+
+# Backlog
+
+- `todos.md` at the repo root is my self-authored backlog of feature ideas (managed by the
+  `app-backlog` skill).
+- Read it when I ask to pick something to work on — **don't** surface it proactively.
+- Mirror of the **## Backlog** section in [`CLAUDE.md`](../../CLAUDE.md) (see
+  `cursor-claude-rules-parity.mdc`).
