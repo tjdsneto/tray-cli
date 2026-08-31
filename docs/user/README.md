@@ -5,6 +5,7 @@ These pages are for **end users** of the `tray` binary: installing it, configuri
 ## Contents
 
 - **[Trays: yours vs joined](trays.md)** — `tray ls`, `tray remote ls`, `tray list`, and `tray contributed`.
+- **[Local trays](local-trays.md)** — directory, branch, and global trays on this machine (no sign-in).
 - **[Listen hooks (`hooks.json`)](hooks.md)** — `tray listen`, events, `TRAY_*` environment variables, and recipes (notifications, sounds, logging).
 
 ## See also

@@ -12,7 +12,8 @@ import (
 func cmdCreate() *cobra.Command {
 	return &cobra.Command{
 		Use:   "create <name>",
-		Short: "Create a named tray",
+		Short: "Create a named remote tray",
+		Long:  `Creates a remote tray on the server (requires sign-in). For a local named tray, add an item instead: tray add "title" <name>`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runCreate,
 	}
@@ -37,7 +38,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	}
 	showHints := format == output.FormatTable
 	if format == output.FormatTable || format == output.FormatMarkdown {
-		if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Created tray %q.\n\n", tray.Name); err != nil {
+		if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Created remote tray %q.\n\n", tray.Name); err != nil {
 			return err
 		}
 	}
@@ -45,15 +46,41 @@ func runCreate(cmd *cobra.Command, args []string) error {
 }
 
 func cmdLs() *cobra.Command {
-	return &cobra.Command{
+	c := &cobra.Command{
 		Use:     "ls",
 		Aliases: []string{"list-trays"},
-		Short:   "List trays you own",
-		RunE:    runLs,
+		Short:   "List trays in scope",
+		Long: `Default: local trays in scope (global trays plus directory/branch trays along the upward path from the current working directory).
+
+Use --all for every local tray ever created. Use --remote for remote trays you own (requires sign-in).`,
+		RunE: runLs,
 	}
+	c.Flags().Bool("all", false, "list every local tray ever created")
+	c.Flags().Bool("remote", false, "list remote trays you own (requires sign-in)")
+	return c
 }
 
 func runLs(cmd *cobra.Command, args []string) error {
+	all, err := cmd.Flags().GetBool("all")
+	if err != nil {
+		return err
+	}
+	remote, err := cmd.Flags().GetBool("remote")
+	if err != nil {
+		return err
+	}
+	if remote {
+		return runOwnedRemoteLs(cmd, args)
+	}
+	cwd, git := workContext()
+	ids, err := localTrayIDs(all, cwd, git)
+	if err != nil {
+		return err
+	}
+	return runLocalLs(cmd, ids)
+}
+
+func runOwnedRemoteLs(cmd *cobra.Command, args []string) error {
 	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
@@ -67,7 +94,6 @@ func runLs(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	showHints := format == output.FormatTable
-	// Owned-only list: omit ACCESS column (everything would be "owner").
 	return output.WriteTrays(cmd.OutOrStdout(), trays, format, showHints, "")
 }
 

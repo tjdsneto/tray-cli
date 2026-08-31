@@ -8,7 +8,7 @@ These files teach **Claude**, **Cursor**, and similar tools how to help **users*
 
 | Path | Role |
 |------|------|
-| [`tray-cli/SKILL.md`](tray-cli/SKILL.md) | **Canonical** skill body (version with the repo; suitable to zip or copy standalone). |
+| [`tray-cli/SKILL.md`](tray-cli/SKILL.md) | **Canonical** skill body — local context trays (directory, branch, global), remote handoffs, triage, and agent workflow (`tray list` on enter repo). |
 
 ## Install without cloning (curl)
 

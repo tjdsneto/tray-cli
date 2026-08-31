@@ -9,14 +9,21 @@ import (
 func cmdRemove() *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove <item-id>",
-		Short: "Remove an item (tray owner: any item; contributor: pending only)",
-		Long:  `Item id: full uuid from tray review / list / contributed, or a unique hex prefix (at least 8 characters) among items you own or filed on others' trays.`,
+		Short: "Remove an item",
+		Long:  `Removes a local item (from tray list) or a remote item (tray owner: any item; contributor: pending only). Item id: full id or a unique hex prefix (at least 8 characters) among open local items or remote items in scope.`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runRemove,
 	}
 }
 
 func runRemove(cmd *cobra.Command, args []string) error {
+	if id, ok, err := tryLocalRemove(args[0]); ok {
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Removed local item %s.\n", id)
+		return err
+	}
 	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err

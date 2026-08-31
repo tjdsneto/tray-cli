@@ -66,6 +66,13 @@ func cmdComplete() *cobra.Command {
 }
 
 func runComplete(cmd *cobra.Command, args []string) error {
+	if id, ok, err := tryLocalComplete(args[0]); ok {
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Completed local item %s.\n", id)
+		return err
+	}
 	msg, err := cmd.Flags().GetString("message")
 	if err != nil {
 		return err

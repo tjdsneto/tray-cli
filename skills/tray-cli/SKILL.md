@@ -1,77 +1,118 @@
 ---
 name: tray-cli
 description: >-
-  Helps people use the **tray** CLI for shared **inboxes** (**trays**), **items**,
-  **handoffs**, **triage**, and **attention** on queued work. **Prefer this skill when** the user
-  wants to **add something to their own tray or someone else’s**, **hand off** work to another
-  person, **check or review** what’s on a tray, or names a **tray destination** (their tray,
-  “mine,” a **person’s name**, or a **remote alias**). Also when they say **`tray`**, **`tray add`**,
-  **invite**, or **triage**. Item **titles** can be anything—don’t assume a specific kind of
-  content (links, reviews, todos, etc.); if the destination or action is **tray-shaped**, use this skill.
+  Helps people use the **tray** CLI for **inboxes** (**trays**), **items**, **handoffs**,
+  **triage**, and **attention** on queued work — **local context trays** (directory, branch,
+  global) and **remote** trays for collaboration. **Prefer this skill when** the user wants to
+  **add or check work in context** (this repo, branch, project), **hand off** to another person
+  or **pick up where an agent left off**, **review what's up** before starting, or names a **tray
+  destination** (their tray, “mine,” a **person**, or a **remote alias**). Also when they say
+  **`tray`**, **`tray add`**, **`tray list`**, **invite**, or **triage**. Item **titles** can be
+  anything—don't assume a specific kind of content; if the destination or action is **tray-shaped**,
+  use this skill.
 ---
 
 # Tray CLI (agent skill)
 
 Teach the model how to help **end users** run **tray**—not how to develop or ship this repository (that belongs in maintainer docs in the repo).
 
-**Routing:** Match on **intent and destination**—**my**/**their**/**someone’s tray**, a **person or alias**, **hand off**, **what’s on my tray**, **triage**—then use **`tray add`**, **`tray list`**, **`tray triage`**, **`tray review`**, etc., resolving targets with **`tray remote ls`** when needed. An item title can be anything; **don’t** treat particular phrasing or formats as the signal—**destination and intent** are.
+**Routing:** Match on **intent and destination**—**what's up in this project/branch**, **my**/**their** tray, **hand off**, **triage**—then use **`tray list`**, **`tray add`**, **`tray ls`**, **`tray triage`**, etc. **Default is local** (no sign-in); use **`--remote`** for server trays and cross-person handoffs. An item title can be anything; **destination and intent** are the signal.
+
+## Agents: start here in a repo
+
+When the user (or you) **opens or continues work in a git repo**, run **`tray list`** early to see **open items in context**—branch tray, directory trays along the path upward, and local global trays. Use **`tray ls`** for the tray index in the same scope.
+
+- **File WIP for this branch:** `tray add "…" --branch` (creates the branch tray on first add).
+- **File WIP for this folder / project root:** `tray add "…" --here` or `--project`.
+- **Personal note across projects:** `tray add "…" <name>` (local global tray, e.g. `inbox`).
+- **Hand off to a person on the server:** `tray add "…" <tray> --remote` (requires sign-in).
+
+Use **`tray complete <id>`** / **`tray remove <id>`** on ids from **`tray list`** for local items (no sign-in). Prefer **`--format json`** when parsing output programmatically.
 
 ## Tone: help like a product, not a debugger
 
 Most people want a **short, friendly** answer—not a spec sheet.
 
-- **Start with what they want** (“see my inbox”, “hand something off”, “clean up my queue”). Use everyday words; introduce command names as the **how**, not the opening jargon.
-- **Sign-in**: If they’re not signed in or nothing works, one sentence and **one** step: run **`tray login`** (browser sign-in). Don’t lead with flags, env vars, or raw error formats.
-- **Stay small**: prefer **one or two** commands that answer the question (e.g. **`tray list`**, **`tray ls`**, **`tray triage`**) and say what they’ll see—don’t dump the whole CLI.
-- **Deeper technical detail** (debug env vars, machine-readable output, token login, custom backends): only when something **failed**, they’re **scripting**, they **self-host**, or they **explicitly ask**—see **Troubleshooting & advanced** below.
+- **Start with what they want** (“see what's up here”, “hand something off”, “note this for the branch”). Use everyday words; introduce command names as the **how**.
+- **Sign-in:** Only needed for **remote** trays (`--remote`, `tray create`, `tray review`, invites, etc.). **Local add/list/complete/remove/prune work without `tray login`.** If remote commands fail, one step: **`tray login`**.
+- **Stay small**: prefer **one or two** commands (e.g. **`tray list`**, **`tray add "…" --branch`**) and say what they'll see.
+- **Deeper detail** (debug env, JSON output, token login, custom backends): only when something **failed**, they're **scripting**, or they **ask**—see **Troubleshooting & advanced**.
 
 ## Canonical human docs
 
 - [User docs index](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/README.md)
+- [Local trays (directory, branch, global)](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/local-trays.md)
 - [Hooks & `tray listen`](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/hooks.md)
-- [Owned vs joined trays, list semantics](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/trays.md)
+- [Owned vs joined remote trays](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/trays.md)
 - [Install & daily commands (root README)](https://github.com/tjdsneto/tray-cli/blob/main/README.md)
 
-## Sign-in and status (typical use)
+## Local vs remote (important)
 
-- **`tray login`** — Sign in in the browser (often Google on the first screen). **`tray login --force`** if they need to sign in again or switch accounts.
-- **`tray status`** — Check whether the CLI is signed in. Answer in plain language (“you’re signed in” / “you need to sign in”); don’t lead with exit codes or JSON unless they’re scripting or debugging.
+| | **Local trays** | **Remote trays** |
+|---|-----------------|------------------|
+| **Storage** | Files under `~/.config/tray/local/` | Server (Supabase) |
+| **Sign-in** | Not required | Required |
+| **Create** | First **`tray add`** (create-on-add) | **`tray create <name>`** |
+| **Default `tray list` / `tray ls`** | Yes — context scope | Use **`--remote`** |
+| **Hand off to others** | No | Yes (`--remote`, invites, triage) |
+| **Approval flow** | No (open → complete) | Yes for items **others** add to your tray |
+
+**Context trays** are keyed by **directory path**, **git branch + repo root**, or **global name**—not nested named trays inside a folder. Only trays that **exist in the index** (because someone added an item) appear in the default walk-up list.
 
 ## Command map (high level)
 
 | Area | Commands |
 |------|----------|
 | Account | `login`, `status`, `upgrade` |
-| Trays (owned) | `create`, `ls`, `rename`, `delete-tray`, `invite`, `rotate-invite` |
+| Local trays & items | `add`, `list`, `ls`, `remove`, `complete`, `prune` |
+| Remote trays (owned) | `create`, `ls --remote`, `rename`, `delete-tray`, `invite`, `rotate-invite` |
 | Join / remotes | `join`, `remote` (`add`, `rename`, `ls`, `remove`) |
-| Items | `add`, `list`, `remove`, `contributed`, `item up`, `item down` |
+| Remote items | `add --remote`, `list --remote`, `contributed`, `item up`, `item down` |
 | Members | `members`, `revoke`, `leave` |
-| Triage (owner) | `review`, `triage`, `accept`, `decline`, `snooze`, `complete`, `archive` |
+| Triage (remote owner) | `review`, `triage`, `accept`, `decline`, `snooze`, `complete`, `archive` |
 | Automation | `listen` (optional hooks / notifications) |
 
-Semantics that trip people up:
+### Local `add` targets
 
-- **`tray ls`** — trays **you own**. **`tray remote ls`** — trays you **joined** + local aliases.
-- **`tray list`** — items on **your** trays; **`tray list <tray>`** only for trays **you own** (names resolve among **owned** trays only, so a joined tray with the same name does not collide).
-- **`tray review`**, **`tray triage`**, **`tray listen`** — **owned trays only** for your inbox workflow (joined trays don’t work like your own tray here); **`tray contributed`** is the outbox of lines **you** filed elsewhere.
-- **`tray contributed`** — items **you** filed on **others’** trays (outbox). Joining someone’s tray lets you **add** lines there; it does **not** give you their full inbox — only the **owner** sees the full queue on that tray.
-- **`tray add "title" <tray>`** — target tray by **name**, **id**, or **remote alias**; new items are **accepted** on trays **you own**, **pending** when you **contribute** to someone else’s tray.
-- **`tray item up|down <item-id>`** — **owner-only**: move an item up or down in the list order on that tray.
+```bash
+tray add "title"                    # branch tray (non-main/master) or cwd dir tray
+tray add "title" inbox              # local global tray "inbox"
+tray add "title" --here             # directory tray for cwd
+tray add "title" --branch           # branch tray for current git branch
+tray add "title" --project          # directory tray for git repo root
+tray add "title" work --remote      # remote tray (sign-in required)
+tray add "title" inbox --no-create  # fail if local tray does not exist yet
+```
+
+### Local `list` / `ls` scope
+
+- **Default** — branch tray (if indexed) + directory trays upward from cwd (indexed only) + local globals.
+- **`--all`** — every local tray ever created on this machine.
+- **`--remote`** — remote trays you own (items for **`tray list --remote`**, tray names for **`tray ls --remote`**).
+
+### Semantics that trip people up
+
+- **`tray ls`** default is **local trays in scope**, not remote owned trays. **`tray ls --remote`** lists remote trays you own. **`tray remote ls`** lists trays you **joined** + local aliases (unchanged).
+- **`tray list`** default is **local open items** in that same scope. **`tray list --remote`** is the old “all my remote trays” view (requires sign-in).
+- **`tray review`**, **`tray triage`**, **`tray listen`** — **remote owned trays only**; **`tray contributed`** is your outbox on others' trays.
+- **`tray add … --remote`** — server tray; **accepted** on trays you own, **pending** when contributing to someone else's tray.
+- **`tray prune`** — remove **empty** local directory/branch trays from the index (globals kept). **`tray prune --dry-run`** to preview.
+- **`tray item up|down`** — **remote owner-only** reorder; not for local items.
 
 ## Listen and hooks (typical use)
 
-- **`tray listen`** watches for tray activity and can run **hooks** (small scripts) you configure—useful for notifications or glueing tray into other tools.
-- **Details** (config file location, event names, environment variables hooks receive): [hooks.md](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/hooks.md). Don’t dump hook internals unless the user is setting this up or troubleshooting listen.
+- **`tray listen`** watches **remote** tray activity and can run **hooks**—useful for notifications when someone files on your server tray.
+- **Details:** [hooks.md](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/hooks.md). Don't dump hook internals unless the user is setting this up.
 
 ## Troubleshooting & advanced
 
-Use this block when something **failed**, the user is **scripting**, **self-hosting**, or they **ask** for low-level detail—not for first-time “how do I use tray?” questions.
+Use when something **failed**, the user is **scripting**, **self-hosting**, or they **ask** for low-level detail.
 
-- **Verbose errors:** `TRAY_DEBUG=1` with the same command can surface more detail when diagnosing a failure (see maintainer docs if they’re hacking on the client).
-- **Scripting / stable output:** `--format json`, `--format machine`, or `--json`; **`NO_COLOR=1`** disables ANSI where applicable.
-- **Token-only sign-in:** `tray login --token '<jwt>'` — manual token, **no refresh**; prefer normal **`tray login`** for day-to-day use.
-- **Config directory:** `TRAY_CONFIG_DIR`, else Windows `%APPDATA%\tray`, else `$XDG_CONFIG_HOME/tray` or `~/.config/tray`.
-- **Custom / self-hosted backend:** `TRAY_SUPABASE_URL`, `TRAY_SUPABASE_ANON_KEY` (override built-in defaults). Repo **`.env.example`** and maintainer docs apply—don’t improvise dashboard steps beyond what the README already says for providers and redirect URIs.
+- **Verbose errors:** `TRAY_DEBUG=1` with the same command.
+- **Scripting:** `--format json`, `--format machine`, or `--json`; **`NO_COLOR=1`** disables ANSI where applicable.
+- **Token-only sign-in:** `tray login --token '<jwt>'` — no refresh; prefer **`tray login`** for remote use.
+- **Config directory:** `TRAY_CONFIG_DIR`, else `%APPDATA%\tray` (Windows) or `~/.config/tray`. Local trays live in **`local/`** under that directory.
+- **Custom backend:** `TRAY_SUPABASE_URL`, `TRAY_SUPABASE_ANON_KEY` for self-hosted remote trays.
 
 ## When unsure
 
@@ -79,11 +120,11 @@ Prefer **`tray <cmd> --help`** and the linked docs over guessing flags.
 
 ## Updating this skill file
 
-The **`tray` binary does not update this skill.** If the user installed **`SKILL.md`** with `curl` (or copied it by hand), they refresh it by **downloading again** and overwriting the same path.
+The **`tray` binary does not update this skill.** Refresh by **downloading again** and overwriting the same path.
 
-- **Track `main` (newest doc changes):**  
+- **Track `main`:**  
   `curl -fsSL "https://raw.githubusercontent.com/tjdsneto/tray-cli/main/skills/tray-cli/SKILL.md" -o /path/to/SKILL.md`
-- **Pin to a release:** replace `main` with a tag (e.g. `v1.2.3`) in that URL; bump the tag when they want a newer snapshot.
-- **Common locations:** `~/.cursor/skills/tray-cli/SKILL.md`, `~/.claude/skills/tray-cli/SKILL.md` (use the path that applies; if one is a symlink, overwriting the real file is enough).
+- **Pin to a release:** replace `main` with a tag (e.g. `v1.2.3`).
+- **Common locations:** `~/.cursor/skills/tray-cli/SKILL.md`, `~/.claude/skills/tray-cli/SKILL.md` (symlinks in a repo clone point at **`skills/tray-cli/SKILL.md`**).
 
-Full install options and symlink notes: [skills/README.md](https://github.com/tjdsneto/tray-cli/blob/main/skills/README.md).
+Full install options: [skills/README.md](https://github.com/tjdsneto/tray-cli/blob/main/skills/README.md).

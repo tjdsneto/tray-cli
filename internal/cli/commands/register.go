@@ -27,5 +27,6 @@ func Register(root *cobra.Command, deps Deps) {
 	root.AddCommand(cmdReview(), cmdTriage())
 	root.AddCommand(cmdAccept(), cmdDecline())
 	root.AddCommand(cmdSnooze(), cmdComplete(), cmdArchive())
+	root.AddCommand(cmdPrune())
 	root.AddCommand(cmdListen())
 }
