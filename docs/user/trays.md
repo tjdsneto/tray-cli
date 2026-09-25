@@ -23,6 +23,22 @@ Server-side tray **names** (e.g. `work`) are chosen by the **owner**. Everyone w
 
 To add an item to a tray you **don’t** own, use the tray’s **name** (from `tray remote ls`), a **remote alias**, or the tray id — see **`tray add --help`**.
 
+## Agent session trays
+
+Each AI agent session can have a **remote inbox** named `agent-session:<id>` (sign-in required). Other sessions file work there by session id; the owner drains with `list` / `complete`.
+
+| Action | Command |
+|--------|---------|
+| Add to session B’s inbox (create-on-add) | `tray add "…" --agent-session-id <B> --remote` |
+| Source stamp on the item | `$TRAY_AGENT_SESSION_ID`, or `--from-agent-session-id <id>` |
+| List a session inbox | `tray list --agent-session-id <id> --remote` |
+| List **mine** | `tray list --agent-session-id --remote` (needs `$TRAY_AGENT_SESSION_ID`) |
+| Prune idle empty session trays | `tray prune --remote` (default idle ≥ 7 days; add recreates) |
+
+Optional dial/hotline “you’ve got mail” after add is a skill recipe only — not required by the CLI.
+
+Hook events expose the item’s source stamp as **`TRAY_ITEM_AGENT_SESSION_ID`** (see [hooks](hooks.md)); do not confuse that with **`TRAY_AGENT_SESSION_ID`**.
+
 ## See also
 
 - **[Listen hooks](hooks.md)** — `tray listen`, `hooks.json`, `TRAY_*` env vars.

@@ -30,6 +30,7 @@ Hooks run with your normal environment plus **TRAY\_** variables (canonical name
 - **`TRAY_SESSION_USER_ID`** — signed-in user
 - **`TRAY_ITEM_ID`**, **`TRAY_ITEM_TRAY_ID`**, **`TRAY_ITEM_TITLE`**, **`TRAY_ITEM_STATUS`**
 - **`TRAY_ITEM_ADDED_BY_USER_ID`**, **`TRAY_ITEM_ADDED_BY_DISPLAY_NAME`** (when profiles resolve)
+- **`TRAY_ITEM_AGENT_SESSION_ID`** — source AI-agent session id stamped on the item when set (who filed it). Not the same as **`TRAY_AGENT_SESSION_ID`**, which is the live agent’s identity for “mine” list / default source on add (see [Agent session trays](trays.md#agent-session-trays)).
 - **`TRAY_ITEM_DECLINE_REASON`** — owner’s decline message when applicable (newlines collapsed to spaces)
 - **Timestamps** when set: **`TRAY_ITEM_COMPLETED_AT`**, **`TRAY_ITEM_ACCEPTED_AT`**, **`TRAY_ITEM_DECLINED_AT`**
 

@@ -26,8 +26,19 @@ When the user (or you) **opens or continues work in a git repo**, run **`tray li
 - **File WIP for this folder / project root:** `tray add "…" --here` or `--project`.
 - **Personal note across projects:** `tray add "…" <name>` (local global tray, e.g. `inbox`).
 - **Hand off to a person on the server:** `tray add "…" <tray> --remote` (requires sign-in).
+- **Hand off to another agent session:** see **Agent session trays** below.
 
 Use **`tray complete <id>`** / **`tray remove <id>`** on ids from **`tray list`** for local items (no sign-in). Prefer **`--format json`** when parsing output programmatically.
+
+## Agent session trays (remote inbox)
+
+Each agent session may have a remote inbox named `agent-session:<its-id>` (sign-in required).
+
+- **At session start:** `export TRAY_AGENT_SESSION_ID=<your session id>` — same id as agent-registry.
+- **Check inbox:** `tray list --agent-session-id --remote` (uses the env).
+- **Hand off:** `tray add "…" --agent-session-id <other> --remote` (stamps source from env; override with `--from-agent-session-id`).
+- **Optional:** after add, dial/hotline the other session that an item is waiting — not required.
+- **Prune:** `tray prune --remote` removes idle empty session trays (default ≥ 7 days); add recreates.
 
 ## Tone: help like a product, not a debugger
 
@@ -96,7 +107,7 @@ tray add "title" inbox --no-create  # fail if local tray does not exist yet
 - **`tray list`** default is **local open items** in that same scope. **`tray list --remote`** is the old “all my remote trays” view (requires sign-in).
 - **`tray review`**, **`tray triage`**, **`tray listen`** — **remote owned trays only**; **`tray contributed`** is your outbox on others' trays.
 - **`tray add … --remote`** — server tray; **accepted** on trays you own, **pending** when contributing to someone else's tray.
-- **`tray prune`** — remove **empty** local directory/branch trays from the index (globals kept). **`tray prune --dry-run`** to preview.
+- **`tray prune`** — remove **empty** local directory/branch trays from the index (globals kept). **`tray prune --remote`** also drops idle empty **agent-session** trays you own. **`tray prune --dry-run`** to preview.
 - **`tray item up|down`** — **remote owner-only** reorder; not for local items.
 
 ## Listen and hooks (typical use)

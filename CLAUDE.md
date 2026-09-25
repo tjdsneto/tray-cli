@@ -41,6 +41,8 @@ The **`scratch/`** directory is **gitignored**—use it for private brainstormin
 
 Help for **using** the shipped `tray` binary (not developing this repo) lives in **[`skills/README.md`](skills/README.md)**. Install options are in **[`README.md`](README.md#agent-skills)** (**Agent skills**): **`curl`** for a standalone skill file, or **Claude Code plugin marketplace** (`claude plugin marketplace add tjdsneto/tray-cli`, then `claude plugin install tray-cli@tjdsneto`; refresh with `claude plugin marketplace update`). The canonical body is **[`skills/tray-cli/SKILL.md`](skills/tray-cli/SKILL.md)**; the repository symlinks it into **`.cursor/skills/tray-cli/`** and **`.claude/skills/tray-cli/`** so Cursor and Claude Code load it in a normal clone.
 
+- **Agent session trays:** export `TRAY_AGENT_SESSION_ID` (same as agent-registry); check inbox with `tray list --agent-session-id --remote`; hand off with `tray add "…" --agent-session-id <other> --remote`; optional dial ping; `tray prune --remote` drops idle empty session trays (add recreates). Details: [`skills/tray-cli/SKILL.md`](skills/tray-cli/SKILL.md), [`docs/user/trays.md`](docs/user/trays.md#agent-session-trays).
+
 ---
 
 ## AI instruction parity (Cursor ↔ Claude)
