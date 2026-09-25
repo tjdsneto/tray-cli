@@ -23,6 +23,7 @@ type itemRow struct {
 	TrayID            string  `json:"tray_id"`
 	SortOrder         int     `json:"sort_order"`
 	SourceUserID      string  `json:"source_user_id"`
+	AgentSessionID    *string `json:"agent_session_id"`
 	Title             string  `json:"title"`
 	Status            string  `json:"status"`
 	DueDate           *string `json:"due_date"`
@@ -80,6 +81,7 @@ func (r itemRow) ToDomain() (domain.Item, error) {
 		TrayID:            r.TrayID,
 		SortOrder:         r.SortOrder,
 		SourceUserID:      r.SourceUserID,
+		AgentSessionID:    r.AgentSessionID,
 		Title:             r.Title,
 		Status:            r.Status,
 		DueDate:           r.DueDate,
@@ -161,14 +163,15 @@ func parseCreatedItem(raw []byte) (domain.Item, error) {
 
 // addItemRequest is the JSON body for POST /rest/v1/items.
 type addItemRequest struct {
-	TrayID       string  `json:"tray_id"`
-	SourceUserID string  `json:"source_user_id"`
-	Title        string  `json:"title"`
-	Status       string  `json:"status"`
-	DueDate      *string `json:"due_date,omitempty"`
+	TrayID         string  `json:"tray_id"`
+	SourceUserID   string  `json:"source_user_id"`
+	Title          string  `json:"title"`
+	Status         string  `json:"status"`
+	DueDate        *string `json:"due_date,omitempty"`
+	AgentSessionID *string `json:"agent_session_id,omitempty"`
 }
 
-func newAddItemRequest(userID, trayID, title string, dueDate *string, trayOwnerID string) (addItemRequest, error) {
+func newAddItemRequest(userID, trayID, title string, dueDate *string, trayOwnerID string, agentSessionID *string) (addItemRequest, error) {
 	if strings.TrimSpace(userID) == "" {
 		return addItemRequest{}, fmt.Errorf("postgrest: session missing UserID (set after login)")
 	}
@@ -197,6 +200,10 @@ func newAddItemRequest(userID, trayID, title string, dueDate *string, trayOwnerI
 	if dueDate != nil && strings.TrimSpace(*dueDate) != "" {
 		d := strings.TrimSpace(*dueDate)
 		req.DueDate = &d
+	}
+	if agentSessionID != nil && strings.TrimSpace(*agentSessionID) != "" {
+		sid := strings.TrimSpace(*agentSessionID)
+		req.AgentSessionID = &sid
 	}
 	return req, nil
 }

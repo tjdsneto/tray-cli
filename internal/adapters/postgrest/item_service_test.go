@@ -105,7 +105,7 @@ func TestItemService_Add_notFound(t *testing.T) {
 	ctx := context.Background()
 	s := domain.Session{AccessToken: "x", UserID: "u"}
 
-	_, err = svc.Add(ctx, s, "00000000-0000-0000-0000-000000000001", "title", nil)
+	_, err = svc.Add(ctx, s, "00000000-0000-0000-0000-000000000001", "title", nil, nil)
 	require.Error(t, err)
 }
 
@@ -127,7 +127,7 @@ func TestItemService_Add_ownerGetsAccepted(t *testing.T) {
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
 	require.NoError(t, err)
 	svc := newItemService(pghttp.New(c))
-	it, err := svc.Add(context.Background(), domain.Session{AccessToken: "tok", UserID: "u-owner"}, "t1", "x", nil)
+	it, err := svc.Add(context.Background(), domain.Session{AccessToken: "tok", UserID: "u-owner"}, "t1", "x", nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, "accepted", it.Status)
 }
@@ -150,9 +150,35 @@ func TestItemService_Add_contributorGetsPending(t *testing.T) {
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
 	require.NoError(t, err)
 	svc := newItemService(pghttp.New(c))
-	it, err := svc.Add(context.Background(), domain.Session{AccessToken: "tok", UserID: "member"}, "t1", "y", nil)
+	it, err := svc.Add(context.Background(), domain.Session{AccessToken: "tok", UserID: "member"}, "t1", "y", nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, "pending", it.Status)
+}
+
+func TestItemService_Add_includesAgentSessionID(t *testing.T) {
+	var postBody addItemRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/v1/trays" && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode([]map[string]string{{"owner_id": "u-owner"}})
+		case r.URL.Path == "/rest/v1/items" && r.Method == http.MethodPost:
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&postBody))
+			_, _ = w.Write([]byte(`[{"id":"i3","tray_id":"t1","source_user_id":"u-owner","title":"z","status":"accepted","agent_session_id":"sess-a","created_at":"2026-03-20T12:00:00Z","updated_at":"2026-03-20T12:00:00Z"}]`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
+	require.NoError(t, err)
+	svc := newItemService(pghttp.New(c))
+	sid := "sess-a"
+	it, err := svc.Add(context.Background(), domain.Session{AccessToken: "tok", UserID: "u-owner"}, "t1", "z", nil, &sid)
+	require.NoError(t, err)
+	require.NotNil(t, postBody.AgentSessionID)
+	require.Equal(t, "sess-a", *postBody.AgentSessionID)
+	require.NotNil(t, it.AgentSessionID)
+	require.Equal(t, "sess-a", *it.AgentSessionID)
 }
 
 func TestItemService_Update_emptyPatch(t *testing.T) {

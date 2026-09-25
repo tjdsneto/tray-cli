@@ -24,7 +24,7 @@ func newItemService(pg *pghttp.Client) *itemService {
 
 var _ domain.ItemService = (*itemService)(nil)
 
-func (s *itemService) Add(ctx context.Context, sess domain.Session, trayID, title string, dueDate *string) (*domain.Item, error) {
+func (s *itemService) Add(ctx context.Context, sess domain.Session, trayID, title string, dueDate *string, agentSessionID *string) (*domain.Item, error) {
 	rawTray, err := s.pg.Request(ctx, sess.AccessToken, http.MethodGet, trayOwnerSelectPath(trayID), nil, nil)
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func (s *itemService) Add(ctx context.Context, sess domain.Session, trayID, titl
 	if err != nil {
 		return nil, err
 	}
-	body, err := newAddItemRequest(sess.UserID, trayID, title, dueDate, trayOwnerID)
+	body, err := newAddItemRequest(sess.UserID, trayID, title, dueDate, trayOwnerID, agentSessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (s *itemService) moveAdjacent(ctx context.Context, sess domain.Session, ite
 	return nil
 }
 
-const itemSelectColumns = "id,tray_id,sort_order,source_user_id,title,status,due_date,snooze_until,decline_reason,completion_message,accepted_at,declined_at,completed_at,archived_at,snoozed_at,created_at,updated_at"
+const itemSelectColumns = "id,tray_id,sort_order,source_user_id,agent_session_id,title,status,due_date,snooze_until,decline_reason,completion_message,accepted_at,declined_at,completed_at,archived_at,snoozed_at,created_at,updated_at"
 
 // trayOwnerSelectPath is GET /rest/v1/trays for resolving the tray owner before Add.
 func trayOwnerSelectPath(trayID string) string {

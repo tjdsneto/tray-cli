@@ -93,7 +93,7 @@ func runRemoteItemAdd(cmd *cobra.Command, title, trayRef string) error {
 	if err != nil {
 		return err
 	}
-	item, err := svcs.Items.Add(cmd.Context(), sess, tid, title, nil)
+	item, err := svcs.Items.Add(cmd.Context(), sess, tid, title, nil, nil)
 	if err != nil {
 		return err
 	}

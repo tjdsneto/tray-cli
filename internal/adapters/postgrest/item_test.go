@@ -87,7 +87,7 @@ func TestOutboxDomainItems_filtersOwnerAndNilTray(t *testing.T) {
 func TestNewAddItemRequest_ok_pendingWhenNotOwner(t *testing.T) {
 	t.Parallel()
 	due := "2026-03-21"
-	req, err := newAddItemRequest("u1", "t1", "hi", &due, "owner-2")
+	req, err := newAddItemRequest("u1", "t1", "hi", &due, "owner-2", nil)
 	require.NoError(t, err)
 	require.Equal(t, "t1", req.TrayID)
 	require.Equal(t, "u1", req.SourceUserID)
@@ -99,20 +99,29 @@ func TestNewAddItemRequest_ok_pendingWhenNotOwner(t *testing.T) {
 
 func TestNewAddItemRequest_acceptedWhenOwnerAdds(t *testing.T) {
 	t.Parallel()
-	req, err := newAddItemRequest("u1", "t1", "hi", nil, "u1")
+	req, err := newAddItemRequest("u1", "t1", "hi", nil, "u1", nil)
 	require.NoError(t, err)
 	require.Equal(t, "accepted", req.Status)
 }
 
+func TestNewAddItemRequest_agentSessionID(t *testing.T) {
+	t.Parallel()
+	sid := " sess-a "
+	req, err := newAddItemRequest("u1", "t1", "hi", nil, "u1", &sid)
+	require.NoError(t, err)
+	require.NotNil(t, req.AgentSessionID)
+	require.Equal(t, "sess-a", *req.AgentSessionID)
+}
+
 func TestNewAddItemRequest_validation(t *testing.T) {
 	t.Parallel()
-	_, err := newAddItemRequest("", "t", "x", nil, "o")
+	_, err := newAddItemRequest("", "t", "x", nil, "o", nil)
 	require.Error(t, err)
-	_, err = newAddItemRequest("u", "", "x", nil, "o")
+	_, err = newAddItemRequest("u", "", "x", nil, "o", nil)
 	require.Error(t, err)
-	_, err = newAddItemRequest("u", "t", "", nil, "o")
+	_, err = newAddItemRequest("u", "t", "", nil, "o", nil)
 	require.Error(t, err)
-	_, err = newAddItemRequest("u", "t", "x", nil, "")
+	_, err = newAddItemRequest("u", "t", "x", nil, "", nil)
 	require.Error(t, err)
 }
 
