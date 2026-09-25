@@ -11,6 +11,7 @@ type Item struct {
 	TrayID            string
 	SortOrder         int
 	SourceUserID      string
+	AgentSessionID    *string
 	Title             string
 	Status            string
 	DueDate           *string
