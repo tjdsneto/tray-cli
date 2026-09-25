@@ -10,11 +10,9 @@ import (
 	"github.com/tjdsneto/tray-cli/internal/domain"
 )
 
-// ensureAgentSessionTray returns the tray id for agent-session:<id>.
-// Prefers an owned tray (create-on-add under the writer's account). If none exists but a
-// joined tray with that name is visible via ListMine, returns that id for contribute
-// without creating. Otherwise creates under the current user.
-func ensureAgentSessionTray(ctx context.Context, svcs domain.Services, sess domain.Session, agentSessionID string) (string, error) {
+// findAgentSessionTray looks up agent-session:<id> via owned then ListMine.
+// Returns "" if not found — does not create.
+func findAgentSessionTray(ctx context.Context, svcs domain.Services, sess domain.Session, agentSessionID string) (string, error) {
 	name, err := agentsession.TrayName(agentSessionID)
 	if err != nil {
 		return "", err
@@ -36,7 +34,15 @@ func ensureAgentSessionTray(ctx context.Context, svcs domain.Services, sess doma
 	if err != nil {
 		return "", err
 	}
-	id, err = pickSingleTrayID(mine, name)
+	return pickSingleTrayID(mine, name)
+}
+
+// ensureAgentSessionTray returns the tray id for agent-session:<id>.
+// Prefers an owned tray (create-on-add under the writer's account). If none exists but a
+// joined tray with that name is visible via ListMine, returns that id for contribute
+// without creating. Otherwise creates under the current user.
+func ensureAgentSessionTray(ctx context.Context, svcs domain.Services, sess domain.Session, agentSessionID string) (string, error) {
+	id, err := findAgentSessionTray(ctx, svcs, sess, agentSessionID)
 	if err != nil {
 		return "", err
 	}
@@ -44,6 +50,10 @@ func ensureAgentSessionTray(ctx context.Context, svcs domain.Services, sess doma
 		return id, nil
 	}
 
+	name, err := agentsession.TrayName(agentSessionID)
+	if err != nil {
+		return "", err
+	}
 	created, err := svcs.Trays.Create(ctx, sess, name, nil)
 	if err != nil {
 		owned, listErr := svcs.Trays.ListOwned(ctx, sess)

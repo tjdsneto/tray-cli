@@ -18,3 +18,28 @@ func TestFlagOrEnv(t *testing.T) {
 	require.Equal(t, "", agentsession.FlagOrEnv("", "TRAY_AGENT_SESSION_ID"))
 	require.Equal(t, "", agentsession.FlagOrEnv("   ", "TRAY_AGENT_SESSION_ID"))
 }
+
+func TestResolveListAgentSessionID(t *testing.T) {
+	t.Parallel()
+
+	id, active, err := agentsession.ResolveListAgentSessionID(false, "ignored", "env")
+	require.NoError(t, err)
+	require.False(t, active)
+	require.Equal(t, "", id)
+
+	id, active, err = agentsession.ResolveListAgentSessionID(true, "  sess-a  ", "env")
+	require.NoError(t, err)
+	require.True(t, active)
+	require.Equal(t, "sess-a", id)
+
+	id, active, err = agentsession.ResolveListAgentSessionID(true, "", "  from-env  ")
+	require.NoError(t, err)
+	require.True(t, active)
+	require.Equal(t, "from-env", id)
+
+	id, active, err = agentsession.ResolveListAgentSessionID(true, "   ", "")
+	require.Error(t, err)
+	require.True(t, active)
+	require.Equal(t, "", id)
+	require.Contains(t, err.Error(), "TRAY_AGENT_SESSION_ID")
+}

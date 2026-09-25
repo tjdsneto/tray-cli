@@ -120,7 +120,7 @@ func runAgentSessionItemAdd(cmd *cobra.Command, title, agentSessionID, fromFlag 
 		return err
 	}
 	var sourcePtr *string
-	if source := agentsession.FlagOrEnv(fromFlag, "TRAY_AGENT_SESSION_ID"); source != "" {
+	if source := agentsession.FlagOrEnv(fromFlag, agentsession.EnvAgentSessionID); source != "" {
 		sourcePtr = &source
 	}
 	return runRemoteItemAddWithTrayID(cmd, svcs, sess, title, tid, "", sourcePtr)
@@ -186,12 +186,16 @@ func cmdList() *cobra.Command {
 
 Use --remote for remote trays you own (requires sign-in). Use --all for every local tray ever created on this machine.
 
-With a tray argument, lists that local tray by name or id. For remote trays, add --remote.`,
+With a tray argument, lists that local tray by name or id. For remote trays, add --remote.
+
+Agent session inbox (--agent-session-id, implies --remote): lists items on agent-session:<id>. With an empty flag value, uses $TRAY_AGENT_SESSION_ID. Does not create the tray.`,
 		Args: cobra.RangeArgs(0, 1),
 		RunE: runList,
 	}
 	c.Flags().Bool("all", false, "list items on every local tray ever created")
 	c.Flags().Bool("remote", false, "list items on remote trays you own (requires sign-in)")
+	c.Flags().String("agent-session-id", "", "list remote inbox for this AI agent session id (implies --remote; empty uses $TRAY_AGENT_SESSION_ID)")
+	c.Flags().Lookup("agent-session-id").NoOptDefVal = "" // allow bare --agent-session-id (“mine” via env)
 	return c
 }
 
@@ -204,9 +208,27 @@ func runList(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	agentSessionFlag, err := cmd.Flags().GetString("agent-session-id")
+	if err != nil {
+		return err
+	}
+	agentSessionID, agentSessionList, err := agentsession.ResolveListAgentSessionID(
+		cmd.Flags().Changed("agent-session-id"),
+		agentSessionFlag,
+		agentsession.FlagOrEnv("", agentsession.EnvAgentSessionID),
+	)
+	if err != nil {
+		return err
+	}
 	trayArg := ""
 	if len(args) == 1 {
 		trayArg = strings.TrimSpace(args[0])
+	}
+	if agentSessionList {
+		if trayArg != "" {
+			return fmt.Errorf("do not pass a tray name with --agent-session-id — the inbox is agent-session:<id>")
+		}
+		return runAgentSessionItemList(cmd, agentSessionID)
 	}
 	if remote {
 		return runRemoteItemList(cmd, trayArg)
@@ -217,6 +239,36 @@ func runList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	return runLocalList(cmd, ids)
+}
+
+func runAgentSessionItemList(cmd *cobra.Command, agentSessionID string) error {
+	svcs, sess, err := cmdDeps.RequireAuth()
+	if err != nil {
+		return err
+	}
+	tid, err := findAgentSessionTray(cmd.Context(), svcs, sess, agentSessionID)
+	if err != nil {
+		return err
+	}
+	format, err := output.FormatFromCmd(cmd)
+	if err != nil {
+		return err
+	}
+	trays, err := svcs.Trays.ListMine(cmd.Context(), sess)
+	if err != nil {
+		return err
+	}
+	m := trayref.TrayNameMap(trays)
+	if tid == "" {
+		fmt.Fprintf(cmd.ErrOrStderr(), "no agent-session tray for %q yet — add an item first or wait for someone to hand off\n", agentSessionID)
+		return output.WriteItems(cmd.OutOrStdout(), nil, m, strings.TrimSpace(sess.UserID), nil, format)
+	}
+	items, err := svcs.Items.List(cmd.Context(), sess, domain.ListItemsQuery{TrayID: tid})
+	if err != nil {
+		return err
+	}
+	by := profileDisplayMap(cmd.Context(), sess, svcs, sourceUserIDsFromItems(items))
+	return output.WriteItems(cmd.OutOrStdout(), items, m, strings.TrimSpace(sess.UserID), by, format)
 }
 
 func runRemoteItemList(cmd *cobra.Command, trayArg string) error {
