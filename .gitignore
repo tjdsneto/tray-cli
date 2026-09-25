@@ -27,3 +27,4 @@ docs/drafts/
 coverage.out
 coverage.html
 .superpowers/
+.worktrees/
