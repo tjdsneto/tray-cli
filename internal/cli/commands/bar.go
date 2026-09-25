@@ -2,12 +2,14 @@ package commands
 
 import (
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/tjdsneto/tray-cli/internal/bar"
 	"github.com/tjdsneto/tray-cli/internal/cli/trayref"
+	"github.com/tjdsneto/tray-cli/internal/domain"
 	"github.com/tjdsneto/tray-cli/internal/localtray"
 )
 
@@ -45,8 +47,23 @@ func (r *barRuntime) store(snap bar.Snapshot) {
 	r.last.Store(&cp)
 }
 
+// keepLastRemoteUnavailable returns the previous snapshot with RemoteStatus set,
+// or builds a local-only snapshot when there is no previous snapshot.
+func (r *barRuntime) keepLastRemoteUnavailable(localItems []bar.Item) bar.Snapshot {
+	if r.last.Load() != nil {
+		snap := r.lastOrEmpty()
+		snap.RemoteStatus = "remote unavailable"
+		r.store(snap)
+		return snap
+	}
+	snap := bar.BuildSnapshot(localItems, "remote unavailable")
+	r.store(snap)
+	return snap
+}
+
 // refresh loads local open items and, when authenticated, remote pending items.
-// Auth failure → local only (no RemoteStatus). Remote I/O failure → local + "remote unavailable".
+// Auth failure → local only (no RemoteStatus). Remote I/O failure → keep last snapshot
+// with "remote unavailable", or local-only if there is no previous snapshot.
 func (r *barRuntime) refresh(cmd *cobra.Command) bar.Snapshot {
 	ctx := cmd.Context()
 	localRows, err := localtray.NewStore(r.configDir).AllOpenItems()
@@ -55,32 +72,37 @@ func (r *barRuntime) refresh(cmd *cobra.Command) bar.Snapshot {
 		return r.lastOrEmpty()
 	}
 	items := bar.ItemsFromLocal(localRows)
-	remoteStatus := ""
 
 	svcs, sess, authErr := cmdDeps.RequireAuth()
-	if authErr == nil {
-		aliases := cmdDeps.RemoteAliases()
-		q, qerr := pendingItemsOnOwnedTraysQuery(ctx, svcs, sess, "", aliases)
-		if qerr != nil {
-			remoteStatus = "remote unavailable"
-		} else {
-			q.OrderCreated = "desc"
-			list, lerr := svcs.Items.List(ctx, sess, q)
-			if lerr != nil {
-				remoteStatus = "remote unavailable"
-			} else {
-				owned, oerr := svcs.Trays.ListOwned(ctx, sess)
-				if oerr != nil {
-					remoteStatus = "remote unavailable"
-				} else {
-					names := trayref.TrayNameMap(owned)
-					items = append(items, bar.ItemsFromRemote(list, names)...)
-				}
-			}
+	if authErr != nil {
+		snap := bar.BuildSnapshot(items, "")
+		r.store(snap)
+		return snap
+	}
+
+	owned, oerr := svcs.Trays.ListOwned(ctx, sess)
+	if oerr != nil {
+		return r.keepLastRemoteUnavailable(items)
+	}
+
+	q := domain.ListItemsQuery{Status: "pending", OrderCreated: "desc"}
+	if len(owned) == 0 {
+		q.TrayID = noOwnedTraysTrayFilter
+	} else {
+		q.TrayIDIn = make([]string, 0, len(owned))
+		for i := range owned {
+			q.TrayIDIn = append(q.TrayIDIn, strings.TrimSpace(owned[i].ID))
 		}
 	}
 
-	snap := bar.BuildSnapshot(items, remoteStatus)
+	list, lerr := svcs.Items.List(ctx, sess, q)
+	if lerr != nil {
+		return r.keepLastRemoteUnavailable(items)
+	}
+
+	names := trayref.TrayNameMap(owned)
+	items = append(items, bar.ItemsFromRemote(list, names)...)
+	snap := bar.BuildSnapshot(items, "")
 	r.store(snap)
 	return snap
 }

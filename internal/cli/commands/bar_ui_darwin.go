@@ -5,6 +5,7 @@ package commands
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"fyne.io/systray"
@@ -59,7 +60,9 @@ func runBarUI(cmd *cobra.Command) error {
 					if r.ItemID == "" {
 						continue
 					}
-					_ = clipboard.WriteAll(bar.ClipboardLine(r))
+					if err := clipboard.WriteAll(bar.ClipboardLine(r)); err != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "tray bar: clipboard: %v\n", err)
+					}
 				}
 			}()
 		}
@@ -86,8 +89,10 @@ func runBarUI(cmd *cobra.Command) error {
 			defer slotMu.Unlock()
 
 			i := 0
+			overflow := false
 			for _, sec := range snap.Sections {
 				if i >= len(slots) {
+					overflow = true
 					break
 				}
 				slots[i].item.SetTitle(sec.Header)
@@ -97,6 +102,7 @@ func runBarUI(cmd *cobra.Command) error {
 				i++
 				for _, row := range sec.Rows {
 					if i >= len(slots) {
+						overflow = true
 						break
 					}
 					title := row.Title
@@ -114,9 +120,28 @@ func runBarUI(cmd *cobra.Command) error {
 				slots[i].item.Hide()
 				slots[i].row = bar.Row{}
 			}
+			if overflow {
+				fmt.Fprintf(cmd.ErrOrStderr(), "tray bar: menu pool full (%d slots); some items hidden\n", len(slots))
+			}
 		}
 
-		apply(rt.refresh(cmd))
+		snapCh := make(chan bar.Snapshot, 1)
+		var refreshing atomic.Bool
+		kickRefresh := func() {
+			if !refreshing.CompareAndSwap(false, true) {
+				return
+			}
+			go func() {
+				defer refreshing.Store(false)
+				snap := rt.refresh(cmd)
+				select {
+				case snapCh <- snap:
+				case <-cmd.Context().Done():
+				}
+			}()
+		}
+
+		kickRefresh()
 
 		go func() {
 			t := time.NewTicker(rt.interval)
@@ -127,9 +152,11 @@ func runBarUI(cmd *cobra.Command) error {
 					systray.Quit()
 					return
 				case <-t.C:
-					apply(rt.refresh(cmd))
+					kickRefresh()
 				case <-mRefresh.ClickedCh:
-					apply(rt.refresh(cmd))
+					kickRefresh()
+				case snap := <-snapCh:
+					apply(snap)
 				case <-mQuit.ClickedCh:
 					systray.Quit()
 					return
