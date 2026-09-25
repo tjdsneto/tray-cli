@@ -31,10 +31,19 @@ func runBarUI(cmd *cobra.Command) error {
 		return fmt.Errorf("--interval must be greater than 0")
 	}
 	daemon, _ := cmd.Flags().GetBool("daemon")
-	if daemon {
-		// TODO(Task 6): acquire bar.pid / bar.log like listen daemon
-	}
 	configDir := cmdDeps.ConfigDir()
+	if daemon {
+		cleanupPID, err := acquireBarDaemon(configDir)
+		if err != nil {
+			return err
+		}
+		defer cleanupPID()
+		cleanupLog, err := redirectBarDaemonLog(cmd, configDir)
+		if err != nil {
+			return err
+		}
+		defer cleanupLog()
+	}
 	rt := &barRuntime{interval: interval, configDir: configDir}
 
 	systray.Run(func() {
