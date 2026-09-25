@@ -21,6 +21,8 @@ const (
 	EnvItemStatus             = "TRAY_ITEM_STATUS"
 	EnvItemAddedByUserID      = "TRAY_ITEM_ADDED_BY_USER_ID"
 	EnvItemAddedByDisplayName = "TRAY_ITEM_ADDED_BY_DISPLAY_NAME" // profile name or email when available
+	// EnvItemAgentSessionID is the session id stored on the item (not TRAY_AGENT_SESSION_ID, reserved for live agent identity).
+	EnvItemAgentSessionID = "TRAY_ITEM_AGENT_SESSION_ID"
 
 	EnvItemCompletedAt = "TRAY_ITEM_COMPLETED_AT"
 	EnvItemAcceptedAt  = "TRAY_ITEM_ACCEPTED_AT"
@@ -45,6 +47,11 @@ func HookEnv(event string, sess domain.Session, it domain.Item, sourceDisplayNam
 	add(EnvItemStatus, strings.TrimSpace(it.Status))
 	add(EnvItemAddedByUserID, strings.TrimSpace(it.SourceUserID))
 	add(EnvItemAddedByDisplayName, strings.TrimSpace(sourceDisplayName))
+	if it.AgentSessionID != nil {
+		if sid := strings.TrimSpace(*it.AgentSessionID); sid != "" {
+			add(EnvItemAgentSessionID, sid)
+		}
+	}
 	if it.CompletedAt != nil {
 		add(EnvItemCompletedAt, it.CompletedAt.UTC().Format(time.RFC3339Nano))
 	}

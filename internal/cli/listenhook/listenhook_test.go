@@ -1,6 +1,7 @@
 package listenhook
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -100,6 +101,25 @@ func TestHookEnv(t *testing.T) {
 	require.Contains(t, env, EnvItemAddedByDisplayName+"=Pat Example")
 	require.Contains(t, env, EnvItemCompletedAt+"="+now.UTC().Format(time.RFC3339Nano))
 	require.Contains(t, env, EnvItemDeclineReason+"=")
+	for _, pair := range env {
+		require.False(t, strings.HasPrefix(pair, EnvItemAgentSessionID+"="), "omit agent session when nil")
+	}
+}
+
+func TestHookEnv_AgentSessionID(t *testing.T) {
+	t.Parallel()
+	sid := "sess-a"
+	it := domain.Item{ID: "id1", TrayID: "t1", Title: "hi", Status: "pending", AgentSessionID: &sid}
+	env := HookEnv(EventItemPending, domain.Session{UserID: "u1"}, it, "")
+	require.Contains(t, env, EnvItemAgentSessionID+"=sess-a")
+	require.Equal(t, "TRAY_ITEM_AGENT_SESSION_ID", EnvItemAgentSessionID)
+
+	blank := "  "
+	it.AgentSessionID = &blank
+	envBlank := HookEnv(EventItemPending, domain.Session{}, it, "")
+	for _, pair := range envBlank {
+		require.False(t, strings.HasPrefix(pair, EnvItemAgentSessionID+"="), "omit blank agent session")
+	}
 }
 
 func TestHookEnv_DeclineReason(t *testing.T) {

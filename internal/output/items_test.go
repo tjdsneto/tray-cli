@@ -17,6 +17,32 @@ func TestWriteItems_empty(t *testing.T) {
 	require.Contains(t, buf.String(), "No items")
 }
 
+func TestWriteItems_json_agentSessionID(t *testing.T) {
+	ts := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
+	sid := "sess-a"
+	items := []domain.Item{
+		{
+			ID: "11111111-1111-1111-1111-111111111111", TrayID: "t1", Title: "with-session", Status: "pending",
+			CreatedAt: ts, UpdatedAt: ts, SourceUserID: "u", AgentSessionID: &sid,
+		},
+		{
+			ID: "22222222-2222-2222-2222-222222222222", TrayID: "t1", Title: "no-session", Status: "pending",
+			CreatedAt: ts, UpdatedAt: ts, SourceUserID: "u",
+		},
+	}
+	var buf bytes.Buffer
+	require.NoError(t, WriteItems(&buf, items, map[string]string{"t1": "inbox"}, "u", nil, FormatJSON))
+	out := buf.String()
+	require.Contains(t, out, `"agent_session_id": "sess-a"`)
+	idxNo := strings.Index(out, `"title": "no-session"`)
+	require.Greater(t, idxNo, -1)
+	chunk := out[idxNo:]
+	if end := strings.Index(chunk, "}"); end >= 0 {
+		chunk = chunk[:end]
+	}
+	require.NotContains(t, chunk, "agent_session_id")
+}
+
 func TestWriteItems_markdown(t *testing.T) {
 	ts := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
 	items := []domain.Item{{

@@ -61,6 +61,7 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 			CreatedAgo       string  `json:"created_ago"`
 			SourceUserID     string  `json:"source_user_id"`
 			SourceUserLabel  string  `json:"source_user_label"`
+			AgentSessionID   *string `json:"agent_session_id,omitempty"`
 			AcceptedAt       *string `json:"accepted_at,omitempty"`
 			DeclinedAt       *string `json:"declined_at,omitempty"`
 			CompletedAt      *string `json:"completed_at,omitempty"`
@@ -81,6 +82,7 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 				CreatedAgo:      HumanizeTimeAgo(it.CreatedAt, now),
 				SourceUserID:    it.SourceUserID,
 				SourceUserLabel: FormatSourceUser(it.SourceUserID, currentUserID, displayByID),
+				AgentSessionID:  agentSessionIDJSON(it.AgentSessionID),
 				AcceptedAt:      itemTimeJSON(it.AcceptedAt),
 				DeclinedAt:      itemTimeJSON(it.DeclinedAt),
 				CompletedAt:     itemTimeJSON(it.CompletedAt),
@@ -356,6 +358,18 @@ func itemTimeJSON(t *time.Time) *string {
 		return nil
 	}
 	s := t.UTC().Format(time.RFC3339)
+	return &s
+}
+
+// agentSessionIDJSON returns a trimmed non-empty session id pointer, or nil for omitempty.
+func agentSessionIDJSON(v *string) *string {
+	if v == nil {
+		return nil
+	}
+	s := strings.TrimSpace(*v)
+	if s == "" {
+		return nil
+	}
 	return &s
 }
 
