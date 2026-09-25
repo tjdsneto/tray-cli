@@ -12,6 +12,7 @@ type Tray struct {
 	Name        string    `json:"name"`
 	InviteToken *string   `json:"invite_token,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at,omitempty"`
 	// ItemCount is the number of items visible to the current user (from PostgREST embed).
 	ItemCount int `json:"item_count"`
 	// MemberJoinedAt is set only when listing trays joined as a non-owner (ListJoined).
