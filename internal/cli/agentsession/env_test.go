@@ -37,9 +37,35 @@ func TestResolveListAgentSessionID(t *testing.T) {
 	require.True(t, active)
 	require.Equal(t, "from-env", id)
 
+	id, active, err = agentsession.ResolveListAgentSessionID(true, agentsession.ListAgentSessionIDFromEnv, "  from-env  ")
+	require.NoError(t, err)
+	require.True(t, active)
+	require.Equal(t, "from-env", id)
+
 	id, active, err = agentsession.ResolveListAgentSessionID(true, "   ", "")
 	require.Error(t, err)
 	require.True(t, active)
 	require.Equal(t, "", id)
 	require.Contains(t, err.Error(), "TRAY_AGENT_SESSION_ID")
+
+	id, active, err = agentsession.ResolveListAgentSessionID(true, agentsession.ListAgentSessionIDFromEnv, "")
+	require.Error(t, err)
+	require.True(t, active)
+	require.Equal(t, "", id)
+}
+
+func TestCoalesceListAgentSessionFlag(t *testing.T) {
+	t.Parallel()
+
+	flag, pos := agentsession.CoalesceListAgentSessionFlag(agentsession.ListAgentSessionIDFromEnv, "explicit-sess")
+	require.Equal(t, "explicit-sess", flag)
+	require.Equal(t, "", pos)
+
+	flag, pos = agentsession.CoalesceListAgentSessionFlag(agentsession.ListAgentSessionIDFromEnv, "")
+	require.Equal(t, agentsession.ListAgentSessionIDFromEnv, flag)
+	require.Equal(t, "", pos)
+
+	flag, pos = agentsession.CoalesceListAgentSessionFlag("already-set", "tray-name")
+	require.Equal(t, "already-set", flag)
+	require.Equal(t, "tray-name", pos)
 }

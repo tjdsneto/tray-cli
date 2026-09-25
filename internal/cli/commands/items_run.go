@@ -188,14 +188,15 @@ Use --remote for remote trays you own (requires sign-in). Use --all for every lo
 
 With a tray argument, lists that local tray by name or id. For remote trays, add --remote.
 
-Agent session inbox (--agent-session-id, implies --remote): lists items on agent-session:<id>. With an empty flag value, uses $TRAY_AGENT_SESSION_ID. Does not create the tray.`,
+Agent session inbox (--agent-session-id, implies --remote): lists items on agent-session:<id>. Bare --agent-session-id uses $TRAY_AGENT_SESSION_ID. Does not create the tray.`,
 		Args: cobra.RangeArgs(0, 1),
 		RunE: runList,
 	}
 	c.Flags().Bool("all", false, "list items on every local tray ever created")
 	c.Flags().Bool("remote", false, "list items on remote trays you own (requires sign-in)")
-	c.Flags().String("agent-session-id", "", "list remote inbox for this AI agent session id (implies --remote; empty uses $TRAY_AGENT_SESSION_ID)")
-	c.Flags().Lookup("agent-session-id").NoOptDefVal = "" // allow bare --agent-session-id (“mine” via env)
+	c.Flags().String("agent-session-id", "", "list remote inbox for this AI agent session id (implies --remote; bare flag uses $TRAY_AGENT_SESSION_ID)")
+	// Non-empty sentinel required: pflag NoOptDefVal="" still demands an argument.
+	c.Flags().Lookup("agent-session-id").NoOptDefVal = agentsession.ListAgentSessionIDFromEnv
 	return c
 }
 
@@ -212,6 +213,12 @@ func runList(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	trayArg := ""
+	if len(args) == 1 {
+		trayArg = strings.TrimSpace(args[0])
+	}
+	// With NoOptDefVal, `--agent-session-id <id>` leaves <id> as a positional.
+	agentSessionFlag, trayArg = agentsession.CoalesceListAgentSessionFlag(agentSessionFlag, trayArg)
 	agentSessionID, agentSessionList, err := agentsession.ResolveListAgentSessionID(
 		cmd.Flags().Changed("agent-session-id"),
 		agentSessionFlag,
@@ -219,10 +226,6 @@ func runList(cmd *cobra.Command, args []string) error {
 	)
 	if err != nil {
 		return err
-	}
-	trayArg := ""
-	if len(args) == 1 {
-		trayArg = strings.TrimSpace(args[0])
 	}
 	if agentSessionList {
 		if trayArg != "" {
