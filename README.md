@@ -101,6 +101,10 @@ If you **own** a tray, items from teammates (and you) show up for you to handle.
 
 **`tray listen`** can run **`hooks.json`** when items change (pending on your trays, outbox accepted/declined/completed). See **[`docs/user/hooks.md`](docs/user/hooks.md)** for events, environment variables, and recipes.
 
+## macOS menu bar
+
+On **macOS**, **`tray bar`** shows a menu-bar badge for local open + remote pending items; click a row to copy **`tray-ref item-id`** for an agent handoff. See **[`docs/user/menu-bar.md`](docs/user/menu-bar.md)**.
+
 ## Remote aliases
 
 **`join … <alias>`** or **`tray remote add <alias> <invite-url-or-token>`** saves `remotes.json`. **`tray remote rename <current> <new>`** renames an alias. **`tray remote ls`** / **`tray remote remove <alias>`** manage that file.
