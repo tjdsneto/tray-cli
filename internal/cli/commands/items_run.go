@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/tjdsneto/tray-cli/internal/cli/agentsession"
 	"github.com/tjdsneto/tray-cli/internal/cli/trayref"
 	"github.com/tjdsneto/tray-cli/internal/domain"
 	"github.com/tjdsneto/tray-cli/internal/localtray"
@@ -23,7 +24,9 @@ Create-on-add: the tray is registered the first time you add an item unless --no
 
 Without a tray argument, adds to the branch tray on a non-default git branch, otherwise the current directory tray.
 
-Remote trays (--remote, requires sign-in): accepted immediately on trays you own; pending when you contribute to someone else's tray.`,
+Remote trays (--remote, requires sign-in): accepted immediately on trays you own; pending when you contribute to someone else's tray.
+
+Agent session inbox (--agent-session-id, implies remote): writes to agent-session:<id>, creating the tray under your account if needed. Source stamp defaults to $TRAY_AGENT_SESSION_ID (override with --from-agent-session-id).`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: runAdd,
 	}
@@ -32,6 +35,8 @@ Remote trays (--remote, requires sign-in): accepted immediately on trays you own
 	c.Flags().Bool("project", false, "add to the directory tray for the git repository root")
 	c.Flags().Bool("remote", false, "add to a remote tray (requires sign-in)")
 	c.Flags().Bool("no-create", false, "fail if the local tray does not exist yet")
+	c.Flags().String("agent-session-id", "", "remote inbox for this AI agent session id (implies --remote)")
+	c.Flags().String("from-agent-session-id", "", "source agent session id stamped on the item (default $TRAY_AGENT_SESSION_ID)")
 	return c
 }
 
@@ -49,12 +54,34 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	create := !noCreate
+	agentSessionID, err := cmd.Flags().GetString("agent-session-id")
+	if err != nil {
+		return err
+	}
+	agentSessionID = strings.TrimSpace(agentSessionID)
+	fromAgentSessionID, err := cmd.Flags().GetString("from-agent-session-id")
+	if err != nil {
+		return err
+	}
+
+	if agentSessionID != "" {
+		here, _ := cmd.Flags().GetBool("here")
+		branch, _ := cmd.Flags().GetBool("branch")
+		project, _ := cmd.Flags().GetBool("project")
+		if here || branch || project {
+			return fmt.Errorf("--agent-session-id cannot be combined with --here, --branch, or --project")
+		}
+		if len(args) >= 2 {
+			return fmt.Errorf("do not pass a tray name with --agent-session-id — the inbox is agent-session:<id>")
+		}
+		return runAgentSessionItemAdd(cmd, title, agentSessionID, fromAgentSessionID)
+	}
 
 	if remote {
 		if len(args) < 2 {
 			return fmt.Errorf("remote add requires a tray name — example: tray add \"Fix login\" inbox --remote")
 		}
-		return runRemoteItemAdd(cmd, title, strings.TrimSpace(args[1]))
+		return runRemoteItemAdd(cmd, title, strings.TrimSpace(args[1]), nil)
 	}
 
 	cwd, git := workContext()
@@ -83,7 +110,23 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	return runLocalAdd(cmd, title, target, create)
 }
 
-func runRemoteItemAdd(cmd *cobra.Command, title, trayRef string) error {
+func runAgentSessionItemAdd(cmd *cobra.Command, title, agentSessionID, fromFlag string) error {
+	svcs, sess, err := cmdDeps.RequireAuth()
+	if err != nil {
+		return err
+	}
+	tid, err := ensureAgentSessionTray(cmd.Context(), svcs, sess, agentSessionID)
+	if err != nil {
+		return err
+	}
+	var sourcePtr *string
+	if source := agentsession.FlagOrEnv(fromFlag, "TRAY_AGENT_SESSION_ID"); source != "" {
+		sourcePtr = &source
+	}
+	return runRemoteItemAddWithTrayID(cmd, svcs, sess, title, tid, "", sourcePtr)
+}
+
+func runRemoteItemAdd(cmd *cobra.Command, title, trayRef string, agentSessionID *string) error {
 	aliases := cmdDeps.RemoteAliases()
 	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
@@ -93,7 +136,12 @@ func runRemoteItemAdd(cmd *cobra.Command, title, trayRef string) error {
 	if err != nil {
 		return err
 	}
-	item, err := svcs.Items.Add(cmd.Context(), sess, tid, title, nil, nil)
+	return runRemoteItemAddWithTrayID(cmd, svcs, sess, title, tid, trayRef, agentSessionID)
+}
+
+func runRemoteItemAddWithTrayID(cmd *cobra.Command, svcs domain.Services, sess domain.Session, title, tid, trayRef string, agentSessionID *string) error {
+	aliases := cmdDeps.RemoteAliases()
+	item, err := svcs.Items.Add(cmd.Context(), sess, tid, title, nil, agentSessionID)
 	if err != nil {
 		return err
 	}
