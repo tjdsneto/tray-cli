@@ -107,7 +107,7 @@ tray add "title" inbox --no-create  # fail if local tray does not exist yet
 
 ## Menu bar handoff (macOS)
 
-On macOS, **`tray bar`** lists local open + remote pending items; clicking a row copies **`tray-ref item-id`** (two tokens, e.g. `inbox a1b2c3d4`).
+On macOS, **`tray bar`** lists local open + remote pending items; clicking a row copies **`tray-ref item-id`** (two tokens, e.g. `inbox a1b2c3d4`; if the tray-ref has spaces it is double-quoted).
 
 When the user **pastes that line** or points at a menu-bar handoff:
 

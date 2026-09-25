@@ -14,8 +14,8 @@ import (
 	"github.com/tjdsneto/tray-cli/internal/bar"
 )
 
-// Pool sized for ~40 rows plus section headers.
-const barMenuPoolSize = 60
+// Pool sized for large backlogs (rows + section headers). Overflow is logged to stderr.
+const barMenuPoolSize = 200
 
 type barMenuSlot struct {
 	item *systray.MenuItem

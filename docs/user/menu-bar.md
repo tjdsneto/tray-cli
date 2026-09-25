@@ -51,7 +51,7 @@ Click a row to copy exactly two tokens to the clipboard:
 <tray-ref> <item-id>
 ```
 
-Example: `inbox a1b2c3d4`. No title, JSON, or pre-built command—agents resolve details with the CLI.
+Example: `inbox a1b2c3d4`. If the tray-ref has spaces, it is double-quoted (e.g. `"dir:/Users/me/My Projects" a1b2c3d4`). No title, JSON, or pre-built command—agents resolve details with the CLI.
 
 ## Accept and the badge
 

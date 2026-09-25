@@ -3,6 +3,8 @@ package bar
 import (
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -41,8 +43,74 @@ type Snapshot struct {
 	RemoteStatus string // muted status line; empty if OK
 }
 
+// ClipboardLine formats tray-ref and item-id for paste into an agent chat.
+// If TrayRef contains whitespace, it is double-quoted so the line stays two fields.
 func ClipboardLine(r Row) string {
-	return fmt.Sprintf("%s %s", r.TrayRef, r.ItemID)
+	ref := r.TrayRef
+	if strings.ContainsAny(ref, " \t") {
+		ref = strconv.Quote(ref)
+	}
+	return fmt.Sprintf("%s %s", ref, r.ItemID)
+}
+
+// ParseClipboardLine splits a clipboard handoff into tray-ref and item-id.
+// Accepts unquoted (`inbox abc`) and quoted (`"dir:/path with spaces" abc`) forms.
+func ParseClipboardLine(s string) (trayRef, itemID string, err error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "", "", fmt.Errorf("empty clipboard line")
+	}
+	if s[0] == '"' {
+		end := 1
+		for end < len(s) {
+			if s[end] == '\\' && end+1 < len(s) {
+				end += 2
+				continue
+			}
+			if s[end] == '"' {
+				break
+			}
+			end++
+		}
+		if end >= len(s) || s[end] != '"' {
+			return "", "", fmt.Errorf("unclosed quote in clipboard line")
+		}
+		trayRef, err = strconv.Unquote(s[:end+1])
+		if err != nil {
+			return "", "", fmt.Errorf("invalid quoted tray-ref: %w", err)
+		}
+		rest := strings.TrimSpace(s[end+1:])
+		if rest == "" {
+			return "", "", fmt.Errorf("missing item-id after tray-ref")
+		}
+		if strings.ContainsAny(rest, " \t") {
+			return "", "", fmt.Errorf("expected single item-id after tray-ref")
+		}
+		return trayRef, rest, nil
+	}
+	parts := strings.Fields(s)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("expected tray-ref and item-id, got %d tokens", len(parts))
+	}
+	return parts[0], parts[1], nil
+}
+
+// RemoteItemsFromSnapshot collects ScopeRemote rows as Items for a degraded refresh
+// (fresh local + last-known remote). TrayName defaults to TrayRef; CreatedAt is zero.
+func RemoteItemsFromSnapshot(snap Snapshot) []Item {
+	var out []Item
+	for _, sec := range snap.Sections {
+		for _, row := range sec.Rows {
+			if row.Scope != ScopeRemote {
+				continue
+			}
+			out = append(out, Item{
+				Scope: ScopeRemote, TrayRef: row.TrayRef, TrayName: row.TrayRef,
+				ItemID: row.ItemID, Title: row.Title,
+			})
+		}
+	}
+	return out
 }
 
 // BuildSnapshot groups items by tray name (A–Z), newest-first within a section.

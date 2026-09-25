@@ -47,23 +47,21 @@ func (r *barRuntime) store(snap bar.Snapshot) {
 	r.last.Store(&cp)
 }
 
-// keepLastRemoteUnavailable returns the previous snapshot with RemoteStatus set,
-// or builds a local-only snapshot when there is no previous snapshot.
+// keepLastRemoteUnavailable rebuilds with fresh local items plus last-known remote
+// rows when remote fetch fails. Local opens/completes are never frozen.
 func (r *barRuntime) keepLastRemoteUnavailable(localItems []bar.Item) bar.Snapshot {
+	items := localItems
 	if r.last.Load() != nil {
-		snap := r.lastOrEmpty()
-		snap.RemoteStatus = "remote unavailable"
-		r.store(snap)
-		return snap
+		items = append(append([]bar.Item{}, localItems...), bar.RemoteItemsFromSnapshot(r.lastOrEmpty())...)
 	}
-	snap := bar.BuildSnapshot(localItems, "remote unavailable")
+	snap := bar.BuildSnapshot(items, "remote unavailable")
 	r.store(snap)
 	return snap
 }
 
 // refresh loads local open items and, when authenticated, remote pending items.
-// Auth failure → local only (no RemoteStatus). Remote I/O failure → keep last snapshot
-// with "remote unavailable", or local-only if there is no previous snapshot.
+// Auth failure → local only (no RemoteStatus). Remote I/O failure → fresh local +
+// last-known remote rows with "remote unavailable", or local-only if no previous snapshot.
 func (r *barRuntime) refresh(cmd *cobra.Command) bar.Snapshot {
 	ctx := cmd.Context()
 	localRows, err := localtray.NewStore(r.configDir).AllOpenItems()

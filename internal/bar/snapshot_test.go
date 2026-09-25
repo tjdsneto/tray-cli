@@ -45,6 +45,51 @@ func TestClipboardLine(t *testing.T) {
 	require.Equal(t, "inbox abc123", bar.ClipboardLine(bar.Row{TrayRef: "inbox", ItemID: "abc123"}))
 }
 
+func TestClipboardLine_quotesWhitespaceTrayRef(t *testing.T) {
+	t.Parallel()
+	line := bar.ClipboardLine(bar.Row{TrayRef: "dir:/Users/me/My Projects", ItemID: "abc123"})
+	require.Equal(t, `"dir:/Users/me/My Projects" abc123`, line)
+}
+
+func TestParseClipboardLine_unquoted(t *testing.T) {
+	t.Parallel()
+	ref, id, err := bar.ParseClipboardLine("inbox abc123")
+	require.NoError(t, err)
+	require.Equal(t, "inbox", ref)
+	require.Equal(t, "abc123", id)
+}
+
+func TestParseClipboardLine_quoted(t *testing.T) {
+	t.Parallel()
+	ref, id, err := bar.ParseClipboardLine(`"dir:/Users/me/My Projects" abc123`)
+	require.NoError(t, err)
+	require.Equal(t, "dir:/Users/me/My Projects", ref)
+	require.Equal(t, "abc123", id)
+}
+
+func TestParseClipboardLine_roundTrip(t *testing.T) {
+	t.Parallel()
+	row := bar.Row{TrayRef: "dir:/Users/me/My Projects", ItemID: "item99"}
+	ref, id, err := bar.ParseClipboardLine(bar.ClipboardLine(row))
+	require.NoError(t, err)
+	require.Equal(t, row.TrayRef, ref)
+	require.Equal(t, row.ItemID, id)
+}
+
+func TestRemoteItemsFromSnapshot(t *testing.T) {
+	t.Parallel()
+	now := time.Now().UTC()
+	snap := bar.BuildSnapshot([]bar.Item{
+		{Scope: bar.ScopeLocal, TrayRef: "inbox", TrayName: "inbox", ItemID: "l1", Title: "local", CreatedAt: now},
+		{Scope: bar.ScopeRemote, TrayRef: "work", TrayName: "work", ItemID: "r1", Title: "remote", CreatedAt: now},
+	}, "")
+	remote := bar.RemoteItemsFromSnapshot(snap)
+	require.Len(t, remote, 1)
+	require.Equal(t, bar.ScopeRemote, remote[0].Scope)
+	require.Equal(t, "work", remote[0].TrayRef)
+	require.Equal(t, "r1", remote[0].ItemID)
+}
+
 func TestBuildSnapshot_remoteErrLine(t *testing.T) {
 	t.Parallel()
 	snap := bar.BuildSnapshot(nil, "remote unavailable")
