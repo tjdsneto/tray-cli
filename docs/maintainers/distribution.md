@@ -17,6 +17,15 @@ Cross-compile release tarballs (macOS + Linux, `amd64` + `arm64`):
 # artifacts: dist/tray_<os>_<arch>.tar.gz
 ```
 
+### macOS release binaries (CGO)
+
+`tray bar` (menu bar / systray) requires CGO on Darwin. Release builds therefore:
+
+- **Darwin:** `CGO_ENABLED=1`, and **must be built on macOS** (Linux CI cannot produce darwin tarballs — the script skips them with a message).
+- **Linux:** `CGO_ENABLED=0` (fully static), including cross-compile from macOS or Linux.
+
+On a single Mac, only the **native** architecture is built with CGO (e.g. arm64 on Apple Silicon). The other darwin arch is skipped unless you run the script on a machine of that arch. To ship both `tray_darwin_amd64.tar.gz` and `tray_darwin_arm64.tar.gz`, build each native artifact on the matching hardware (or merge tarballs from two Macs).
+
 Or use Make:
 
 ```bash

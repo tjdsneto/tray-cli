@@ -23,12 +23,36 @@ LDFLAGS="$(tray_ldflags) $(tray_version_ldflags)"
 build_one() {
 	local goos="$1"
 	local goarch="$2"
+	local cgo=0
+
+	if [[ "${goos}" == "darwin" ]]; then
+		if [[ "$(uname -s)" != "Darwin" ]]; then
+			echo "Skipping ${goos}/${goarch}: tray bar needs CGO; build darwin artifacts on macOS."
+			return 0
+		fi
+		local native_arch
+		native_arch="$(uname -m)"
+		case "${native_arch}" in
+		x86_64) native_arch="amd64" ;;
+		arm64) ;;
+		*)
+			echo "Skipping ${goos}/${goarch}: unknown native arch ${native_arch}."
+			return 0
+			;;
+		esac
+		if [[ "${goarch}" != "${native_arch}" ]]; then
+			echo "Skipping ${goos}/${goarch}: CGO cross-compile not supported; build ${goos}/${native_arch} natively on this Mac."
+			return 0
+		fi
+		cgo=1
+	fi
+
 	local name="tray_${goos}_${goarch}"
 	local tmp="${DIST}/build-${name}"
 	rm -rf "${tmp}"
 	mkdir -p "${tmp}"
-	echo "Building ${goos}/${goarch}..."
-	GOOS="${goos}" GOARCH="${goarch}" CGO_ENABLED=0 go build -trimpath \
+	echo "Building ${goos}/${goarch} (CGO_ENABLED=${cgo})..."
+	GOOS="${goos}" GOARCH="${goarch}" CGO_ENABLED="${cgo}" go build -trimpath \
 		-ldflags "${LDFLAGS}" \
 		-o "${tmp}/tray" ./cmd/tray
 	(
