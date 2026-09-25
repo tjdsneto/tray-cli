@@ -26,3 +26,4 @@ docs/drafts/
 # Go coverage (from `make test-cover` or `go test -coverprofile=...`)
 coverage.out
 coverage.html
+.superpowers/
