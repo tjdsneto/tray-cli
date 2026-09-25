@@ -29,4 +29,7 @@ func Register(root *cobra.Command, deps Deps) {
 	root.AddCommand(cmdSnooze(), cmdComplete(), cmdArchive())
 	root.AddCommand(cmdPrune())
 	root.AddCommand(cmdListen())
+
+	// --- Menu bar (macOS) ---
+	root.AddCommand(cmdBar())
 }
