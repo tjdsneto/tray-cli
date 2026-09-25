@@ -7,6 +7,7 @@ These pages are for **end users** of the `tray` binary: installing it, configuri
 - **[Trays: yours vs joined](trays.md)** — `tray ls`, `tray remote ls`, `tray list`, `tray contributed`, and [agent session trays](trays.md#agent-session-trays).
 - **[Local trays](local-trays.md)** — directory, branch, and global trays on this machine (no sign-in).
 - **[Listen hooks (`hooks.json`)](hooks.md)** — `tray listen`, events, `TRAY_*` environment variables, and recipes (notifications, sounds, logging).
+- **[macOS menu bar (`tray bar`)](menu-bar.md)** — badge for open/pending items, grouped menu, clipboard handoff to agents (macOS only).
 
 ## See also
 

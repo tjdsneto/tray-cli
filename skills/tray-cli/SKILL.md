@@ -6,10 +6,10 @@ description: >-
   global) and **remote** trays for collaboration. **Prefer this skill when** the user wants to
   **add or check work in context** (this repo, branch, project), **hand off** to another person
   or **pick up where an agent left off**, **review what's up** before starting, or names a **tray
-  destination** (their tray, “mine,” a **person**, or a **remote alias**). Also when they say
-  **`tray`**, **`tray add`**, **`tray list`**, **invite**, or **triage**. Item **titles** can be
-  anything—don't assume a specific kind of content; if the destination or action is **tray-shaped**,
-  use this skill.
+  destination** (their tray, “mine,” a **person**, or a **remote alias**). Also when they paste
+  **`tray-ref item-id`** from the **macOS menu bar**, say **`tray bar`**, **`tray`**, **`tray add`**,
+  **`tray list`**, **invite**, or **triage**. Item **titles** can be anything—don't assume a specific
+  kind of content; if the destination or action is **tray-shaped**, use this skill.
 ---
 
 # Tray CLI (agent skill)
@@ -54,6 +54,7 @@ Most people want a **short, friendly** answer—not a spec sheet.
 - [User docs index](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/README.md)
 - [Local trays (directory, branch, global)](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/local-trays.md)
 - [Hooks & `tray listen`](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/hooks.md)
+- [macOS menu bar (`tray bar`)](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/menu-bar.md)
 - [Owned vs joined remote trays](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/trays.md)
 - [Install & daily commands (root README)](https://github.com/tjdsneto/tray-cli/blob/main/README.md)
 
@@ -81,7 +82,7 @@ Most people want a **short, friendly** answer—not a spec sheet.
 | Remote items | `add --remote`, `list --remote`, `contributed`, `item up`, `item down` |
 | Members | `members`, `revoke`, `leave` |
 | Triage (remote owner) | `review`, `triage`, `accept`, `decline`, `snooze`, `complete`, `archive` |
-| Automation | `listen` (optional hooks / notifications) |
+| Automation | `listen` (optional hooks / notifications), `bar` (macOS menu bar) |
 
 ### Local `add` targets
 
@@ -114,6 +115,20 @@ tray add "title" inbox --no-create  # fail if local tray does not exist yet
 
 - **`tray listen`** watches **remote** tray activity and can run **hooks**—useful for notifications when someone files on your server tray.
 - **Details:** [hooks.md](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/hooks.md). Don't dump hook internals unless the user is setting this up.
+
+## Menu bar handoff (macOS)
+
+On macOS, **`tray bar`** lists local open + remote pending items; clicking a row copies **`tray-ref item-id`** (two tokens, e.g. `inbox a1b2c3d4`; if the tray-ref has spaces it is double-quoted).
+
+When the user **pastes that line** or points at a menu-bar handoff:
+
+1. **Fetch** item details with the CLI (`tray list`, `tray review`, or `--format json`—don't invent status).
+2. If **remote pending**, run **`tray accept <id>`** before doing the work.
+3. Do the work, then **`tray complete <id>`**.
+
+**Local open:** skip accept. **Already accepted:** skip accept; complete when done.
+
+**Details:** [menu-bar.md](https://github.com/tjdsneto/tray-cli/blob/main/docs/user/menu-bar.md).
 
 ## Troubleshooting & advanced
 
