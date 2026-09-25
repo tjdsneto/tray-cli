@@ -3,23 +3,41 @@ package commands
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/tjdsneto/tray-cli/internal/cli/agentsession"
+	"github.com/tjdsneto/tray-cli/internal/domain"
 	"github.com/tjdsneto/tray-cli/internal/localtray"
 )
 
 func cmdPrune() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "prune",
-		Short: "Remove empty local directory and branch trays from the index",
-		Long:  `Deletes index entries (and empty item files) for local directory and branch trays that have no items. Global trays are kept even when empty.`,
-		RunE:  runPrune,
+		Short: "Remove empty local trays, or idle remote agent-session trays",
+		Long: `Default: deletes index entries (and empty item files) for local directory and branch trays that have no items. Global trays are kept even when empty.
+
+With --remote (requires sign-in): deletes owned remote agent-session:<id> trays that have no open items and have been idle at least --idle (default 7 days). Other remote trays are never pruned.`,
+		RunE: runPrune,
 	}
 	c.Flags().Bool("dry-run", false, "print trays that would be pruned without changing anything")
+	c.Flags().Bool("remote", false, "prune idle empty remote agent-session trays you own (requires sign-in)")
+	c.Flags().Duration("idle", agentsession.DefaultPruneIdle, "minimum idle age for remote agent-session prune (e.g. 168h)")
 	return c
 }
 
 func runPrune(cmd *cobra.Command, args []string) error {
+	remote, err := cmd.Flags().GetBool("remote")
+	if err != nil {
+		return err
+	}
+	if remote {
+		return runRemotePrune(cmd)
+	}
+	return runLocalPrune(cmd)
+}
+
+func runLocalPrune(cmd *cobra.Command) error {
 	dryRun, err := cmd.Flags().GetBool("dry-run")
 	if err != nil {
 		return err
@@ -28,8 +46,52 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	return printPruneResult(cmd, pruned, dryRun)
+}
+
+func runRemotePrune(cmd *cobra.Command) error {
+	dryRun, err := cmd.Flags().GetBool("dry-run")
+	if err != nil {
+		return err
+	}
+	idle, err := cmd.Flags().GetDuration("idle")
+	if err != nil {
+		return err
+	}
+	svcs, sess, err := cmdDeps.RequireAuth()
+	if err != nil {
+		return err
+	}
+	owned, err := svcs.Trays.ListOwned(cmd.Context(), sess)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	var pruned []string
+	for _, tray := range owned {
+		if !agentsession.IsAgentSessionTrayName(tray.Name) {
+			continue
+		}
+		items, listErr := svcs.Items.List(cmd.Context(), sess, domain.ListItemsQuery{TrayID: tray.ID})
+		if listErr != nil {
+			return listErr
+		}
+		if !agentsession.Prunable(tray, items, now, idle) {
+			continue
+		}
+		if !dryRun {
+			if delErr := svcs.Trays.Delete(cmd.Context(), sess, tray.ID); delErr != nil {
+				return delErr
+			}
+		}
+		pruned = append(pruned, tray.Name)
+	}
+	return printPruneResult(cmd, pruned, dryRun)
+}
+
+func printPruneResult(cmd *cobra.Command, pruned []string, dryRun bool) error {
 	if len(pruned) == 0 {
-		_, err = fmt.Fprintln(cmd.OutOrStdout(), "Nothing to prune.")
+		_, err := fmt.Fprintln(cmd.OutOrStdout(), "Nothing to prune.")
 		return err
 	}
 	verb := "Pruned"
