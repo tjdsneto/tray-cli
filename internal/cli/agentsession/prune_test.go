@@ -16,13 +16,19 @@ func TestPrunable(t *testing.T) {
 	old := now.Add(-8 * 24 * time.Hour)
 	recent := now.Add(-2 * 24 * time.Hour)
 
-	tray := domain.Tray{Name: "agent-session:abc", UpdatedAt: old}
-	require.True(t, agentsession.Prunable(tray, nil, now, idle), "empty + idle")
+	tray := domain.Tray{Name: "agent-session:abc", CreatedAt: old}
+	require.True(t, agentsession.Prunable(tray, nil, now, idle), "empty + idle (CreatedAt only)")
 
-	tray.UpdatedAt = recent
-	require.False(t, agentsession.Prunable(tray, nil, now, idle), "empty but not idle")
+	tray = domain.Tray{Name: "agent-session:abc", UpdatedAt: old}
+	require.True(t, agentsession.Prunable(tray, nil, now, idle), "empty + idle (UpdatedAt)")
 
-	tray.UpdatedAt = old
+	tray = domain.Tray{Name: "agent-session:abc", CreatedAt: recent}
+	require.False(t, agentsession.Prunable(tray, nil, now, idle), "empty but not idle (CreatedAt only)")
+
+	tray = domain.Tray{Name: "agent-session:abc", UpdatedAt: recent}
+	require.False(t, agentsession.Prunable(tray, nil, now, idle), "empty but not idle (UpdatedAt)")
+
+	tray = domain.Tray{Name: "agent-session:abc", UpdatedAt: old}
 	open := []domain.Item{{Status: "accepted", UpdatedAt: old}}
 	require.False(t, agentsession.Prunable(tray, open, now, idle), "has open item")
 

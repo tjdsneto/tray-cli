@@ -19,12 +19,15 @@ func IsOpenStatus(status string) bool {
 }
 
 // Prunable reports whether an agent-session tray may be deleted: correct name,
-// no open items, and last activity (tray.UpdatedAt or latest item UpdatedAt) older than idle.
+// no open items, and last activity (tray UpdatedAt or CreatedAt, or latest item UpdatedAt) older than idle.
 func Prunable(tray domain.Tray, items []domain.Item, now time.Time, idle time.Duration) bool {
 	if !IsAgentSessionTrayName(tray.Name) {
 		return false
 	}
 	last := tray.UpdatedAt
+	if last.IsZero() {
+		last = tray.CreatedAt
+	}
 	for _, it := range items {
 		if IsOpenStatus(it.Status) {
 			return false
