@@ -1,5 +1,5 @@
 const ITEM_SELECT =
-  "id,tray_id,sort_order,source_user_id,title,status,due_date,snooze_until,decline_reason,completion_message,accepted_at,declined_at,completed_at,archived_at,snoozed_at,created_at,updated_at";
+  "id,tray_id,sort_order,source_user_id,title,body,status,due_date,snooze_until,decline_reason,completion_message,accepted_at,declined_at,completed_at,archived_at,snoozed_at,created_at,updated_at";
 
 /** GET tray owner before insert (same as CLI add flow). */
 export function trayOwnerSelectPath(trayId: string): string {

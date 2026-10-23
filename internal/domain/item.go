@@ -13,6 +13,7 @@ type Item struct {
 	SourceUserID      string
 	AgentSessionID    *string
 	Title             string
+	Body              *string
 	Status            string
 	DueDate           *string
 	SnoozeUntil       *time.Time
@@ -51,7 +52,7 @@ type ItemPatch struct {
 
 // ItemService is item use-cases on trays the user can access.
 type ItemService interface {
-	Add(ctx context.Context, sess Session, trayID, title string, dueDate *string, agentSessionID *string) (*Item, error)
+	Add(ctx context.Context, sess Session, trayID, title string, dueDate *string, agentSessionID *string, body *string) (*Item, error)
 	List(ctx context.Context, sess Session, q ListItemsQuery) ([]Item, error)
 	ListOutbox(ctx context.Context, sess Session) ([]Item, error)
 	Update(ctx context.Context, sess Session, itemID string, patch ItemPatch) error

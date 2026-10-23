@@ -24,6 +24,7 @@ type Item struct {
 	ID        string     `json:"id"`
 	TrayID    string     `json:"tray_id"`
 	Title     string     `json:"title"`
+	Body      *string    `json:"body,omitempty"`
 	Status    string     `json:"status"`
 	CreatedAt time.Time  `json:"created_at"`
 	DoneAt    *time.Time `json:"done_at,omitempty"`
@@ -149,7 +150,8 @@ func (s *Store) ensure(id string, build func() TrayRecord) (TrayRecord, error) {
 }
 
 // AddItem appends an open item to the tray (creates tray via Ensure when needed).
-func (s *Store) AddItem(target AddTarget, title string, create bool) (Item, TrayRecord, error) {
+// body may be nil; callers should pass domain.NormalizeBody output.
+func (s *Store) AddItem(target AddTarget, title string, create bool, body *string) (Item, TrayRecord, error) {
 	title = strings.TrimSpace(title)
 	if title == "" {
 		return Item{}, TrayRecord{}, fmt.Errorf("item title cannot be empty")
@@ -180,6 +182,7 @@ func (s *Store) AddItem(target AddTarget, title string, create bool) (Item, Tray
 		ID:        itemID,
 		TrayID:    rec.ID,
 		Title:     title,
+		Body:      body,
 		Status:    StatusOpen,
 		CreatedAt: time.Now().UTC(),
 	}

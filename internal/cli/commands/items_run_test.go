@@ -1,11 +1,15 @@
 package commands
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 	"github.com/tjdsneto/tray-cli/internal/cli/agentsession"
+	"github.com/tjdsneto/tray-cli/internal/domain"
 )
 
 func TestWithAddAliasDisplay_OverridesTrayNameWhenRefIsAlias(t *testing.T) {
@@ -87,4 +91,49 @@ func TestAddAgentSessionID_BareFlagRequiresArgument(t *testing.T) {
 	err := c.Execute()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "flag needs an argument")
+}
+
+func TestResolveAddBody_fromFlag(t *testing.T) {
+	c := cmdAdd()
+	c.RunE = func(*cobra.Command, []string) error { return nil }
+	c.SetArgs([]string{"t", "--body", "  hello  "})
+	require.NoError(t, c.Execute())
+	got, err := resolveAddBody(c)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.Equal(t, "hello", *got)
+}
+
+func TestResolveAddBody_fromFile(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "doc.md")
+	require.NoError(t, os.WriteFile(p, []byte("from file"), 0o600))
+	c := cmdAdd()
+	c.RunE = func(*cobra.Command, []string) error { return nil }
+	c.SetArgs([]string{"t", "--body-file", p})
+	require.NoError(t, c.Execute())
+	got, err := resolveAddBody(c)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.Equal(t, "from file", *got)
+}
+
+func TestResolveAddBody_mutuallyExclusive(t *testing.T) {
+	c := cmdAdd()
+	c.RunE = func(*cobra.Command, []string) error { return nil }
+	c.SetArgs([]string{"t", "--body", "a", "--body-file", "x"})
+	require.NoError(t, c.Execute())
+	_, err := resolveAddBody(c)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "either --body or --body-file")
+}
+
+func TestResolveAddBody_overCap(t *testing.T) {
+	c := cmdAdd()
+	c.RunE = func(*cobra.Command, []string) error { return nil }
+	c.SetArgs([]string{"t", "--body", strings.Repeat("a", domain.MaxBodyRunes+1)})
+	require.NoError(t, c.Execute())
+	_, err := resolveAddBody(c)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "body exceeds")
 }

@@ -105,7 +105,7 @@ func TestItemService_Add_notFound(t *testing.T) {
 	ctx := context.Background()
 	s := domain.Session{AccessToken: "x", UserID: "u"}
 
-	_, err = svc.Add(ctx, s, "00000000-0000-0000-0000-000000000001", "title", nil, nil)
+	_, err = svc.Add(ctx, s, "00000000-0000-0000-0000-000000000001", "title", nil, nil, nil)
 	require.Error(t, err)
 }
 
@@ -127,7 +127,7 @@ func TestItemService_Add_ownerGetsAccepted(t *testing.T) {
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
 	require.NoError(t, err)
 	svc := newItemService(pghttp.New(c))
-	it, err := svc.Add(context.Background(), domain.Session{AccessToken: "tok", UserID: "u-owner"}, "t1", "x", nil, nil)
+	it, err := svc.Add(context.Background(), domain.Session{AccessToken: "tok", UserID: "u-owner"}, "t1", "x", nil, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, "accepted", it.Status)
 }
@@ -150,7 +150,7 @@ func TestItemService_Add_contributorGetsPending(t *testing.T) {
 	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
 	require.NoError(t, err)
 	svc := newItemService(pghttp.New(c))
-	it, err := svc.Add(context.Background(), domain.Session{AccessToken: "tok", UserID: "member"}, "t1", "y", nil, nil)
+	it, err := svc.Add(context.Background(), domain.Session{AccessToken: "tok", UserID: "member"}, "t1", "y", nil, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, "pending", it.Status)
 }
@@ -173,7 +173,7 @@ func TestItemService_Add_includesAgentSessionID(t *testing.T) {
 	require.NoError(t, err)
 	svc := newItemService(pghttp.New(c))
 	sid := "sess-a"
-	it, err := svc.Add(context.Background(), domain.Session{AccessToken: "tok", UserID: "u-owner"}, "t1", "z", nil, &sid)
+	it, err := svc.Add(context.Background(), domain.Session{AccessToken: "tok", UserID: "u-owner"}, "t1", "z", nil, &sid, nil)
 	require.NoError(t, err)
 	require.NotNil(t, postBody.AgentSessionID)
 	require.Equal(t, "sess-a", *postBody.AgentSessionID)

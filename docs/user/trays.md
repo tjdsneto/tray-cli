@@ -30,6 +30,7 @@ Each AI agent session can have a **remote inbox** named `agent-session:<id>` (si
 | Action | Command |
 |--------|---------|
 | Add to session B’s inbox (create-on-add) | `tray add "…" --agent-session-id <B> --remote` |
+| Add with a large document body | `tray add "Headline" … --body-file doc.md` (≤100k chars; `list --json` returns `body`) |
 | Source stamp on the item | `$TRAY_AGENT_SESSION_ID`, or `--from-agent-session-id <id>` |
 | List a session inbox | `tray list --agent-session-id <id> --remote` |
 | List **mine** | `tray list --agent-session-id --remote` (needs `$TRAY_AGENT_SESSION_ID`) |

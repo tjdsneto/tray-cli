@@ -82,7 +82,7 @@ func TestStore_add_list_prune(t *testing.T) {
 	store := NewStore(cfg)
 	root := cfg
 
-	item, rec, err := store.AddItem(AddTarget{Kind: KindGlobal, Name: "inbox"}, "hello", true)
+	item, rec, err := store.AddItem(AddTarget{Kind: KindGlobal, Name: "inbox"}, "hello", true, nil)
 	require.NoError(t, err)
 	require.NotEmpty(t, item.ID)
 	require.Equal(t, "global:inbox", rec.ID)
@@ -116,13 +116,28 @@ func TestStore_add_list_prune(t *testing.T) {
 
 func TestStore_noCreate(t *testing.T) {
 	store := NewStore(t.TempDir())
-	_, _, err := store.AddItem(AddTarget{Kind: KindGlobal, Name: "x"}, "nope", false)
+	_, _, err := store.AddItem(AddTarget{Kind: KindGlobal, Name: "x"}, "nope", false, nil)
 	require.Error(t, err)
+}
+
+func TestStore_addItem_bodyRoundTrip(t *testing.T) {
+	store := NewStore(t.TempDir())
+	body := "full document payload"
+	item, rec, err := store.AddItem(AddTarget{Kind: KindGlobal, Name: "inbox"}, "headline", true, &body)
+	require.NoError(t, err)
+	require.NotNil(t, item.Body)
+	require.Equal(t, body, *item.Body)
+
+	rows, err := store.ListItemsForTrays([]string{rec.ID})
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	require.NotNil(t, rows[0].Item.Body)
+	require.Equal(t, body, *rows[0].Item.Body)
 }
 
 func TestResolveItemPrefix(t *testing.T) {
 	store := NewStore(t.TempDir())
-	item, _, err := store.AddItem(AddTarget{Kind: KindGlobal, Name: "t"}, "one", true)
+	item, _, err := store.AddItem(AddTarget{Kind: KindGlobal, Name: "t"}, "one", true, nil)
 	require.NoError(t, err)
 
 	id, err := store.ResolveItemPrefix(item.ID[:8])

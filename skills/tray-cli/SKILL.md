@@ -94,7 +94,10 @@ tray add "title" --branch           # branch tray for current git branch
 tray add "title" --project          # directory tray for git repo root
 tray add "title" work --remote      # remote tray (sign-in required)
 tray add "title" inbox --no-create  # fail if local tray does not exist yet
+tray add "title" --body-file doc.md # optional body (≤100k chars); title stays short
 ```
+
+**Title vs body:** keep titles short for list/triage UI. Put full documents in **`--body`** / **`--body-file`**. Read bodies with **`tray list --json`** (field `body` when present).
 
 ### Local `list` / `ls` scope
 

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -26,7 +27,9 @@ Without a tray argument, adds to the branch tray on a non-default git branch, ot
 
 Remote trays (--remote, requires sign-in): accepted immediately on trays you own; pending when you contribute to someone else's tray.
 
-Agent session inbox (--agent-session-id, implies remote): writes to agent-session:<id>, creating the tray under your account if needed. Source stamp defaults to $TRAY_AGENT_SESSION_ID (override with --from-agent-session-id).`,
+Agent session inbox (--agent-session-id, implies remote): writes to agent-session:<id>, creating the tray under your account if needed. Source stamp defaults to $TRAY_AGENT_SESSION_ID (override with --from-agent-session-id).
+
+Optional body (--body or --body-file): large text payload (up to 100000 characters). Title stays the short headline; use list --json to read body.`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: runAdd,
 	}
@@ -37,13 +40,45 @@ Agent session inbox (--agent-session-id, implies remote): writes to agent-sessio
 	c.Flags().Bool("no-create", false, "fail if the local tray does not exist yet")
 	c.Flags().String("agent-session-id", "", "remote inbox for this AI agent session id (implies --remote)")
 	c.Flags().String("from-agent-session-id", "", "source agent session id stamped on the item (default $TRAY_AGENT_SESSION_ID)")
+	c.Flags().String("body", "", "optional large text body for the item (mutually exclusive with --body-file)")
+	c.Flags().String("body-file", "", "read optional item body from a UTF-8 file (mutually exclusive with --body)")
 	return c
+}
+
+// resolveAddBody returns normalized body from --body / --body-file (mutually exclusive).
+func resolveAddBody(cmd *cobra.Command) (*string, error) {
+	bodyFlag, err := cmd.Flags().GetString("body")
+	if err != nil {
+		return nil, err
+	}
+	bodyFile, err := cmd.Flags().GetString("body-file")
+	if err != nil {
+		return nil, err
+	}
+	bodyFlag = strings.TrimSpace(bodyFlag)
+	bodyFile = strings.TrimSpace(bodyFile)
+	if bodyFlag != "" && bodyFile != "" {
+		return nil, fmt.Errorf("use either --body or --body-file, not both")
+	}
+	raw := bodyFlag
+	if bodyFile != "" {
+		b, err := os.ReadFile(bodyFile)
+		if err != nil {
+			return nil, err
+		}
+		raw = string(b)
+	}
+	return domain.NormalizeBody(raw)
 }
 
 func runAdd(cmd *cobra.Command, args []string) error {
 	title := strings.TrimSpace(args[0])
 	if title == "" {
 		return fmt.Errorf("give the item a title — example: tray add \"Fix login\" inbox")
+	}
+	body, err := resolveAddBody(cmd)
+	if err != nil {
+		return err
 	}
 	remote, err := cmd.Flags().GetBool("remote")
 	if err != nil {
@@ -74,14 +109,14 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		if len(args) >= 2 {
 			return fmt.Errorf("do not pass a tray name with --agent-session-id — the inbox is agent-session:<id>")
 		}
-		return runAgentSessionItemAdd(cmd, title, agentSessionID, fromAgentSessionID)
+		return runAgentSessionItemAdd(cmd, title, agentSessionID, fromAgentSessionID, body)
 	}
 
 	if remote {
 		if len(args) < 2 {
 			return fmt.Errorf("remote add requires a tray name — example: tray add \"Fix login\" inbox --remote")
 		}
-		return runRemoteItemAdd(cmd, title, strings.TrimSpace(args[1]), nil)
+		return runRemoteItemAdd(cmd, title, strings.TrimSpace(args[1]), nil, body)
 	}
 
 	cwd, git := workContext()
@@ -107,10 +142,10 @@ func runAdd(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
-	return runLocalAdd(cmd, title, target, create)
+	return runLocalAdd(cmd, title, target, create, body)
 }
 
-func runAgentSessionItemAdd(cmd *cobra.Command, title, agentSessionID, fromFlag string) error {
+func runAgentSessionItemAdd(cmd *cobra.Command, title, agentSessionID, fromFlag string, body *string) error {
 	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
 		return err
@@ -123,10 +158,10 @@ func runAgentSessionItemAdd(cmd *cobra.Command, title, agentSessionID, fromFlag 
 	if source := agentsession.FlagOrEnv(fromFlag, agentsession.EnvAgentSessionID); source != "" {
 		sourcePtr = &source
 	}
-	return runRemoteItemAddWithTrayID(cmd, svcs, sess, title, tid, "", sourcePtr)
+	return runRemoteItemAddWithTrayID(cmd, svcs, sess, title, tid, "", sourcePtr, body)
 }
 
-func runRemoteItemAdd(cmd *cobra.Command, title, trayRef string, agentSessionID *string) error {
+func runRemoteItemAdd(cmd *cobra.Command, title, trayRef string, agentSessionID *string, body *string) error {
 	aliases := cmdDeps.RemoteAliases()
 	svcs, sess, err := cmdDeps.RequireAuth()
 	if err != nil {
@@ -136,12 +171,12 @@ func runRemoteItemAdd(cmd *cobra.Command, title, trayRef string, agentSessionID 
 	if err != nil {
 		return err
 	}
-	return runRemoteItemAddWithTrayID(cmd, svcs, sess, title, tid, trayRef, agentSessionID)
+	return runRemoteItemAddWithTrayID(cmd, svcs, sess, title, tid, trayRef, agentSessionID, body)
 }
 
-func runRemoteItemAddWithTrayID(cmd *cobra.Command, svcs domain.Services, sess domain.Session, title, tid, trayRef string, agentSessionID *string) error {
+func runRemoteItemAddWithTrayID(cmd *cobra.Command, svcs domain.Services, sess domain.Session, title, tid, trayRef string, agentSessionID *string, body *string) error {
 	aliases := cmdDeps.RemoteAliases()
-	item, err := svcs.Items.Add(cmd.Context(), sess, tid, title, nil, agentSessionID)
+	item, err := svcs.Items.Add(cmd.Context(), sess, tid, title, nil, agentSessionID, body)
 	if err != nil {
 		return err
 	}

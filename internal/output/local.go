@@ -16,13 +16,14 @@ func WriteLocalItems(w io.Writer, rows []localtray.ItemWithTray, f Format) error
 	switch f {
 	case FormatJSON:
 		type row struct {
-			ID         string `json:"id"`
-			TrayID     string `json:"tray_id"`
-			TrayLabel  string `json:"tray_label"`
-			Title      string `json:"title"`
-			Status     string `json:"status"`
-			CreatedAt  string `json:"created_at"`
-			CreatedAgo string `json:"created_ago"`
+			ID         string  `json:"id"`
+			TrayID     string  `json:"tray_id"`
+			TrayLabel  string  `json:"tray_label"`
+			Title      string  `json:"title"`
+			Body       *string `json:"body,omitempty"`
+			Status     string  `json:"status"`
+			CreatedAt  string  `json:"created_at"`
+			CreatedAgo string  `json:"created_ago"`
 		}
 		now := time.Now()
 		out := make([]row, 0, len(rows))
@@ -32,6 +33,7 @@ func WriteLocalItems(w io.Writer, rows []localtray.ItemWithTray, f Format) error
 				TrayID:     r.Item.TrayID,
 				TrayLabel:  localtray.DisplayLabel(r.Item.TrayID),
 				Title:      r.Item.Title,
+				Body:       r.Item.Body,
 				Status:     r.Item.Status,
 				CreatedAt:  r.Item.CreatedAt.UTC().Format(time.RFC3339),
 				CreatedAgo: HumanizeTimeAgo(r.Item.CreatedAt, now),
@@ -169,12 +171,21 @@ func WriteLocalItemAdded(w io.Writer, item localtray.Item, f Format) error {
 	case FormatJSON:
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
-		return enc.Encode(map[string]string{
-			"id":         item.ID,
-			"tray_id":    item.TrayID,
-			"tray_label": label,
-			"title":      item.Title,
-			"status":     item.Status,
+		type added struct {
+			ID        string  `json:"id"`
+			TrayID    string  `json:"tray_id"`
+			TrayLabel string  `json:"tray_label"`
+			Title     string  `json:"title"`
+			Body      *string `json:"body,omitempty"`
+			Status    string  `json:"status"`
+		}
+		return enc.Encode(added{
+			ID:        item.ID,
+			TrayID:    item.TrayID,
+			TrayLabel: label,
+			Title:     item.Title,
+			Body:      item.Body,
+			Status:    item.Status,
 		})
 	case FormatMarkdown:
 		_, err := fmt.Fprintf(w, "Added to **%s**: `%s` — %s\n", label, item.ID, item.Title)

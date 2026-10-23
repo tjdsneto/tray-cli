@@ -50,23 +50,24 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 	switch f {
 	case FormatJSON:
 		type row struct {
-			ID               string  `json:"id"`
-			TrayID           string  `json:"tray_id"`
-			TrayName         string  `json:"tray_name,omitempty"`
-			SortOrder        int     `json:"sort_order"`
-			Title            string  `json:"title"`
-			Status           string  `json:"status"`
-			DueDate          *string `json:"due_date,omitempty"`
-			CreatedAt        string  `json:"created_at"`
-			CreatedAgo       string  `json:"created_ago"`
-			SourceUserID     string  `json:"source_user_id"`
-			SourceUserLabel  string  `json:"source_user_label"`
-			AgentSessionID   *string `json:"agent_session_id,omitempty"`
-			AcceptedAt       *string `json:"accepted_at,omitempty"`
-			DeclinedAt       *string `json:"declined_at,omitempty"`
-			CompletedAt      *string `json:"completed_at,omitempty"`
-			ArchivedAt       *string `json:"archived_at,omitempty"`
-			SnoozedAt        *string `json:"snoozed_at,omitempty"`
+			ID              string  `json:"id"`
+			TrayID          string  `json:"tray_id"`
+			TrayName        string  `json:"tray_name,omitempty"`
+			SortOrder       int     `json:"sort_order"`
+			Title           string  `json:"title"`
+			Body            *string `json:"body,omitempty"`
+			Status          string  `json:"status"`
+			DueDate         *string `json:"due_date,omitempty"`
+			CreatedAt       string  `json:"created_at"`
+			CreatedAgo      string  `json:"created_ago"`
+			SourceUserID    string  `json:"source_user_id"`
+			SourceUserLabel string  `json:"source_user_label"`
+			AgentSessionID  *string `json:"agent_session_id,omitempty"`
+			AcceptedAt      *string `json:"accepted_at,omitempty"`
+			DeclinedAt      *string `json:"declined_at,omitempty"`
+			CompletedAt     *string `json:"completed_at,omitempty"`
+			ArchivedAt      *string `json:"archived_at,omitempty"`
+			SnoozedAt       *string `json:"snoozed_at,omitempty"`
 		}
 		out := make([]row, 0, len(items))
 		for _, it := range items {
@@ -76,6 +77,7 @@ func WriteItems(w io.Writer, items []domain.Item, trayNames map[string]string, c
 				TrayName:        trayNames[it.TrayID],
 				SortOrder:       it.SortOrder,
 				Title:           it.Title,
+				Body:            it.Body,
 				Status:          it.Status,
 				DueDate:         it.DueDate,
 				CreatedAt:       it.CreatedAt.UTC().Format(time.RFC3339),

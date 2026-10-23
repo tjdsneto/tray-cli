@@ -91,7 +91,7 @@ For **`curl`**, use a **release tag** instead of **`main`** in the URL to match 
 
 ## Items
 
-**`tray add "title" <tray>`** adds a pending item (tray = name, id, or **`remote`** alias). **`list`** shows items on **your** trays; **`list <tray>`** requires an **owned** tray. **`contributed`** lists items you filed on others’ trays; **`remove <item-id>`** (owner deletes any item; contributor can delete own **pending** items).
+**`tray add "title" <tray>`** adds a pending item (tray = name, id, or **`remote`** alias). Optional **`--body`** / **`--body-file`** attach a large text payload (≤100k characters); title stays the short headline — read it back with **`list --json`**. **`list`** shows items on **your** trays; **`list <tray>`** requires an **owned** tray. **`contributed`** lists items you filed on others’ trays; **`remove <item-id>`** (owner deletes any item; contributor can delete own **pending** items).
 
 ## Triage your inbox
 

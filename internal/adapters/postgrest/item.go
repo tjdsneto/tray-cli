@@ -25,6 +25,7 @@ type itemRow struct {
 	SourceUserID      string  `json:"source_user_id"`
 	AgentSessionID    *string `json:"agent_session_id"`
 	Title             string  `json:"title"`
+	Body              *string `json:"body"`
 	Status            string  `json:"status"`
 	DueDate           *string `json:"due_date"`
 	SnoozeUntil       *string `json:"snooze_until"`
@@ -83,6 +84,7 @@ func (r itemRow) ToDomain() (domain.Item, error) {
 		SourceUserID:      r.SourceUserID,
 		AgentSessionID:    r.AgentSessionID,
 		Title:             r.Title,
+		Body:              normalizeItemBody(r.Body),
 		Status:            r.Status,
 		DueDate:           r.DueDate,
 		SnoozeUntil:       snooze,
@@ -166,12 +168,13 @@ type addItemRequest struct {
 	TrayID         string  `json:"tray_id"`
 	SourceUserID   string  `json:"source_user_id"`
 	Title          string  `json:"title"`
+	Body           *string `json:"body,omitempty"`
 	Status         string  `json:"status"`
 	DueDate        *string `json:"due_date,omitempty"`
 	AgentSessionID *string `json:"agent_session_id,omitempty"`
 }
 
-func newAddItemRequest(userID, trayID, title string, dueDate *string, trayOwnerID string, agentSessionID *string) (addItemRequest, error) {
+func newAddItemRequest(userID, trayID, title string, dueDate *string, trayOwnerID string, agentSessionID *string, body *string) (addItemRequest, error) {
 	if strings.TrimSpace(userID) == "" {
 		return addItemRequest{}, fmt.Errorf("postgrest: session missing UserID (set after login)")
 	}
@@ -205,7 +208,30 @@ func newAddItemRequest(userID, trayID, title string, dueDate *string, trayOwnerI
 		sid := strings.TrimSpace(*agentSessionID)
 		req.AgentSessionID = &sid
 	}
+	nb, err := domain.NormalizeBody(ptrString(body))
+	if err != nil {
+		return addItemRequest{}, err
+	}
+	req.Body = nb
 	return req, nil
+}
+
+func ptrString(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
+func normalizeItemBody(p *string) *string {
+	if p == nil {
+		return nil
+	}
+	t := strings.TrimSpace(*p)
+	if t == "" {
+		return nil
+	}
+	return &t
 }
 
 func itemPatchBody(p domain.ItemPatch) (map[string]any, error) {

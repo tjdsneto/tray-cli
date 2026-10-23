@@ -1,3 +1,17 @@
+/** Max item body length — mirrors Go `domain.MaxBodyRunes`. */
+export const MAX_BODY_CHARS = 100_000;
+
+/** Normalize optional body — trim; empty → omit; over cap → throw. Mirrors Go `domain.NormalizeBody`. */
+export function normalizeItemBody(raw: string | null | undefined): string | undefined {
+  if (raw == null) return undefined;
+  const t = raw.trim();
+  if (!t) return undefined;
+  if ([...t].length > MAX_BODY_CHARS) {
+    throw new Error(`body exceeds ${MAX_BODY_CHARS} characters`);
+  }
+  return t;
+}
+
 /** Build POST /rest/v1/items body — mirrors Go `newAddItemRequest`. */
 export function buildAddItemBody(
   userId: string,
@@ -5,6 +19,7 @@ export function buildAddItemBody(
   title: string,
   trayOwnerId: string,
   dueDate?: string | null,
+  itemBody?: string | null,
 ): Record<string, unknown> {
   const uid = userId.trim();
   const tid = trayId.trim();
@@ -21,6 +36,8 @@ export function buildAddItemBody(
     status,
   };
   if (dueDate?.trim()) body.due_date = dueDate.trim();
+  const normalized = normalizeItemBody(itemBody ?? undefined);
+  if (normalized !== undefined) body.body = normalized;
   return body;
 }
 

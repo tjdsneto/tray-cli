@@ -37,7 +37,10 @@ tray add "WIP" --branch                    # branch tray for current branch
 tray add "WIP" --project                   # directory tray for git repo root
 tray add "Hand off" work --remote          # remote tray (requires sign-in)
 tray add "Note" inbox --no-create          # fail if local tray does not exist yet
+tray add "Handoff" inbox --body-file doc.md   # short title + optional body (≤100k chars)
 ```
+
+Optional **`--body`** / **`--body-file`** attach a large text payload while the title stays the short headline. Table listings show the title only; **`tray list --json`** (or **`--format json`**) includes `body` when set. Same flags work with **`--remote`** and **`--agent-session-id`**.
 
 Local **`tray complete`** and **`tray remove`** work on local item ids (from `tray list`) without sign-in.
 

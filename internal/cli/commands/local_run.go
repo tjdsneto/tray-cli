@@ -34,9 +34,9 @@ func localTrayIDs(all bool, cwd string, git localtray.GitInfo) ([]string, error)
 	return localtray.ContextTrayIDs(idx, cwd, git), nil
 }
 
-func runLocalAdd(cmd *cobra.Command, title string, target localtray.AddTarget, create bool) error {
+func runLocalAdd(cmd *cobra.Command, title string, target localtray.AddTarget, create bool, body *string) error {
 	store := localStore()
-	item, _, err := store.AddItem(target, title, create)
+	item, _, err := store.AddItem(target, title, create, body)
 	if err != nil {
 		return err
 	}

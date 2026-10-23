@@ -475,11 +475,12 @@ async function routeAddItem(req: Request, deps: Deps, trayId: string): Promise<R
   const title = typeof body.title === "string" ? body.title : "";
   if (!title.trim()) return json({ error: "missing title" }, 400);
   const dueDate = typeof body.due_date === "string" ? body.due_date : undefined;
+  const itemBody = typeof body.body === "string" ? body.body : undefined;
   const ownerId = await fetchTrayOwnerId(deps, ctx.access, trayId);
   if (!ownerId) return json({ error: "tray_not_found_or_inaccessible" }, 404);
   let insertBody: Record<string, unknown>;
   try {
-    insertBody = buildAddItemBody(ctx.uid, trayId, title, ownerId, dueDate);
+    insertBody = buildAddItemBody(ctx.uid, trayId, title, ownerId, dueDate, itemBody);
   } catch (e) {
     return json({ error: "invalid_request", detail: String(e) }, 400);
   }

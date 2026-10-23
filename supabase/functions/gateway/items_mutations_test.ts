@@ -1,16 +1,31 @@
-import { assertEquals } from "jsr:@std/assert";
-import { buildAddItemBody, buildStatusPatch } from "./items_mutations.ts";
+import { assertEquals, assertThrows } from "jsr:@std/assert";
+import { buildAddItemBody, buildStatusPatch, MAX_BODY_CHARS } from "./items_mutations.ts";
 
 Deno.test("buildAddItemBody accepts on own tray", () => {
   const b = buildAddItemBody("user-1", "t1", "  Hi  ", "user-1");
   assertEquals(b.status, "accepted");
   assertEquals(b.title, "Hi");
   assertEquals(b.tray_id, "t1");
+  assertEquals(b.body, undefined);
 });
 
 Deno.test("buildAddItemBody pending on others tray", () => {
   const b = buildAddItemBody("user-1", "t1", "Hi", "owner-z");
   assertEquals(b.status, "pending");
+});
+
+Deno.test("buildAddItemBody includes normalized body", () => {
+  const b = buildAddItemBody("user-1", "t1", "Hi", "user-1", null, "  doc  ");
+  assertEquals(b.body, "doc");
+});
+
+Deno.test("buildAddItemBody rejects oversized body", () => {
+  const over = "a".repeat(MAX_BODY_CHARS + 1);
+  assertThrows(
+    () => buildAddItemBody("user-1", "t1", "Hi", "user-1", null, over),
+    Error,
+    `body exceeds ${MAX_BODY_CHARS} characters`,
+  );
 });
 
 Deno.test("buildStatusPatch merges extras", () => {
