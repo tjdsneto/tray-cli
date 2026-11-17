@@ -130,12 +130,40 @@ func (s *apiSource) Add(ctx context.Context, req api.AddRequest) (api.Item, erro
 			RepoRoot: rec.RepoRoot,
 			Branch:   rec.Branch,
 		}
+	} else if item, handled, err := s.addOwned(ctx, req); handled || err != nil {
+		return item, err
 	}
 	item, rec, err := localtray.NewStore(s.configDir()).AddItem(target, strings.TrimSpace(req.Title), true, req.Body)
 	if err != nil {
 		return api.Item{}, err
 	}
 	return fromLocal(item, rec), nil
+}
+
+// addOwned writes onto an owned remote tray when req.Tray is its id or a unique name.
+// handled is false when the caller should create a local tray instead.
+func (s *apiSource) addOwned(ctx context.Context, req api.AddRequest) (api.Item, bool, error) {
+	svcs, sess, err := s.auth()
+	if err != nil {
+		return api.Item{}, false, nil
+	}
+	owned, err := svcs.Trays.ListOwned(ctx, sess)
+	if err != nil {
+		return api.Item{}, true, api.ErrRemote
+	}
+	tray, err := resolveOwnedTray(owned, req.Tray)
+	if err != nil {
+		return api.Item{}, false, nil
+	}
+	created, err := svcs.Items.Add(ctx, sess, tray.ID, strings.TrimSpace(req.Title), nil, nil, req.Body)
+	if err != nil || created == nil {
+		return api.Item{}, true, api.ErrRemote
+	}
+	ref := strings.TrimSpace(tray.Name)
+	if ref == "" {
+		ref = tray.ID
+	}
+	return fromRemote(*created, ref), true, nil
 }
 
 func (s *apiSource) Act(ctx context.Context, id, action string, body api.ActBody) error {
@@ -207,7 +235,7 @@ func (s *apiSource) remoteTrays(ctx context.Context, svcs domain.Services, sess 
 		}
 		out = append(out, api.Tray{
 			Scope:     "remote",
-			Ref:       name,
+			Ref:       t.ID,
 			Name:      name,
 			OpenCount: counts[t.ID],
 		})
