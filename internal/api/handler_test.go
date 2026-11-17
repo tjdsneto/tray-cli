@@ -136,6 +136,23 @@ func TestAct_failureDoesNotRebuildSnapshot(t *testing.T) {
 	require.Equal(t, "l1", body.Sections[0].Rows[0].ItemID)
 }
 
+func TestSnapshot_optionsPreflightSkipsBearer(t *testing.T) {
+	t.Parallel()
+	h := api.NewHandler("secret", &fakeSource{}, time.Hour)
+
+	preflight := httptest.NewRecorder()
+	h.ServeHTTP(preflight, httptest.NewRequest(http.MethodOptions, "/v1/snapshot", nil))
+	require.Equal(t, http.StatusNoContent, preflight.Code)
+	require.Empty(t, preflight.Body.String())
+	require.Equal(t, "*", preflight.Header().Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "Authorization, Content-Type", preflight.Header().Get("Access-Control-Allow-Headers"))
+	require.Equal(t, "GET, POST, OPTIONS", preflight.Header().Get("Access-Control-Allow-Methods"))
+
+	rec := getAuth(h, "/v1/snapshot")
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "*", rec.Header().Get("Access-Control-Allow-Origin"))
+}
+
 func getAuth(h http.Handler, path string) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, path, nil)

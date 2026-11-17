@@ -28,6 +28,13 @@ func NewHandler(token string, src Source, interval time.Duration) *Handler {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	if !h.authorized(r) {
 		WriteError(w, http.StatusUnauthorized, "unavailable", "unauthorized")
 		return
