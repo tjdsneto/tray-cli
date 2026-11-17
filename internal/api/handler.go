@@ -205,6 +205,19 @@ func (h *Handler) Rebuild(ctx Ctx) {
 	h.snap = bar.BuildSnapshot(append(append([]bar.Item{}, local...), remote...), "")
 }
 
+func (h *Handler) Loop(ctx Ctx) {
+	ticker := time.NewTicker(h.interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			h.Rebuild(ctx)
+		}
+	}
+}
+
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

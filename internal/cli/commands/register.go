@@ -32,4 +32,5 @@ func Register(root *cobra.Command, deps Deps) {
 
 	// --- Menu bar (macOS) ---
 	root.AddCommand(cmdBar())
+	root.AddCommand(cmdAPI())
 }
