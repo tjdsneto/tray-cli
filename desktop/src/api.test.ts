@@ -73,6 +73,75 @@ describe("connect", () => {
     );
   });
 
+  it("does not restart when the user is signed out", async () => {
+    const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(
+      async () =>
+        jsonResponse(401, { error: "signed_out", message: "signed out" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(connect("http://127.0.0.1:9", "secret").session()).rejects.toThrow(
+      "signed out",
+    );
+    expect(invoke).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("restarts once when overlapping 401s reject the bearer", async () => {
+    const pending: Array<(response: Response) => void> = [];
+    const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(
+      (_url, init) => {
+        const auth = (init?.headers as Record<string, string> | undefined)
+          ?.Authorization;
+        if (auth === "Bearer next") {
+          return Promise.resolve(jsonResponse(200, { signedIn: true }));
+        }
+        return new Promise((resolve) => {
+          pending.push(resolve);
+        });
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    let releaseRestart: (value: { base: string; token: string }) => void = () => {};
+    invoke.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseRestart = resolve;
+        }),
+    );
+
+    const api = connect("http://127.0.0.1:9", "stale");
+    const both = Promise.all([api.session(), api.session()]);
+    expect(pending).toHaveLength(2);
+
+    const unauthorized = jsonResponse(401, {
+      error: "unavailable",
+      message: "unauthorized",
+    });
+    pending[0]?.(unauthorized);
+    pending[1]?.(
+      jsonResponse(401, { error: "unavailable", message: "unauthorized" }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(invoke).toHaveBeenCalledWith("restart_api");
+    releaseRestart({ base: "http://127.0.0.1:10", token: "next" });
+
+    await expect(both).resolves.toEqual([
+      { signedIn: true },
+      { signedIn: true },
+    ]);
+    expect(invoke).toHaveBeenCalledTimes(1);
+    const retries = fetchMock.mock.calls.slice(2);
+    expect(retries).toHaveLength(2);
+    for (const call of retries) {
+      expect((call[1]?.headers as Record<string, string>).Authorization).toBe(
+        "Bearer next",
+      );
+    }
+  });
+
   it("throws the JSON message when the retried request is 401", async () => {
     const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(
       async () =>

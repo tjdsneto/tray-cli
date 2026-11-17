@@ -50,6 +50,7 @@ export type AddInput = {
 };
 
 type ErrorBody = {
+  error?: unknown;
   message?: unknown;
 };
 
@@ -64,28 +65,48 @@ function itemsQuery(tray: string, filter: string | undefined): string {
   return `/v1/items?${params.toString()}`;
 }
 
-async function errorMessage(res: Response): Promise<string> {
+async function readErrorBody(res: Response): Promise<ErrorBody | null> {
   try {
-    const data = (await res.json()) as ErrorBody;
-    if (typeof data.message === "string") return data.message;
+    const data = (await res.json()) as unknown;
+    if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+    return data as ErrorBody;
   } catch {
-    // Non-JSON bodies still surface as a failed request.
+    return null;
   }
-  return "request failed";
+}
+
+function errorText(body: ErrorBody | null): string {
+  return typeof body?.message === "string" ? body.message : "request failed";
 }
 
 export function connect(base: string, token: string) {
   let apiBase = base;
   let apiToken = token;
+  let restarting: Promise<void> | null = null;
+
+  function restartApi(): Promise<void> {
+    if (!restarting) {
+      restarting = invoke<{ base: string; token: string }>("restart_api")
+        .then((next) => {
+          apiBase = next.base;
+          apiToken = next.token;
+        })
+        .finally(() => {
+          restarting = null;
+        });
+    }
+    return restarting;
+  }
 
   async function request<T>(
     method: string,
     path: string,
     body?: unknown,
-    retry = true,
+    allowRestart = true,
   ): Promise<T> {
+    const sentToken = apiToken;
     const headers: Record<string, string> = {
-      Authorization: `Bearer ${apiToken}`,
+      Authorization: `Bearer ${sentToken}`,
     };
     const init: RequestInit = { method, headers };
     if (body !== undefined) {
@@ -95,13 +116,16 @@ export function connect(base: string, token: string) {
 
     const res = await fetch(endpoint(apiBase, path), init);
     if (res.status === 401) {
-      if (!retry) throw new Error(await errorMessage(res));
-      const next = await invoke<{ base: string; token: string }>("restart_api");
-      apiBase = next.base;
-      apiToken = next.token;
+      const failure = await readErrorBody(res);
+      const message = errorText(failure);
+      if (failure?.error === "signed_out") throw new Error(message);
+      const bearerRejected = failure === null || failure.error === "unavailable";
+      if (!bearerRejected || !allowRestart) throw new Error(message);
+      if (sentToken !== apiToken) return request<T>(method, path, body, false);
+      await restartApi();
       return request<T>(method, path, body, false);
     }
-    if (!res.ok) throw new Error(await errorMessage(res));
+    if (!res.ok) throw new Error(errorText(await readErrorBody(res)));
     if (res.status === 204) return undefined as T;
     const text = await res.text();
     if (!text) return undefined as T;
