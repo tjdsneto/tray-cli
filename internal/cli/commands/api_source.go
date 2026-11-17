@@ -59,7 +59,7 @@ func (s *apiSource) Trays(ctx context.Context) ([]api.Tray, error) {
 	}
 	remote, err := s.remoteTrays(ctx, svcs, sess)
 	if err != nil {
-		return local, err
+		return local, nil
 	}
 	return append(local, remote...), nil
 }

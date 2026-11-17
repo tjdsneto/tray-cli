@@ -90,11 +90,38 @@ func TestAPISource_blankItemID(t *testing.T) {
 	require.ErrorIs(t, err, api.ErrNotFound)
 }
 
+func TestAPISource_remoteListFailureKeepsLocalTrays(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	local := newAPISource(func() string { return dir }, func() (domain.Services, domain.Session, error) {
+		return domain.Services{}, domain.Session{}, errors.New("signed out")
+	})
+	_, err := local.Add(context.Background(), api.AddRequest{Tray: "notes", Title: "Draft"})
+	require.NoError(t, err)
+
+	src := newAPISource(func() string { return dir }, func() (domain.Services, domain.Session, error) {
+		return domain.Services{
+			Trays: &stubTrayService{err: errors.New("remote down")},
+			Items: &stubItemService{},
+		}, domain.Session{}, nil
+	})
+	trays, err := src.Trays(context.Background())
+	require.NoError(t, err)
+	require.Len(t, trays, 1)
+	require.Equal(t, "local", trays[0].Scope)
+	require.Equal(t, "notes", trays[0].Ref)
+	require.Equal(t, "notes", trays[0].Name)
+}
+
 type stubTrayService struct {
 	owned []domain.Tray
+	err   error
 }
 
 func (s *stubTrayService) ListOwned(context.Context, domain.Session) ([]domain.Tray, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
 	return s.owned, nil
 }
 
