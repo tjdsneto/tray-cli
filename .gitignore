@@ -33,3 +33,7 @@ coverage.html
 desktop/node_modules/
 desktop/dist/
 desktop/src-tauri/target/
+
+# ana project layer (not versioned)
+.ana/
+tmp/
