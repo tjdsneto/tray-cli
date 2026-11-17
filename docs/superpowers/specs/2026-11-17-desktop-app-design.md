@@ -1,7 +1,7 @@
 # Tray desktop app — design
 
 **Date:** 2026-11-17
-**Status:** Pending review
+**Status:** Approved for planning
 **Platform (v1):** macOS for the menu bar. The window does not depend on AppKit.
 
 ## Problem
