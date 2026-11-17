@@ -3,6 +3,7 @@ package api
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"sync"
@@ -36,6 +37,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.session(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/v1/snapshot":
 		h.snapshot(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/v1/trays":
+		h.trays(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/v1/items":
+		h.items(w, r)
+	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/v1/items/"):
+		h.item(w, r)
 	default:
 		WriteError(w, http.StatusNotFound, "not_found", "not found")
 	}
@@ -65,6 +72,74 @@ func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {
 	snap := SnapshotFrom(h.snap)
 	h.mu.Unlock()
 	writeJSON(w, http.StatusOK, snap)
+}
+
+func (h *Handler) trays(w http.ResponseWriter, r *http.Request) {
+	trays, err := h.src.Trays(r.Context())
+	if err != nil {
+		writeSourceErr(w, err)
+		return
+	}
+	if trays == nil {
+		trays = []Tray{}
+	}
+	writeJSON(w, http.StatusOK, trays)
+}
+
+func (h *Handler) items(w http.ResponseWriter, r *http.Request) {
+	tray := r.URL.Query().Get("tray")
+	filter := r.URL.Query().Get("filter")
+	if filter == "" {
+		filter = "open"
+	}
+	items, err := h.src.Items(r.Context(), tray)
+	if err != nil {
+		writeSourceErr(w, err)
+		return
+	}
+	out := SelectItems(items, filter)
+	for i := range out {
+		out[i].Body = nil
+		if out[i].Actions == nil {
+			out[i].Actions = ActionsFor(out[i].Scope, out[i].Status)
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *Handler) item(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimPrefix(r.URL.Path, "/v1/items/")
+	if id == "" || strings.Contains(id, "/") {
+		WriteError(w, http.StatusNotFound, "not_found", "not found")
+		return
+	}
+	item, err := h.src.Item(r.Context(), id)
+	if err != nil {
+		writeSourceErr(w, err)
+		return
+	}
+	if item.Actions == nil {
+		item.Actions = ActionsFor(item.Scope, item.Status)
+	}
+	writeJSON(w, http.StatusOK, item)
+}
+
+func writeSourceErr(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, ErrNotFound):
+		WriteError(w, http.StatusNotFound, "not_found", "not found")
+	case errors.Is(err, ErrSignedOut):
+		WriteError(w, http.StatusUnauthorized, "signed_out", "signed out")
+	case errors.Is(err, ErrRemote):
+		WriteError(w, http.StatusBadGateway, "remote_unavailable", "remote unavailable")
+	default:
+		var inv invalidError
+		if errors.As(err, &inv) {
+			WriteError(w, http.StatusBadRequest, "invalid", inv.Error())
+			return
+		}
+		WriteError(w, http.StatusBadGateway, "unavailable", err.Error())
+	}
 }
 
 func (h *Handler) Rebuild(ctx Ctx) {
