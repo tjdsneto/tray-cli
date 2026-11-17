@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -19,6 +20,7 @@ type fakeSource struct {
 	remoteErr error
 	trays     []api.Tray
 	items     []api.Item
+	actErr    error
 }
 
 func (f *fakeSource) SignedIn(api.Ctx) (bool, error) { return f.signedIn, nil }
@@ -38,7 +40,7 @@ func (f *fakeSource) Item(ctx api.Ctx, id string) (api.Item, error) {
 func (f *fakeSource) Add(api.Ctx, api.AddRequest) (api.Item, error) {
 	return api.Item{}, nil
 }
-func (f *fakeSource) Act(api.Ctx, string, string, api.ActBody) error { return nil }
+func (f *fakeSource) Act(api.Ctx, string, string, api.ActBody) error { return f.actErr }
 
 func TestSnapshot_requiresBearerAndKeepsLastRemote(t *testing.T) {
 	t.Parallel()
@@ -90,6 +92,28 @@ func TestItems_listOmitsBodyAndGetIncludesIt(t *testing.T) {
 
 	missing := getAuth(h, "/v1/items/nope")
 	require.Equal(t, http.StatusNotFound, missing.Code)
+}
+
+func TestAct_failureDoesNotRebuildSnapshot(t *testing.T) {
+	t.Parallel()
+	src := &fakeSource{local: []bar.Item{{
+		Scope: bar.ScopeLocal, TrayRef: "notes", TrayName: "notes", ItemID: "l1", Title: "L", CreatedAt: time.Unix(1, 0).UTC(),
+	}}}
+	src.actErr = errors.New("nope")
+	h := api.NewHandler("secret", src, time.Hour)
+	h.Rebuild(t.Context())
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/items/l1/complete", nil)
+	req.Header.Set("Authorization", "Bearer secret")
+	h.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusBadGateway, rec.Code)
+
+	snap := getAuth(h, "/v1/snapshot")
+	var body api.Snapshot
+	require.NoError(t, json.Unmarshal(snap.Body.Bytes(), &body))
+	require.Equal(t, 1, body.Badge)
+	require.Equal(t, "l1", body.Sections[0].Rows[0].ItemID)
 }
 
 func getAuth(h http.Handler, path string) *httptest.ResponseRecorder {

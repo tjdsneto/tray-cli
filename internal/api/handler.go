@@ -43,6 +43,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.items(w, r)
 	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/v1/items/"):
 		h.item(w, r)
+	case r.Method == http.MethodPost && r.URL.Path == "/v1/items":
+		h.add(w, r)
+	case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/v1/items/"):
+		h.act(w, r)
 	default:
 		WriteError(w, http.StatusNotFound, "not_found", "not found")
 	}
@@ -105,6 +109,53 @@ func (h *Handler) items(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *Handler) add(w http.ResponseWriter, r *http.Request) {
+	var req AddRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, http.StatusBadRequest, "invalid", "invalid json")
+		return
+	}
+	if err := ValidateAdd(req); err != nil {
+		writeSourceErr(w, err)
+		return
+	}
+	item, err := h.src.Add(r.Context(), req)
+	if err != nil {
+		writeSourceErr(w, err)
+		return
+	}
+	h.Rebuild(r.Context())
+	item.Actions = ActionsFor(item.Scope, item.Status)
+	writeJSON(w, http.StatusCreated, item)
+}
+
+func (h *Handler) act(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(r.URL.Path, "/v1/items/")
+	id, action, ok := strings.Cut(rest, "/")
+	if !ok || id == "" || action == "" {
+		WriteError(w, http.StatusNotFound, "not_found", "not found")
+		return
+	}
+	var body ActBody
+	if r.ContentLength != 0 {
+		var raw struct {
+			Reason string `json:"reason"`
+			Until  string `json:"until"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+			WriteError(w, http.StatusBadRequest, "invalid", "invalid json")
+			return
+		}
+		body.Reason, body.Until = raw.Reason, raw.Until
+	}
+	if err := h.src.Act(r.Context(), id, action, body); err != nil {
+		writeSourceErr(w, err)
+		return
+	}
+	h.Rebuild(r.Context())
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) item(w http.ResponseWriter, r *http.Request) {
