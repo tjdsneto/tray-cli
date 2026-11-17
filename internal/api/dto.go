@@ -76,6 +76,8 @@ func (e invalidError) Error() string { return string(e) }
 
 func errInvalid(msg string) error { return invalidError(msg) }
 
+func Invalid(msg string) error { return invalidError(msg) }
+
 func SnapshotFrom(s bar.Snapshot) Snapshot {
 	out := Snapshot{
 		Badge:        s.Badge,

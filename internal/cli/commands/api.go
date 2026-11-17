@@ -16,7 +16,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tjdsneto/tray-cli/internal/api"
-	"github.com/tjdsneto/tray-cli/internal/domain"
 )
 
 func cmdAPI() *cobra.Command {
@@ -75,9 +74,4 @@ func randomToken() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b[:]), nil
-}
-
-// newAPISource is a compile stub. Task 8 replaces it in api_source.go and deletes this function.
-func newAPISource(func() string, func() (domain.Services, domain.Session, error)) api.Source {
-	return nil
 }
