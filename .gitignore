@@ -28,3 +28,7 @@ coverage.out
 coverage.html
 .superpowers/
 .worktrees/
+
+desktop/node_modules/
+desktop/dist/
+desktop/src-tauri/target/
