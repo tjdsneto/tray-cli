@@ -37,13 +37,13 @@ Three panes.
 
 | Pane | Contents |
 |------|----------|
-| Trays | **Attention** first (the badge count), then local trays, then owned remote trays. A tray's count is its open work. |
-| Items | The selected tray's open work, newest first. A field to add a title, with an optional body. |
-| Reading | Title, status, body, and the actions that apply. |
+| Trays | **Attention** first (the badge count), then local trays, then directory and branch trays, then owned remote trays. A tray's count is its open work. |
+| Items | The selected tray, newest first, split into open work and completed work. A row shows the title, status, created time, and the actions that apply. A field to add a title, with an optional body. |
+| Reading | Title, status, created time, the other dates and reasons the item has, body, the same actions, and Copy. |
 
 **Attention** is the menu-bar set: local open items plus remote pending items on trays you own. Order matches the existing snapshot: tray name A–Z, newest first inside a tray. It has no add field. Adding happens on a selected tray. Ids in the API are the full item id and the same tray-ref the menu bar copies, not a short prefix.
 
-**Open work** is the default list. Local: status `open`. Remote: `pending`, `accepted`, and `snoozed`. **All** is a control on the list header and adds `done`, `declined`, `completed`, and `archived`.
+**Open work** is the top group. Local: status `open`. Remote: `pending`, `accepted`, and `snoozed`. **Completed** is the group under it: local `done`, and remote `declined`, `completed`, and `archived`.
 
 Selecting a row fades the reading pane in. The body is loaded for that row, not with the list.
 
@@ -64,7 +64,7 @@ The visual reference is the approved mock: light surface, one dark accent, syste
 
 ## Menu bar
 
-The status item lives in the Tauri app. Clicking it opens the menu, as on macOS today. Rows are the attention snapshot. Clicking a row copies `tray-ref item-id` using the existing clipboard line. **Open** shows the window. So does the Dock icon.
+The status item lives in the Tauri app. Clicking it opens the menu, as on macOS today. The menu lists trays and open counts, in the same three groups as the sidebar. It does not list items. Clicking a tray shows the window on that tray. **Open Tray** shows the window. So does the Dock icon. Copy stays on the open item in the window.
 
 `tray bar` is unchanged. Running it beside the app shows two icons. v1 does not pick a winner.
 
@@ -148,6 +148,6 @@ A short `docs/user/` page for launching the app and for what the menu bar still 
 | Body | Loaded when a row is opened |
 | Snooze | Three presets. No calendar |
 | Decline | Optional reason |
-| Menu bar | Same badge and copy behavior, plus Open. `tray bar` stays |
+| Menu bar | Trays and counts, grouped. A tray opens the window. Copy is on the open item. `tray bar` stays |
 | Refresh | 30 seconds, and after each successful write |
 | Tests | Go owns behavior. Vitest owns which buttons show |

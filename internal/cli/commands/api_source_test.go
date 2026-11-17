@@ -3,6 +3,8 @@ package commands
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -32,7 +34,16 @@ func TestAPISource_localAddListAndComplete(t *testing.T) {
 	require.NoError(t, err)
 	items, err = src.Items(context.Background(), "notes")
 	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, "done", items[0].Status)
+	require.NotNil(t, items[0].DoneAt)
 	require.Empty(t, api.SelectItems(items, "open"))
+
+	trays, err := src.Trays(context.Background())
+	require.NoError(t, err)
+	require.Len(t, trays, 1)
+	require.Equal(t, "global", trays[0].Kind)
+	require.Equal(t, "notes", trays[0].Name)
 
 	done, err := src.Item(context.Background(), item.ID)
 	require.NoError(t, err)
@@ -75,9 +86,82 @@ func TestAPISource_addOnOwnedTrayDoesNotCreateLocal(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []api.Tray{{
 		Scope: "remote",
+		Kind:  "remote",
 		Ref:   "remote-1",
 		Name:  "Inbox",
 	}}, trays)
+}
+
+func TestAPISource_splitsDirectoryAndBranchTrays(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	project := t.TempDir()
+	src := newAPISource(func() string { return dir }, func() (domain.Services, domain.Session, error) {
+		return domain.Services{}, domain.Session{}, errors.New("signed out")
+	})
+	store := localtray.NewStore(dir)
+	_, _, err := store.AddItem(localtray.AddTarget{Kind: localtray.KindDir, Path: project}, "dir note", true, nil)
+	require.NoError(t, err)
+	_, _, err = store.AddItem(localtray.AddTarget{Kind: localtray.KindBranch, RepoRoot: project, Branch: "main"}, "branch note", true, nil)
+	require.NoError(t, err)
+
+	trays, err := src.Trays(context.Background())
+	require.NoError(t, err)
+	require.Len(t, trays, 2)
+	byKind := map[string]api.Tray{}
+	for _, tray := range trays {
+		byKind[tray.Kind] = tray
+	}
+	require.Equal(t, "local", byKind["dir"].Scope)
+	require.Equal(t, filepath.Base(project), byKind["dir"].Name)
+	require.NotEmpty(t, byKind["dir"].Detail)
+	require.Equal(t, "main", byKind["branch"].Detail)
+	require.Equal(t, filepath.Base(project), byKind["branch"].Name)
+}
+
+func TestAPISource_joinedTrayUsesAliasAndOwner(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "remotes.json"), []byte(`{"aliases":{"jessika-work":"joined-1"}}`), 0o600))
+	src := newAPISource(func() string { return dir }, func() (domain.Services, domain.Session, error) {
+		return domain.Services{
+			Trays: &stubTrayService{
+				joined: []domain.Tray{{ID: "joined-1", Name: "lindris", OwnerID: "owner-1"}},
+			},
+			Items:    &stubItemService{},
+			Profiles: stubProfiles{labels: map[string]string{"owner-1": "jessika@example.com"}},
+		}, domain.Session{}, nil
+	})
+	trays, err := src.Trays(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []api.Tray{{
+		Scope:  "remote",
+		Kind:   "joined",
+		Ref:    "joined-1",
+		Name:   "lindris",
+		Detail: "jessika-work",
+		Owner:  "jessika@example.com",
+	}}, trays)
+}
+
+func TestAPISource_listsOwnedAndJoinedRemoteTrays(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	src := newAPISource(func() string { return dir }, func() (domain.Services, domain.Session, error) {
+		return domain.Services{
+			Trays: &stubTrayService{
+				owned:  []domain.Tray{{ID: "owned-1", Name: "work"}},
+				joined: []domain.Tray{{ID: "joined-1", Name: "lindris"}},
+			},
+			Items: &stubItemService{},
+		}, domain.Session{}, nil
+	})
+	trays, err := src.Trays(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []api.Tray{
+		{Scope: "remote", Kind: "remote", Ref: "owned-1", Name: "work"},
+		{Scope: "remote", Kind: "joined", Ref: "joined-1", Name: "lindris"},
+	}, trays)
 }
 
 func TestAPISource_blankItemID(t *testing.T) {
@@ -113,9 +197,22 @@ func TestAPISource_remoteListFailureKeepsLocalTrays(t *testing.T) {
 	require.Equal(t, "notes", trays[0].Name)
 }
 
+type stubProfiles struct {
+	labels map[string]string
+}
+
+func (s stubProfiles) LookupDisplay(context.Context, domain.Session, []string) (map[string]string, error) {
+	if s.labels == nil {
+		return map[string]string{}, nil
+	}
+	return s.labels, nil
+}
+
 type stubTrayService struct {
-	owned []domain.Tray
-	err   error
+	owned     []domain.Tray
+	joined    []domain.Tray
+	err       error
+	joinedErr error
 }
 
 func (s *stubTrayService) ListOwned(context.Context, domain.Session) ([]domain.Tray, error) {
@@ -132,7 +229,10 @@ func (s *stubTrayService) ListMine(context.Context, domain.Session) ([]domain.Tr
 	panic("unexpected TrayService.ListMine")
 }
 func (s *stubTrayService) ListJoined(context.Context, domain.Session) ([]domain.Tray, error) {
-	panic("unexpected TrayService.ListJoined")
+	if s.joinedErr != nil {
+		return nil, s.joinedErr
+	}
+	return s.joined, nil
 }
 func (s *stubTrayService) UpdateName(context.Context, domain.Session, string, string) error {
 	panic("unexpected TrayService.UpdateName")

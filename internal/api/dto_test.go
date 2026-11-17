@@ -37,6 +37,7 @@ func TestSnapshotFrom_includesClipboard(t *testing.T) {
 	row := got.Sections[0].Rows[0]
 	require.Equal(t, "abc", row.ItemID)
 	require.Equal(t, "notes abc", row.Clipboard)
+	require.True(t, row.CreatedAt.Equal(time.Unix(1, 0).UTC()))
 }
 
 func TestFilterOpenAndSortNewest(t *testing.T) {

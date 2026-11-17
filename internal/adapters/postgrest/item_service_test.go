@@ -96,6 +96,29 @@ func TestItemService_List_withItemID(t *testing.T) {
 	require.Empty(t, items)
 }
 
+func TestItemService_List_retriesWithoutBodyColumn(t *testing.T) {
+	var selects []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		selects = append(selects, r.URL.Query().Get("select"))
+		if strings.Contains(r.URL.Query().Get("select"), "body") {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"message":"column items.body does not exist"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`[{"id":"i1","tray_id":"t1","source_user_id":"u","title":"Hello","status":"pending","created_at":"2026-03-20T12:00:00Z","updated_at":"2026-03-20T12:00:00Z"}]`))
+	}))
+	t.Cleanup(srv.Close)
+	c, err := supabasehttp.NewClient(srv.URL, "anon", srv.Client())
+	require.NoError(t, err)
+	svc := newItemService(pghttp.New(c))
+	items, err := svc.List(context.Background(), domain.Session{AccessToken: "x", UserID: "u"}, domain.ListItemsQuery{TrayID: "t1"})
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, "Hello", items[0].Title)
+	require.Len(t, selects, 2)
+	require.NotContains(t, selects[1], "body")
+}
+
 func TestItemService_Add_notFound(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	t.Cleanup(srv.Close)

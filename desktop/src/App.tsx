@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { listen } from "@tauri-apps/api/event";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { ActionBar } from "./ActionBar";
 import type { ActionId } from "./actions";
 import {
@@ -6,18 +7,23 @@ import {
   type Item,
   type Session,
   type Snapshot,
+  type SnapshotRow,
   type Tray,
 } from "./api";
+import { attentionActions, formatWhen, joinedNav, statusBucket, trayHeading, trayListPhase, type StatusBucket } from "./items";
+import { useAppVersion } from "./useAppVersion";
 import { snoozeUntil } from "./snooze";
 
 type Selection = { kind: "attention" } | { kind: "tray"; ref: string };
-type Filter = "open" | "all";
 
 const POLL_MS = 30_000;
 
+const statusFilters = ["all", "pending", "open", "completed"] as const;
+type StatusFilter = (typeof statusFilters)[number];
+
 const snoozePresets = [
-  ["hour", "Hour"],
-  ["tomorrow", "Tomorrow"],
+  ["hour", "One hour"],
+  ["tomorrow", "Tomorrow 9:00"],
   ["week", "Next week"],
 ] as const;
 
@@ -25,13 +31,20 @@ function messageOf(err: unknown): string {
   return err instanceof Error && err.message ? err.message : "request failed";
 }
 
-function listKey(selection: Selection, filter: Filter): string {
-  return selection.kind === "tray" ? `${selection.ref}\n${filter}` : "";
+function listKey(selection: Selection): string {
+  return selection.kind === "tray" ? selection.ref : "";
 }
 
 export default function App() {
   const apiConfig = window.__TRAY_API__;
-  if (!apiConfig) return <p>tray is not installed</p>;
+  if (!apiConfig) {
+    return (
+      <div className="shell boot">
+        <p className="empty">tray is not installed</p>
+        <AppVersion />
+      </div>
+    );
+  }
   return <TrayWindow base={apiConfig.base} token={apiConfig.token} />;
 }
 
@@ -41,11 +54,12 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [trays, setTrays] = useState<Tray[]>([]);
   const [selection, setSelection] = useState<Selection>({ kind: "attention" });
-  const [filter, setFilter] = useState<Filter>("open");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [loaded, setLoaded] = useState<{ key: string; items: Item[] }>({
     key: "",
     items: [],
   });
+  const [listErrorKey, setListErrorKey] = useState("");
   const [reading, setReading] = useState<Item | null>(null);
   const [readingOpacity, setReadingOpacity] = useState(1);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +67,9 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
   const [reason, setReason] = useState("");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [booted, setBooted] = useState(false);
   const listGen = useRef(0);
   const readingGen = useRef(0);
   const acting = useRef(false);
@@ -62,51 +79,41 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
     const fail = (err: unknown) => {
       if (!cancelled) setError(messageOf(err));
     };
-    api
-      .session()
-      .then((next) => {
-        if (!cancelled) setSession(next);
-      })
-      .catch(fail);
-    api
-      .snapshot()
-      .then((next) => {
-        if (!cancelled) setSnapshot(next);
-      })
-      .catch(fail);
-    api
-      .trays()
-      .then((next) => {
-        if (!cancelled) setTrays(Array.isArray(next) ? next : []);
-      })
-      .catch(fail);
+    Promise.allSettled([
+      api.session().then((next) => { if (!cancelled) setSession(next); }),
+      api.snapshot().then((next) => { if (!cancelled) setSnapshot(next); }),
+      api.trays().then((next) => { if (!cancelled) setTrays(Array.isArray(next) ? next : []); }),
+    ]).then((results) => {
+      if (cancelled) return;
+      setBooted(true);
+      const failed = results.find((result) => result.status === "rejected");
+      if (failed?.status === "rejected") fail(failed.reason);
+    });
 
     const timer = setInterval(() => {
-      api
-        .snapshot()
-        .then((next) => {
-          if (!cancelled) setSnapshot(next);
-        })
-        .catch(fail);
-      api
-        .session()
-        .then((next) => {
-          if (!cancelled) setSession(next);
-        })
-        .catch(() => {});
-      api
-        .trays()
-        .then((next) => {
-          if (!cancelled && Array.isArray(next)) setTrays(next);
-        })
-        .catch(() => {});
+      api.snapshot().then((next) => { if (!cancelled) setSnapshot(next); }).catch(fail);
+      api.session().then((next) => { if (!cancelled) setSession(next); }).catch(() => {});
+      api.trays().then((next) => { if (!cancelled && Array.isArray(next)) setTrays(next); }).catch(() => {});
     }, POLL_MS);
-
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
   }, [api]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen<string>("open-tray", (event) => {
+      const ref = event.payload?.trim();
+      if (!ref) return;
+      setSelection({ kind: "tray", ref });
+    })
+      .then((stop) => {
+        unlisten = stop;
+      })
+      .catch(() => {});
+    return () => unlisten?.();
+  }, []);
 
   useEffect(() => {
     readingGen.current += 1;
@@ -116,6 +123,9 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
     setReason("");
     setTitle("");
     setBody("");
+    setAdding(false);
+    setCopied(false);
+    setStatusFilter("all");
   }, [selection]);
 
   useEffect(() => {
@@ -125,55 +135,51 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
     }
     let cancelled = false;
     const ref = selection.ref;
-    const current = filter;
-    const key = listKey(selection, current);
-
+    const key = listKey(selection);
     const load = () => {
       const gen = ++listGen.current;
-      return api.items(ref, current).then((next) => {
+      return api.items(ref, "all").then((next) => {
         if (cancelled || listGen.current !== gen) return;
         setLoaded({ key, items: Array.isArray(next) ? next : [] });
+        setListErrorKey("");
       });
     };
-
     load().catch((err: unknown) => {
-      if (!cancelled) setError(messageOf(err));
+      if (cancelled) return;
+      setListErrorKey(key);
+      setError(messageOf(err));
     });
     const timer = setInterval(() => {
       load().catch((err: unknown) => {
         if (!cancelled) setError(messageOf(err));
       });
     }, POLL_MS);
-
     return () => {
       cancelled = true;
       listGen.current += 1;
       clearInterval(timer);
     };
-  }, [api, selection, filter]);
+  }, [api, selection]);
 
-  const visibleItems =
-    loaded.key === listKey(selection, filter) ? loaded.items : [];
-  const selectedTray =
-    selection.kind === "tray"
-      ? trays.find((tray) => tray.ref === selection.ref)
-      : undefined;
-  const trayName =
-    selectedTray?.name ?? (selection.kind === "tray" ? selection.ref : "");
-  const localTrays = trays.filter((tray) => tray.scope === "local");
-  const remoteTrays = trays.filter((tray) => tray.scope === "remote");
-  const sections =
-    snapshot && Array.isArray(snapshot.sections) ? snapshot.sections : [];
+  const trayKey = listKey(selection);
+  const trayPhase = selection.kind === "tray" ? trayListPhase(loaded.key, trayKey, listErrorKey) : "ready";
+  const visibleItems = loaded.key === trayKey ? loaded.items : [];
+  const selectedTray = selection.kind === "tray" ? trays.find((tray) => tray.ref === selection.ref) : undefined;
+  const trayName = selectedTray
+    ? (selectedTray.kind === "joined" ? joinedNav(selectedTray).title : selectedTray.name)
+    : selection.kind === "tray" ? selection.ref : "Attention";
+  const groups = groupTrays(trays);
+  const sections = snapshot && Array.isArray(snapshot.sections) ? snapshot.sections : [];
+  const buckets = bucketItems(visibleItems);
+  const attention = attentionRows(sections);
 
   function chooseAttention() {
     if (selection.kind === "attention") return;
-    setFilter("open");
     setSelection({ kind: "attention" });
   }
 
   function chooseTray(ref: string) {
     if (selection.kind === "tray" && selection.ref === ref) return;
-    setFilter("open");
     setSelection({ kind: "tray", ref });
   }
 
@@ -182,53 +188,37 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
     setReadingOpacity(0);
     setError(null);
     setPending(null);
-    api
-      .item(id)
-      .then((item) => {
-        if (readingGen.current !== gen) return;
-        setReading({ ...item, actions: item.actions ?? [] });
-        setReadingOpacity(1);
-      })
-      .catch((err: unknown) => {
-        if (readingGen.current !== gen) return;
-        setReadingOpacity(1);
-        setError(messageOf(err));
-      });
+    setCopied(false);
+    api.item(id).then((item) => {
+      if (readingGen.current !== gen) return;
+      setReading({ ...item, actions: item.actions ?? [] });
+      setReadingOpacity(1);
+    }).catch((err: unknown) => {
+      if (readingGen.current !== gen) return;
+      setReadingOpacity(1);
+      setError(messageOf(err));
+    });
   }
 
-  async function refreshAfterWrite(current: Selection, currentFilter: Filter) {
+  async function refreshAfterWrite(current: Selection) {
     const gen = ++listGen.current;
-    const key = listKey(current, currentFilter);
+    const key = listKey(current);
     const [snapR, traysR, itemsR] = await Promise.allSettled([
       api.snapshot(),
       api.trays(),
-      current.kind === "tray"
-        ? api.items(current.ref, currentFilter)
-        : Promise.resolve(null),
+      current.kind === "tray" ? api.items(current.ref, "all") : Promise.resolve(null),
     ]);
     if (snapR.status === "fulfilled") setSnapshot(snapR.value);
-    if (traysR.status === "fulfilled") {
-      setTrays(Array.isArray(traysR.value) ? traysR.value : []);
-    }
-    if (
-      current.kind === "tray" &&
-      itemsR.status === "fulfilled" &&
-      listGen.current === gen
-    ) {
-      setLoaded({
-        key,
-        items: Array.isArray(itemsR.value) ? itemsR.value : [],
-      });
+    if (traysR.status === "fulfilled") setTrays(Array.isArray(traysR.value) ? traysR.value : []);
+    if (current.kind === "tray" && itemsR.status === "fulfilled" && listGen.current === gen) {
+      setLoaded({ key, items: Array.isArray(itemsR.value) ? itemsR.value : [] });
     }
     if (snapR.status === "rejected") throw snapR.reason;
-    if (current.kind === "tray" && itemsR.status === "rejected") {
-      throw itemsR.reason;
-    }
+    if (current.kind === "tray" && itemsR.status === "rejected") throw itemsR.reason;
   }
 
-  async function runAct(action: ActionId, body?: unknown) {
-    if (!reading || acting.current) return;
-    const id = reading.id;
+  async function runAct(id: string, action: ActionId, body?: unknown) {
+    if (acting.current) return;
     acting.current = true;
     setError(null);
     try {
@@ -242,7 +232,7 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
     setPending(null);
     setReason("");
     try {
-      await refreshAfterWrite(selection, filter);
+      await refreshAfterWrite(selection);
       const gen = ++readingGen.current;
       const updated = await api.item(id);
       if (readingGen.current !== gen) return;
@@ -254,19 +244,21 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
     }
   }
 
-  function onAction(action: ActionId) {
+  function onAction(id: string, action: ActionId) {
     setError(null);
     if (action === "decline") {
+      openItem(id);
       setReason("");
       setPending("decline");
       return;
     }
     if (action === "snooze") {
+      openItem(id);
       setPending("snooze");
       return;
     }
     setPending(null);
-    void runAct(action);
+    void runAct(id, action);
   }
 
   async function submitAdd(event: FormEvent) {
@@ -274,10 +266,7 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
     if (selection.kind !== "tray" || acting.current) return;
     const nextTitle = title.trim();
     if (!nextTitle) return;
-    const input: { tray: string; title: string; body?: string } = {
-      tray: selection.ref,
-      title: nextTitle,
-    };
+    const input: { tray: string; title: string; body?: string } = { tray: selection.ref, title: nextTitle };
     const nextBody = body.trim();
     if (nextBody) input.body = nextBody;
     acting.current = true;
@@ -292,124 +281,185 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
     }
     setTitle("");
     setBody("");
+    setAdding(false);
     try {
-      await refreshAfterWrite(selection, filter);
+      await refreshAfterWrite(selection);
     } catch (err) {
       setError(messageOf(err));
     }
   }
 
+  function closeItem() {
+    readingGen.current += 1;
+    setReading(null);
+    setPending(null);
+    setError(null);
+    setCopied(false);
+  }
+
+  useEffect(() => {
+    if (!reading?.id) return;
+    document.querySelector(`[data-item-id="${CSS.escape(reading.id)}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [reading?.id]);
+
+  async function copyRef(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      setError(messageOf(err));
+    }
+  }
+
+  if (!booted) {
+    return (
+      <div className="shell boot">
+        <p className="empty">Loading…</p>
+        <AppVersion />
+      </div>
+    );
+  }
+
+  const readingFacts = reading ? [
+    fact("Agent", reading.agentSessionId),
+    fact("Updated", formatWhen(reading.updatedAt)),
+    fact("Due", reading.dueDate),
+    fact("Accepted", formatWhen(reading.acceptedAt)),
+    fact("Declined", formatWhen(reading.declinedAt)),
+    fact("Snoozed until", formatWhen(reading.snoozeUntil)),
+    fact("Completed", formatWhen(reading.completedAt ?? reading.doneAt)),
+    fact("Archived", formatWhen(reading.archivedAt)),
+    fact("Reason", reading.declineReason),
+    fact("Note", reading.completionMessage),
+  ].filter(Boolean) : [];
+
   return (
-    <div className="shell">
-      <nav className="pane">
-        <button
-          type="button"
-          aria-pressed={selection.kind === "attention"}
-          onClick={chooseAttention}
-        >
-          Attention{snapshot ? ` ${snapshot.badge}` : ""}
+    <div className={reading ? "shell with-reading" : "shell"}>
+      <nav className="sidebar">
+        <div className="sidebar-scroll">
+        <button type="button" className="nav-row" aria-pressed={selection.kind === "attention"} onClick={chooseAttention}>
+          <span>Attention</span>
+          {snapshot && snapshot.badge > 0 && <span className="badge">{snapshot.badge}</span>}
         </button>
-        {localTrays.length > 0 && <p className="muted">Local</p>}
-        {localTrays.map((tray) => (
-          <TrayButton
-            key={`local:${tray.ref}`}
-            tray={tray}
-            pressed={selection.kind === "tray" && selection.ref === tray.ref}
-            onSelect={chooseTray}
-          />
-        ))}
-        {session?.signedIn === false && (
-          <p className="muted">Sign in with tray login</p>
+        <TrayGroup label="Local" trays={groups.local} selection={selection} onSelect={chooseTray} />
+        <TrayGroup label="Directories" trays={groups.directories} selection={selection} onSelect={chooseTray} />
+        {session?.signedIn === false && <p className="note remote-note">Sign in with tray login</p>}
+        {session?.signedIn === true && snapshot?.remoteStatus === "remote unavailable" && (
+          <p className="note remote-note">Remote unavailable</p>
         )}
-        {session?.signedIn === true &&
-          snapshot?.remoteStatus === "remote unavailable" && (
-            <p className="muted">remote unavailable</p>
-          )}
-        {session?.signedIn === true &&
-          remoteTrays.map((tray) => (
-            <TrayButton
-              key={`remote:${tray.ref}`}
-              tray={tray}
-              pressed={selection.kind === "tray" && selection.ref === tray.ref}
-              onSelect={chooseTray}
-            />
-          ))}
+        <TrayGroup label="Remote" trays={groups.remote} selection={selection} onSelect={chooseTray} />
+        <TrayGroup label="Joined" trays={groups.joined} selection={selection} onSelect={chooseTray} />
+        </div>
+        <AppVersion />
       </nav>
 
-      <main className="pane">
-        {selection.kind === "attention" &&
-          sections.map((section, index) => (
-            <section key={`${section.header}:${index}`}>
-              <h2>{section.header}</h2>
-              {(Array.isArray(section.rows) ? section.rows : []).map((row) => (
-                <button
-                  key={row.itemId}
-                  type="button"
-                  aria-pressed={reading?.id === row.itemId}
-                  onClick={() => openItem(row.itemId)}
-                >
-                  {row.title}
-                </button>
-              ))}
-            </section>
-          ))}
+      <main className="list">
+        {error && !reading && <p className="alert list-alert" role="alert">{error}</p>}
+        <div className="list-head">
+          <h1>{trayName}</h1>
+          <div className="filters" role="group" aria-label="Status">
+            {statusFilters.map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                className="chip"
+                aria-pressed={statusFilter === filter}
+                onClick={() => setStatusFilter(filter)}
+              >
+                {filter === "all" ? "All" : filter[0].toUpperCase() + filter.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+        {selection.kind === "attention" && (
+          <BucketList
+            buckets={attention}
+            filter={statusFilter}
+            empty="Nothing needs attention."
+            itemKey={(row) => row.itemId}
+            renderItem={(row) => (
+              <AttentionRow
+                row={row}
+                tray={row.tray}
+                selected={reading?.id === row.itemId}
+                onOpen={() => openItem(row.itemId)}
+                onAction={(action) => onAction(row.itemId, action)}
+              />
+            )}
+          />
+        )}
         {selection.kind === "tray" && (
           <>
-            <form onSubmit={(event) => void submitAdd(event)}>
+            {trayPhase === "loading" && <p className="empty-list">Loading…</p>}
+            {trayPhase === "ready" && (
+            <BucketList
+              buckets={buckets}
+              filter={statusFilter}
+              empty="This tray is empty."
+              itemKey={(item) => item.id}
+              renderItem={(item) => (
+                <ItemRow
+                  item={item}
+                  selected={reading?.id === item.id}
+                  onOpen={() => openItem(item.id)}
+                  onAction={(action) => onAction(item.id, action)}
+                />
+              )}
+            />
+            )}
+            <form className="add" onSubmit={(event) => void submitAdd(event)}>
               <input
                 aria-label={`Add to ${trayName}`}
                 placeholder={`Add to ${trayName}`}
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
+                onFocus={() => setAdding(true)}
               />
-              <textarea
-                aria-label="Body"
-                placeholder="Body (optional)"
-                rows={3}
-                value={body}
-                onChange={(event) => setBody(event.target.value)}
-              />
-              <button type="submit">Add</button>
+              {adding && (
+                <textarea
+                  aria-label="Body"
+                  placeholder="Notes (optional)"
+                  rows={3}
+                  value={body}
+                  onChange={(event) => setBody(event.target.value)}
+                />
+              )}
+              {adding && <button className="btn primary" type="submit">Add</button>}
             </form>
-            <button
-              type="button"
-              aria-pressed={filter === "all"}
-              onClick={() =>
-                setFilter((current) => (current === "open" ? "all" : "open"))
-              }
-            >
-              {filter === "open" ? "Open" : "All"}
-            </button>
-            {visibleItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                aria-pressed={reading?.id === item.id}
-                onClick={() => openItem(item.id)}
-              >
-                {item.title} <span className="muted">{item.status}</span>
-              </button>
-            ))}
           </>
         )}
       </main>
 
-      <aside className="reading pane" style={{ opacity: readingOpacity }}>
-        {error && <p role="alert">{error}</p>}
-        {reading && (
-          <>
+      {reading && (
+      <aside className="reading" style={{ opacity: readingOpacity }}>
+        <div className="reading-head">
+          <span className={`pill ${reading.status}`}>{reading.status}</span>
+          <button type="button" className="btn quiet" onClick={closeItem}>Close</button>
+        </div>
+        {error && <p className="alert" role="alert">{error}</p>}
+        <>
             <h2>{reading.title}</h2>
-            <p>{reading.status}</p>
-            {reading.snoozeUntil && (
-              <p className="muted">{reading.snoozeUntil}</p>
-            )}
+            <p className="meta-line">
+              {reading.sourceUser && <span>{reading.sourceUser}</span>}
+              {formatWhen(reading.createdAt) && <span>{formatWhen(reading.createdAt)}</span>}
+              {reading.clipboard && (
+                <button type="button" className="btn link" onClick={() => void copyRef(reading.clipboard ?? "")}>
+                  {copied ? "Copied" : "Copy ref"}
+                </button>
+              )}
+            </p>
+            {readingFacts.length > 0 && <dl className="facts">{readingFacts}</dl>}
             {reading.body && <p className="body">{reading.body}</p>}
-            <ActionBar actions={reading.actions ?? []} onAction={onAction} />
+            <div className="reading-actions">
+              <ActionBar actions={reading.actions ?? []} onAction={(action) => onAction(reading.id, action)} />
+            </div>
             {pending === "decline" && (
               <form
+                className="followup"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  void runAct("decline", { reason });
+                  void runAct(reading.id, "decline", { reason });
                 }}
               >
                 <input
@@ -418,46 +468,215 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
                   value={reason}
                   onChange={(event) => setReason(event.target.value)}
                 />
-                <button type="submit">Decline</button>
+                <button className="btn" type="submit">Decline</button>
               </form>
             )}
-            {pending === "snooze" &&
-              snoozePresets.map(([preset, label]) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() =>
-                    void runAct("snooze", {
-                      until: snoozeUntil(preset, new Date()).toISOString(),
-                    })
-                  }
-                >
-                  {label}
-                </button>
-              ))}
-          </>
-        )}
+            {pending === "snooze" && (
+              <div className="followup">
+                {snoozePresets.map(([preset, label]) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    className="btn"
+                    onClick={() => void runAct(reading.id, "snooze", { until: snoozeUntil(preset, new Date()).toISOString() })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+        </>
       </aside>
+      )}
     </div>
   );
 }
 
-function TrayButton({
-  tray,
-  pressed,
-  onSelect,
+function AppVersion() {
+  const version = useAppVersion();
+  if (!version) return null;
+  return <p className="app-version">{version}</p>;
+}
+
+function fact(label: string, value: string | undefined) {
+  if (!value) return null;
+  return (
+    <div key={label}>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
+function groupTrays(trays: Tray[]) {
+  const local: Tray[] = [];
+  const directories: Tray[] = [];
+  const remote: Tray[] = [];
+  const joined: Tray[] = [];
+  for (const tray of trays) {
+    const kind = tray.kind || (tray.scope === "remote" ? "remote" : "global");
+    if (kind === "dir" || kind === "branch") directories.push(tray);
+    else if (kind === "joined") joined.push(tray);
+    else if (kind === "remote") remote.push(tray);
+    else local.push(tray);
+  }
+  return { local, directories, remote, joined };
+}
+
+function bucketItems(items: Item[]): Record<StatusBucket, Item[]> {
+  const out: Record<StatusBucket, Item[]> = { pending: [], open: [], completed: [] };
+  for (const item of items) out[statusBucket(item.status)].push(item);
+  return out;
+}
+
+type AttentionItem = SnapshotRow & { tray: string };
+
+function attentionRows(sections: Snapshot["sections"]): Record<StatusBucket, AttentionItem[]> {
+  const out: Record<StatusBucket, AttentionItem[]> = { pending: [], open: [], completed: [] };
+  for (const section of sections) {
+    for (const row of section.rows ?? []) {
+      const status = row.scope === "remote" ? "pending" : "open";
+      out[statusBucket(status)].push({ ...row, tray: trayHeading(section.header) });
+    }
+  }
+  return out;
+}
+
+function BucketList<T>({
+  buckets,
+  filter,
+  empty,
+  itemKey,
+  renderItem,
 }: {
-  tray: Tray;
-  pressed: boolean;
+  buckets: Record<StatusBucket, T[]>;
+  filter: StatusFilter;
+  empty: string;
+  itemKey: (item: T) => string;
+  renderItem: (item: T) => ReactNode;
+}) {
+  const order: StatusBucket[] = ["pending", "open", "completed"];
+  const labels: Record<StatusBucket, string> = { pending: "Pending", open: "Open", completed: "Completed" };
+  const any = order.some((bucket) => buckets[bucket].length > 0);
+  if (!any) return <p className="empty-list">{empty}</p>;
+  const shown = order.filter((bucket) => (filter === "all" || filter === bucket) && buckets[bucket].length > 0);
+  if (shown.length === 0) return <p className="empty-list">Nothing in this filter.</p>;
+  return (
+    <>
+      {shown.map((bucket) => (
+        <section key={bucket}>
+          <h2 className="section-label">{labels[bucket]} {buckets[bucket].length}</h2>
+          <div className="item-list">
+            {buckets[bucket].map((item) => (
+              <div key={itemKey(item)} className="item-slot">
+                {renderItem(item)}
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </>
+  );
+}
+
+function TrayGroup({
+  label,
+  trays,
+  selection,
+  onSelect,
+  note,
+}: {
+  label: string;
+  trays: Tray[];
+  selection: Selection;
   onSelect: (ref: string) => void;
+  note?: string;
+}) {
+  if (trays.length === 0 && !note) return null;
+  return (
+    <>
+      <p className="group-label">{label}</p>
+      {note && <p className="note">{note}</p>}
+      {trays.map((tray) => {
+        const nav = tray.kind === "joined" ? joinedNav(tray) : { title: tray.name, detail: tray.kind === "branch" ? tray.detail ?? "" : "" };
+        return (
+        <button
+          key={`${tray.scope}:${tray.ref}`}
+          type="button"
+          className="nav-row"
+          title={tray.kind === "joined" ? tray.name : tray.detail || tray.name}
+          aria-pressed={selection.kind === "tray" && selection.ref === tray.ref}
+          onClick={() => onSelect(tray.ref)}
+        >
+          <span className="nav-name">
+            <span className="nav-title">{nav.title}</span>
+            {nav.detail && <span className="nav-detail">{nav.detail}</span>}
+          </span>
+          <span className="count">{tray.openCount}</span>
+        </button>
+        );
+      })}
+    </>
+  );
+}
+
+function ItemRow({
+  item,
+  selected,
+  onOpen,
+  onAction,
+}: {
+  item: Item;
+  selected: boolean;
+  onOpen: () => void;
+  onAction: (action: ActionId) => void;
 }) {
   return (
-    <button
-      type="button"
-      aria-pressed={pressed}
-      onClick={() => onSelect(tray.ref)}
+    <article
+      className="item"
+      data-item-id={item.id}
+      data-selected={selected ? "true" : "false"}
+      onClick={onOpen}
     >
-      {tray.name} <span className="muted">{tray.openCount}</span>
-    </button>
+      <div className="item-line">
+        <span className={`pill ${item.status}`}>{item.status}</span>
+        <span className="item-title">{item.title}</span>
+      </div>
+      <div className="item-meta">
+        {item.sourceUser && <span>{item.sourceUser}</span>}
+        {formatWhen(item.createdAt) && <span>{formatWhen(item.createdAt)}</span>}
+      </div>
+      <ActionBar compact actions={item.actions ?? []} onAction={onAction} />
+    </article>
+  );
+}
+
+function AttentionRow({
+  row,
+  tray,
+  selected,
+  onOpen,
+  onAction,
+}: {
+  row: SnapshotRow;
+  tray: string;
+  selected: boolean;
+  onOpen: () => void;
+  onAction: (action: ActionId) => void;
+}) {
+  return (
+    <article className="item" data-item-id={row.itemId} data-selected={selected ? "true" : "false"} onClick={onOpen}>
+      <div className="item-line">
+        <span className={`pill ${row.scope === "remote" ? "pending" : "open"}`}>
+          {row.scope === "remote" ? "pending" : "open"}
+        </span>
+        <span className="item-title">{row.title}</span>
+      </div>
+      <div className="item-meta">
+        <span>{tray}</span>
+        {formatWhen(row.createdAt) && <span>{formatWhen(row.createdAt)}</span>}
+      </div>
+      <ActionBar compact actions={attentionActions(row.scope)} onAction={onAction} />
+    </article>
   );
 }

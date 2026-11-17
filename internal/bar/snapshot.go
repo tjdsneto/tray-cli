@@ -26,10 +26,11 @@ type Item struct {
 }
 
 type Row struct {
-	Scope   Scope
-	TrayRef string
-	ItemID  string
-	Title   string
+	Scope     Scope
+	TrayRef   string
+	ItemID    string
+	Title     string
+	CreatedAt time.Time
 }
 
 type Section struct {
@@ -106,7 +107,7 @@ func RemoteItemsFromSnapshot(snap Snapshot) []Item {
 			}
 			out = append(out, Item{
 				Scope: ScopeRemote, TrayRef: row.TrayRef, TrayName: row.TrayRef,
-				ItemID: row.ItemID, Title: row.Title,
+				ItemID: row.ItemID, Title: row.Title, CreatedAt: row.CreatedAt,
 			})
 		}
 	}
@@ -156,6 +157,7 @@ func BuildSnapshot(items []Item, remoteStatus string) Snapshot {
 		for _, it := range list {
 			sec.Rows = append(sec.Rows, Row{
 				Scope: it.Scope, TrayRef: it.TrayRef, ItemID: it.ItemID, Title: it.Title,
+				CreatedAt: it.CreatedAt,
 			})
 		}
 		snap.Sections = append(snap.Sections, sec)

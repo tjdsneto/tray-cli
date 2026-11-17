@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::io::{BufRead, BufReader};
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Mutex};
@@ -88,8 +89,27 @@ fn read_handshake_line(stdout: std::process::ChildStdout) -> Result<String, Stri
     }
 }
 
+fn tray_candidates(home: Option<&Path>) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    if let Some(home) = home {
+        out.push(home.join("bin").join("tray"));
+    }
+    out.push(PathBuf::from("/opt/homebrew/bin/tray"));
+    out.push(PathBuf::from("/usr/local/bin/tray"));
+    out
+}
+
+fn resolve_tray(candidates: &[PathBuf]) -> Option<PathBuf> {
+    candidates.iter().find(|path| path.is_file()).cloned()
+}
+
+fn tray_program() -> PathBuf {
+    resolve_tray(&tray_candidates(std::env::var_os("HOME").as_deref().map(Path::new)))
+        .unwrap_or_else(|| PathBuf::from("tray"))
+}
+
 fn spawn_api() -> Result<ApiProcess, String> {
-    let mut child = Command::new("tray")
+    let mut child = Command::new(tray_program())
         .arg("api")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -141,6 +161,11 @@ fn spawn_api() -> Result<ApiProcess, String> {
 }
 
 #[tauri::command]
+fn app_version() -> String {
+    env!("TRAY_APP_VERSION").to_string()
+}
+
+#[tauri::command]
 fn restart_api(state: State<AppRuntime>) -> Result<ApiEndpoint, String> {
     let mut guard = state.api.lock().map_err(|err| err.to_string())?;
     drop(guard.take());
@@ -177,9 +202,9 @@ mod menu_bar {
     use super::{current_api, AppRuntime};
     use tauri::menu::{MenuBuilder, MenuEvent, MenuItemBuilder};
     use tauri::tray::TrayIconBuilder;
-    use tauri::{AppHandle, Manager};
+    use tauri::{AppHandle, Emitter, Manager};
 
-    const TRAY_ICON: tauri::image::Image<'_> = tauri::include_image!("icons/icon.png");
+    const TRAY_ICON: tauri::image::Image<'_> = tauri::include_image!("icons/trayTemplate.png");
     const REFRESH_INTERVAL: Duration = Duration::from_secs(30);
     const OPEN_ID: &str = "open";
     /// Clipboard lines are `tray-ref item-id` and never start with U+0001.
@@ -188,24 +213,19 @@ mod menu_bar {
     #[derive(Clone, serde::Deserialize)]
     struct Snapshot {
         badge: i64,
-        #[serde(default, rename = "remoteStatus")]
-        #[allow(dead_code)]
-        remote_status: String,
-        #[serde(default)]
-        sections: Vec<Section>,
     }
 
     #[derive(Clone, serde::Deserialize)]
-    struct Section {
-        header: String,
+    struct ApiTray {
         #[serde(default)]
-        rows: Vec<Row>,
-    }
-
-    #[derive(Clone, serde::Deserialize)]
-    struct Row {
-        title: String,
-        clipboard: String,
+        kind: String,
+        #[serde(rename = "ref")]
+        tray_ref: String,
+        name: String,
+        #[serde(default)]
+        detail: String,
+        #[serde(default, rename = "openCount")]
+        open_count: i64,
     }
 
     struct MenuEntry {
@@ -217,11 +237,20 @@ mod menu_bar {
     #[derive(Debug)]
     enum MenuAction {
         OpenWindow,
-        Copy(String),
+        OpenTray(String),
         Ignore,
     }
 
+    const TRAY_PREFIX: &str = "open-tray\u{1}";
+
     /// `&` is a menu mnemonic. Doubling it shows the character in the label.
+    fn menu_name(tray: &ApiTray) -> &str {
+        if tray.kind == "joined" && !tray.detail.trim().is_empty() {
+            return tray.detail.trim();
+        }
+        tray.name.as_str()
+    }
+
     fn menu_label(title: &str) -> String {
         title.replace('&', "&&")
     }
@@ -230,22 +259,36 @@ mod menu_bar {
         id.starts_with(HEADER_PREFIX)
     }
 
-    fn menu_entries(snapshot: &Snapshot) -> Vec<MenuEntry> {
+    fn menu_entries(trays: &[ApiTray]) -> Vec<MenuEntry> {
         let mut entries = vec![MenuEntry {
             id: OPEN_ID.to_string(),
-            label: "Open".to_string(),
+            label: "Open Tray".to_string(),
             enabled: true,
         }];
-        for (section_index, section) in snapshot.sections.iter().enumerate() {
+        const GROUPS: &[(&str, &[&str])] = &[
+            ("Local", &["global"]),
+            ("Directories", &["dir", "branch"]),
+            ("Remote", &["remote"]),
+            ("Joined", &["joined"]),
+        ];
+        for (label, kinds) in GROUPS {
+            let mut group: Vec<&ApiTray> = trays
+                .iter()
+                .filter(|tray| kinds.contains(&tray.kind.as_str()))
+                .collect();
+            if group.is_empty() {
+                continue;
+            }
+            group.sort_by(|a, b| menu_name(a).to_lowercase().cmp(&menu_name(b).to_lowercase()));
             entries.push(MenuEntry {
-                id: format!("{HEADER_PREFIX}{section_index}"),
-                label: menu_label(&section.header),
+                id: format!("{HEADER_PREFIX}{label}"),
+                label: (*label).to_string(),
                 enabled: false,
             });
-            for row in &section.rows {
+            for tray in group {
                 entries.push(MenuEntry {
-                    id: row.clipboard.clone(),
-                    label: menu_label(&row.title),
+                    id: format!("{TRAY_PREFIX}{}", tray.tray_ref),
+                    label: menu_label(&format!("{}    {}", menu_name(tray), tray.open_count)),
                     enabled: true,
                 });
             }
@@ -253,8 +296,8 @@ mod menu_bar {
         entries
     }
 
-    /// The row id is the clipboard line, so a click still copies the row that
-    /// was on the menu even if a refresh has already built a new one.
+    /// A tray row's id is the tray ref, so a click opens the tray that was on
+    /// the menu even if a refresh has already built a new one.
     fn menu_action(id: &str) -> MenuAction {
         if id == OPEN_ID {
             return MenuAction::OpenWindow;
@@ -262,7 +305,10 @@ mod menu_bar {
         if is_header_id(id) {
             return MenuAction::Ignore;
         }
-        MenuAction::Copy(id.to_string())
+        if let Some(tray_ref) = id.strip_prefix(TRAY_PREFIX) {
+            return MenuAction::OpenTray(tray_ref.to_string());
+        }
+        MenuAction::Ignore
     }
 
     /// Badge 0: tooltip "Tray" and no title. A positive badge uses the count for both.
@@ -275,14 +321,21 @@ mod menu_bar {
         }
     }
 
-    fn fetch_snapshot(base: &str, token: &str) -> Result<Snapshot, String> {
-        let url = format!("{base}/v1/snapshot");
-        let response = ureq::get(&url)
+    fn fetch_json<T: serde::de::DeserializeOwned>(url: &str, token: &str) -> Result<T, String> {
+        let response = ureq::get(url)
             .set("Authorization", &format!("Bearer {token}"))
             .call()
             .map_err(|err| err.to_string())?;
         let body = response.into_string().map_err(|err| err.to_string())?;
         serde_json::from_str(&body).map_err(|err| err.to_string())
+    }
+
+    fn fetch_snapshot(base: &str, token: &str) -> Result<Snapshot, String> {
+        fetch_json(&format!("{base}/v1/snapshot"), token)
+    }
+
+    fn fetch_trays(base: &str, token: &str) -> Result<Vec<ApiTray>, String> {
+        fetch_json(&format!("{base}/v1/trays"), token)
     }
 
     fn show_main(app: &AppHandle) {
@@ -295,17 +348,16 @@ mod menu_bar {
     fn handle_menu(app: &AppHandle, event: MenuEvent) {
         match menu_action(event.id().as_ref()) {
             MenuAction::OpenWindow => show_main(app),
-            MenuAction::Copy(text) => {
-                if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                    let _ = clipboard.set_text(text);
-                }
+            MenuAction::OpenTray(tray_ref) => {
+                show_main(app);
+                let _ = app.emit("open-tray", tray_ref);
             }
             MenuAction::Ignore => {}
         }
     }
 
-    fn apply_snapshot(app: &AppHandle, snapshot: &Snapshot) {
-        let entries = menu_entries(snapshot);
+    fn apply_menu(app: &AppHandle, badge: i64, trays: &[ApiTray]) {
+        let entries = menu_entries(trays);
         let Some(menu) = build_menu(app, &entries) else {
             return;
         };
@@ -315,7 +367,7 @@ mod menu_bar {
         if tray.set_menu(Some(menu)).is_err() {
             return;
         }
-        let (title, tooltip) = badge_chrome(snapshot.badge);
+        let (title, tooltip) = badge_chrome(badge);
         let _ = tray.set_title(title);
         let _ = tray.set_tooltip(Some(tooltip));
     }
@@ -352,11 +404,15 @@ mod menu_bar {
         let Ok(snapshot) = fetch_snapshot(&base, &token) else {
             return;
         };
+        let Ok(trays) = fetch_trays(&base, &token) else {
+            return;
+        };
         if stopped(app) {
             return;
         }
         let handle = app.clone();
-        let _ = app.run_on_main_thread(move || apply_snapshot(&handle, &snapshot));
+        let badge = snapshot.badge;
+        let _ = app.run_on_main_thread(move || apply_menu(&handle, badge, &trays));
     }
 
     fn refresh_loop(app: AppHandle) {
@@ -372,12 +428,7 @@ mod menu_bar {
     }
 
     pub fn start(app: &AppHandle) -> tauri::Result<()> {
-        let open_only = Snapshot {
-            badge: 0,
-            remote_status: String::new(),
-            sections: Vec::new(),
-        };
-        let entries = menu_entries(&open_only);
+        let entries = menu_entries(&[]);
         let Some(menu) = build_menu(app, &entries) else {
             eprintln!("tray menu: failed to build the initial menu");
             return Ok(());
@@ -400,60 +451,86 @@ mod menu_bar {
     mod tests {
         use super::*;
 
-        fn sample() -> Snapshot {
-            Snapshot {
-                badge: 2,
-                remote_status: String::new(),
-                sections: vec![Section {
-                    header: "Today".into(),
-                    rows: vec![
-                        Row {
-                            title: "Ship & tell".into(),
-                            clipboard: "tray-a item-1".into(),
-                        },
-                        Row {
-                            title: "Notes".into(),
-                            clipboard: "tray-b item-2".into(),
-                        },
-                    ],
-                }],
-            }
+        fn sample() -> Vec<ApiTray> {
+            vec![
+                ApiTray {
+                    kind: "remote".into(),
+                    tray_ref: "remote-1".into(),
+                    name: "Inbox".into(),
+                    detail: String::new(),
+                    open_count: 21,
+                },
+                ApiTray {
+                    kind: "dir".into(),
+                    tray_ref: "dir:/proj".into(),
+                    name: "Ship & tell".into(),
+                    detail: String::new(),
+                    open_count: 2,
+                },
+                ApiTray {
+                    kind: "global".into(),
+                    tray_ref: "notes".into(),
+                    name: "notes".into(),
+                    detail: String::new(),
+                    open_count: 0,
+                },
+            ]
         }
 
         #[test]
-        fn menu_lists_open_then_disabled_headers_and_rows() {
+        fn menu_lists_trays_by_kind_not_items() {
             let entries = menu_entries(&sample());
             assert_eq!(entries[0].id, "open");
-            assert!(entries[0].enabled);
+            assert_eq!(entries[0].label, "Open Tray");
             assert!(is_header_id(&entries[1].id));
+            assert_eq!(entries[1].label, "Local");
             assert!(!entries[1].enabled);
-            assert_eq!(entries[1].label, "Today");
-            assert_eq!(entries[2].id, "tray-a item-1");
-            assert_eq!(entries[2].label, "Ship && tell");
-            assert_eq!(entries[3].id, "tray-b item-2");
-            assert!(!entries[2].id.starts_with(HEADER_PREFIX));
+            assert_eq!(entries[2].id, format!("{TRAY_PREFIX}notes"));
+            assert_eq!(entries[2].label, "notes    0");
+            assert_eq!(entries[3].label, "Directories");
+            assert_eq!(entries[4].label, "Ship && tell    2");
+            assert_eq!(entries[5].label, "Remote");
+            assert_eq!(entries[6].id, format!("{TRAY_PREFIX}remote-1"));
+            assert!(entries.iter().all(|entry| !entry.label.contains("item")));
         }
 
         #[test]
-        fn open_and_headers_are_not_copied() {
+        fn joined_menu_uses_the_alias() {
+            let entries = menu_entries(&[ApiTray {
+                kind: "joined".into(),
+                tray_ref: "joined-1".into(),
+                name: "lindris".into(),
+                detail: "jessika-work".into(),
+                open_count: 2,
+            }]);
+            assert_eq!(entries[2].label, "jessika-work    2");
+        }
+
+        #[test]
+        fn tray_click_opens_that_tray() {
             let entries = menu_entries(&sample());
             assert!(matches!(menu_action("open"), MenuAction::OpenWindow));
             assert!(matches!(menu_action(&entries[1].id), MenuAction::Ignore));
-            match menu_action(&entries[2].id) {
-                MenuAction::Copy(text) => assert_eq!(text, "tray-a item-1"),
-                other => panic!("expected copy, got {other:?}"),
+            match menu_action(&entries[4].id) {
+                MenuAction::OpenTray(tray_ref) => assert_eq!(tray_ref, "dir:/proj"),
+                other => panic!("expected open tray, got {other:?}"),
             }
         }
 
         #[test]
-        fn click_copies_the_id_from_the_open_menu() {
-            let clicked = menu_entries(&sample())[2].id.clone();
-            let mut later = sample();
-            later.sections[0].rows[0].clipboard = "tray-z item-9".into();
+        fn click_keeps_the_tray_from_the_open_menu() {
+            let clicked = menu_entries(&sample())[4].id.clone();
+            let later = vec![ApiTray {
+                kind: "dir".into(),
+                tray_ref: "dir:/other".into(),
+                name: "other".into(),
+                detail: String::new(),
+                open_count: 1,
+            }];
             let _refreshed = menu_entries(&later);
             match menu_action(&clicked) {
-                MenuAction::Copy(text) => assert_eq!(text, "tray-a item-1"),
-                other => panic!("expected copy, got {other:?}"),
+                MenuAction::OpenTray(tray_ref) => assert_eq!(tray_ref, "dir:/proj"),
+                other => panic!("expected open tray, got {other:?}"),
             }
         }
 
@@ -502,7 +579,7 @@ fn main() {
             api: Mutex::new(spawned),
             stop: AtomicBool::new(false),
         })
-        .invoke_handler(tauri::generate_handler![restart_api]);
+        .invoke_handler(tauri::generate_handler![restart_api, app_version]);
 
     if let Some(script) = script {
         builder = builder.append_invoke_initialization_script(script);
@@ -524,7 +601,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{init_script, parse_handshake};
+    use super::{init_script, parse_handshake, resolve_tray, tray_candidates};
 
     #[test]
     fn init_script_assigns_the_global_before_page_code() {
@@ -554,6 +631,18 @@ mod tests {
         let parsed = parse_handshake("{\"port\":4312,\"token\":\"abc\"}\n").unwrap();
         assert_eq!(parsed.port, 4312);
         assert_eq!(parsed.token, "abc");
+    }
+
+    #[test]
+    fn resolve_tray_uses_the_first_binary_that_exists() {
+        let dir = std::env::temp_dir().join(format!("tray-resolve-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("bin")).unwrap();
+        let home_bin = dir.join("bin").join("tray");
+        std::fs::write(&home_bin, b"").unwrap();
+        let found = resolve_tray(&tray_candidates(Some(&dir))).unwrap();
+        assert_eq!(found, home_bin);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

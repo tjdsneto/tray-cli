@@ -2,6 +2,8 @@ package commands
 
 import (
 	"context"
+	"errors"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -10,6 +12,8 @@ import (
 	"github.com/tjdsneto/tray-cli/internal/cli/trayref"
 	"github.com/tjdsneto/tray-cli/internal/domain"
 	"github.com/tjdsneto/tray-cli/internal/localtray"
+	"github.com/tjdsneto/tray-cli/internal/output"
+	"github.com/tjdsneto/tray-cli/internal/remotesfile"
 )
 
 type apiSource struct {
@@ -70,7 +74,7 @@ func (s *apiSource) Items(ctx context.Context, trayRef string) ([]api.Item, erro
 		return nil, err
 	}
 	if ok {
-		rows, err := localtray.NewStore(s.configDir()).ListItemsForTrays([]string{rec.ID})
+		rows, err := localtray.NewStore(s.configDir()).ListAllItems([]string{rec.ID})
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +116,7 @@ func (s *apiSource) Item(ctx context.Context, id string) (api.Item, error) {
 			ref = name
 		}
 	}
-	return fromRemote(it, ref), nil
+	return withSourceUser(fromRemote(it, ref), it, sess, profileDisplayMap(ctx, sess, svcs, sourceUserIDsFromItems([]domain.Item{it}))), nil
 }
 
 func (s *apiSource) Add(ctx context.Context, req api.AddRequest) (api.Item, error) {
@@ -147,13 +151,12 @@ func (s *apiSource) addOwned(ctx context.Context, req api.AddRequest) (api.Item,
 	if err != nil {
 		return api.Item{}, false, nil
 	}
-	owned, err := svcs.Trays.ListOwned(ctx, sess)
+	tray, err := s.findRemoteTray(ctx, svcs, sess, req.Tray)
 	if err != nil {
-		return api.Item{}, true, api.ErrRemote
-	}
-	tray, err := resolveOwnedTray(owned, req.Tray)
-	if err != nil {
-		return api.Item{}, false, nil
+		if errors.Is(err, api.ErrNotFound) {
+			return api.Item{}, false, nil
+		}
+		return api.Item{}, true, err
 	}
 	created, err := svcs.Items.Add(ctx, sess, tray.ID, strings.TrimSpace(req.Title), nil, nil, req.Body)
 	if err != nil || created == nil {
@@ -163,7 +166,7 @@ func (s *apiSource) addOwned(ctx context.Context, req api.AddRequest) (api.Item,
 	if ref == "" {
 		ref = tray.ID
 	}
-	return fromRemote(*created, ref), true, nil
+	return withSourceUser(fromRemote(*created, ref), *created, sess, nil), true, nil
 }
 
 func (s *apiSource) Act(ctx context.Context, id, action string, body api.ActBody) error {
@@ -196,14 +199,13 @@ func (s *apiSource) localTrays() ([]api.Tray, error) {
 	}
 	out := make([]api.Tray, 0, len(sums))
 	for _, sum := range sums {
-		name := strings.TrimSpace(sum.Record.Name)
-		if name == "" {
-			name = localtray.DisplayLabel(sum.Record.ID)
-		}
+		name, detail := trayPresentation(sum.Record)
 		out = append(out, api.Tray{
 			Scope:     "local",
+			Kind:      sum.Record.Kind,
 			Ref:       bar.LocalTrayRef(sum.Record),
 			Name:      name,
+			Detail:    detail,
 			OpenCount: sum.OpenCount,
 		})
 	}
@@ -215,32 +217,82 @@ func (s *apiSource) remoteTrays(ctx context.Context, svcs domain.Services, sess 
 	if err != nil {
 		return nil, api.ErrRemote
 	}
+	joined, err := svcs.Trays.ListJoined(ctx, sess)
+	if err != nil {
+		return nil, api.ErrRemote
+	}
 	counts := map[string]int{}
-	if ids := ownedTrayIDList(owned); len(ids) > 0 {
+	ids := append(ownedTrayIDList(owned), ownedTrayIDList(joined)...)
+	if len(ids) > 0 {
 		items, err := svcs.Items.List(ctx, sess, domain.ListItemsQuery{TrayIDIn: ids})
-		if err != nil {
-			return nil, api.ErrRemote
-		}
-		for _, it := range items {
-			if remoteOpenStatus(it.Status) {
-				counts[it.TrayID]++
+		if err == nil {
+			for _, it := range items {
+				if remoteOpenStatus(it.Status) {
+					counts[it.TrayID]++
+				}
 			}
 		}
 	}
-	out := make([]api.Tray, 0, len(owned))
+	out := make([]api.Tray, 0, len(owned)+len(joined))
 	for _, t := range owned {
-		name := strings.TrimSpace(t.Name)
-		if name == "" {
-			name = t.ID
-		}
-		out = append(out, api.Tray{
-			Scope:     "remote",
-			Ref:       t.ID,
-			Name:      name,
-			OpenCount: counts[t.ID],
-		})
+		out = append(out, remoteTray(t, "remote", counts[t.ID]))
+	}
+	aliases := aliasByTrayID(s.configDir())
+	labels := profileDisplayMap(ctx, sess, svcs, ownerIDs(joined))
+	for _, t := range joined {
+		tray := remoteTray(t, "joined", counts[t.ID])
+		tray.Detail = aliases[t.ID]
+		tray.Owner = strings.TrimSpace(labels[strings.TrimSpace(t.OwnerID)])
+		out = append(out, tray)
 	}
 	return out, nil
+}
+
+func ownerIDs(trays []domain.Tray) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	for _, tray := range trays {
+		id := strings.TrimSpace(tray.OwnerID)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+}
+
+func aliasByTrayID(configDir string) map[string]string {
+	f, err := remotesfile.Load(configDir)
+	if err != nil {
+		return map[string]string{}
+	}
+	out := map[string]string{}
+	for alias, id := range f.Aliases {
+		id = strings.TrimSpace(id)
+		if id == "" || out[id] != "" {
+			continue
+		}
+		out[id] = alias
+	}
+	return out
+}
+
+func remoteTray(t domain.Tray, kind string, open int) api.Tray {
+	name := strings.TrimSpace(t.Name)
+	if name == "" {
+		name = t.ID
+	}
+	return api.Tray{
+		Scope:     "remote",
+		Kind:      kind,
+		Ref:       t.ID,
+		Name:      name,
+		OpenCount: open,
+	}
 }
 
 func (s *apiSource) remoteItems(ctx context.Context, trayRef string) ([]api.Item, error) {
@@ -248,11 +300,7 @@ func (s *apiSource) remoteItems(ctx context.Context, trayRef string) ([]api.Item
 	if err != nil {
 		return nil, api.ErrSignedOut
 	}
-	owned, err := svcs.Trays.ListOwned(ctx, sess)
-	if err != nil {
-		return nil, api.ErrRemote
-	}
-	tray, err := resolveOwnedTray(owned, trayRef)
+	tray, err := s.findRemoteTray(ctx, svcs, sess, trayRef)
 	if err != nil {
 		return nil, err
 	}
@@ -264,9 +312,10 @@ func (s *apiSource) remoteItems(ctx context.Context, trayRef string) ([]api.Item
 	if name == "" {
 		name = tray.ID
 	}
+	labels := profileDisplayMap(ctx, sess, svcs, sourceUserIDsFromItems(items))
 	out := make([]api.Item, 0, len(items))
 	for _, it := range items {
-		out = append(out, fromRemote(it, name))
+		out = append(out, withSourceUser(fromRemote(it, name), it, sess, labels))
 	}
 	return out, nil
 }
@@ -316,31 +365,84 @@ func (s *apiSource) findLocalItem(id string) (localtray.ItemWithTray, bool, erro
 	return localtray.NewStore(s.configDir()).FindItem(id)
 }
 
+func trayPresentation(rec localtray.TrayRecord) (name, detail string) {
+	switch rec.Kind {
+	case localtray.KindDir:
+		p := strings.TrimSpace(rec.Path)
+		base := filepath.Base(p)
+		if base == "" || base == "." || base == string(filepath.Separator) {
+			base = localtray.DisplayLabel(rec.ID)
+		}
+		return base, p
+	case localtray.KindBranch:
+		root := strings.TrimSpace(rec.RepoRoot)
+		base := filepath.Base(root)
+		if base == "" || base == "." || base == string(filepath.Separator) {
+			base = localtray.DisplayLabel(rec.ID)
+		}
+		return base, strings.TrimSpace(rec.Branch)
+	default:
+		name = strings.TrimSpace(rec.Name)
+		if name == "" {
+			name = localtray.DisplayLabel(rec.ID)
+		}
+		return name, ""
+	}
+}
+
 func fromLocal(item localtray.Item, rec localtray.TrayRecord) api.Item {
+	ref := bar.LocalTrayRef(rec)
 	return api.Item{
 		ID:        item.ID,
 		Scope:     "local",
-		TrayRef:   bar.LocalTrayRef(rec),
+		TrayRef:   ref,
 		Title:     item.Title,
 		Status:    item.Status,
 		CreatedAt: item.CreatedAt,
+		DoneAt:    item.DoneAt,
 		Body:      item.Body,
+		Clipboard: bar.ClipboardLine(bar.Row{TrayRef: ref, ItemID: item.ID}),
 		Actions:   api.ActionsFor("local", item.Status),
 	}
 }
 
 func fromRemote(it domain.Item, trayRef string) api.Item {
 	return api.Item{
-		ID:          it.ID,
-		Scope:       "remote",
-		TrayRef:     trayRef,
-		Title:       it.Title,
-		Status:      it.Status,
-		CreatedAt:   it.CreatedAt,
-		SnoozeUntil: it.SnoozeUntil,
-		Body:        it.Body,
-		Actions:     api.ActionsFor("remote", it.Status),
+		ID:                it.ID,
+		Scope:             "remote",
+		TrayRef:           trayRef,
+		Title:             it.Title,
+		Status:            it.Status,
+		CreatedAt:         it.CreatedAt,
+		UpdatedAt:         timePtr(it.UpdatedAt),
+		DueDate:           it.DueDate,
+		SnoozeUntil:       it.SnoozeUntil,
+		DeclineReason:     it.DeclineReason,
+		CompletionMessage: it.CompletionMessage,
+		AcceptedAt:        it.AcceptedAt,
+		DeclinedAt:        it.DeclinedAt,
+		CompletedAt:       it.CompletedAt,
+		ArchivedAt:        it.ArchivedAt,
+		Body:              it.Body,
+		Clipboard:         bar.ClipboardLine(bar.Row{TrayRef: trayRef, ItemID: it.ID}),
+		AgentSessionID:    it.AgentSessionID,
+		Actions:           api.ActionsFor("remote", it.Status),
 	}
+}
+
+func withSourceUser(item api.Item, raw domain.Item, sess domain.Session, labels map[string]string) api.Item {
+	label := output.FormatSourceUser(raw.SourceUserID, sess.UserID, labels)
+	if label != "" && label != "—" {
+		item.SourceUser = label
+	}
+	return item
+}
+
+func timePtr(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	return &t
 }
 
 // pendingOwnedQuery matches the menu bar: pending items on owned trays.
@@ -364,6 +466,21 @@ func ownedTrayIDList(trays []domain.Tray) []string {
 		}
 	}
 	return ids
+}
+
+func (s *apiSource) findRemoteTray(ctx context.Context, svcs domain.Services, sess domain.Session, ref string) (domain.Tray, error) {
+	owned, err := svcs.Trays.ListOwned(ctx, sess)
+	if err != nil {
+		return domain.Tray{}, api.ErrRemote
+	}
+	if tray, err := resolveOwnedTray(owned, ref); err == nil {
+		return tray, nil
+	}
+	joined, err := svcs.Trays.ListJoined(ctx, sess)
+	if err != nil {
+		return domain.Tray{}, api.ErrRemote
+	}
+	return resolveOwnedTray(joined, ref)
 }
 
 func resolveOwnedTray(owned []domain.Tray, ref string) (domain.Tray, error) {

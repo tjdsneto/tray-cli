@@ -11,6 +11,7 @@ export type SnapshotRow = {
   itemId: string;
   title: string;
   clipboard: string;
+  createdAt?: string;
 };
 
 export type SnapshotSection = {
@@ -26,8 +27,11 @@ export type Snapshot = {
 
 export type Tray = {
   scope: string;
+  kind?: string;
   ref: string;
   name: string;
+  detail?: string;
+  owner?: string;
   openCount: number;
 };
 
@@ -38,8 +42,20 @@ export type Item = {
   title: string;
   status: string;
   createdAt: string;
+  sourceUser?: string;
+  agentSessionId?: string;
+  updatedAt?: string;
+  dueDate?: string;
   snoozeUntil?: string;
+  declineReason?: string;
+  completionMessage?: string;
+  acceptedAt?: string;
+  declinedAt?: string;
+  completedAt?: string;
+  archivedAt?: string;
+  doneAt?: string;
   body?: string;
+  clipboard?: string;
   actions: ActionId[];
 };
 

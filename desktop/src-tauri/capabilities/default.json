@@ -1,5 +1,5 @@
 {
   "identifier": "default",
   "windows": ["main"],
-  "permissions": ["core:default", "allow-restart-api"]
+  "permissions": ["core:default", "allow-restart-api", "allow-app-version"]
 }

@@ -270,6 +270,15 @@ func writeItems(localDir string, rec TrayRecord, items []Item) error {
 
 // ListItemsForTrays returns open items for the given tray ids.
 func (s *Store) ListItemsForTrays(trayIDs []string) ([]ItemWithTray, error) {
+	return s.listItems(trayIDs, false)
+}
+
+// ListAllItems returns every item on the given trays, including done items.
+func (s *Store) ListAllItems(trayIDs []string) ([]ItemWithTray, error) {
+	return s.listItems(trayIDs, true)
+}
+
+func (s *Store) listItems(trayIDs []string, includeDone bool) ([]ItemWithTray, error) {
 	idx, err := s.loadIndex()
 	if err != nil {
 		return nil, err
@@ -286,7 +295,7 @@ func (s *Store) ListItemsForTrays(trayIDs []string) ([]ItemWithTray, error) {
 			return nil, err
 		}
 		for _, it := range items {
-			if strings.EqualFold(it.Status, StatusDone) {
+			if !includeDone && strings.EqualFold(it.Status, StatusDone) {
 				continue
 			}
 			out = append(out, ItemWithTray{Item: it, Tray: rec})

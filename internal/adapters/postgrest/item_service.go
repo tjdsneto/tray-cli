@@ -50,8 +50,10 @@ func (s *itemService) Add(ctx context.Context, sess domain.Session, trayID, titl
 }
 
 func (s *itemService) List(ctx context.Context, sess domain.Session, q domain.ListItemsQuery) ([]domain.Item, error) {
-	path := itemsListPath(q)
-	raw, err := s.pg.Request(ctx, sess.AccessToken, http.MethodGet, path, nil, nil)
+	raw, err := s.pg.Request(ctx, sess.AccessToken, http.MethodGet, itemsListPath(q), nil, nil)
+	if err != nil && bodyColumnMissing(err) {
+		raw, err = s.pg.Request(ctx, sess.AccessToken, http.MethodGet, itemsListPathSelect(q, itemSelectColumnsNoBody), nil, nil)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -64,6 +66,10 @@ func (s *itemService) ListOutbox(ctx context.Context, sess domain.Session) ([]do
 	}
 	path := itemsOutboxPath(sess.UserID)
 	raw, err := s.pg.Request(ctx, sess.AccessToken, http.MethodGet, path, nil, nil)
+	if err != nil && bodyColumnMissing(err) {
+		path = itemsOutboxPathSelect(sess.UserID, itemSelectColumnsNoBody)
+		raw, err = s.pg.Request(ctx, sess.AccessToken, http.MethodGet, path, nil, nil)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -159,6 +165,13 @@ func (s *itemService) moveAdjacent(ctx context.Context, sess domain.Session, ite
 
 const itemSelectColumns = "id,tray_id,sort_order,source_user_id,agent_session_id,title,body,status,due_date,snooze_until,decline_reason,completion_message,accepted_at,declined_at,completed_at,archived_at,snoozed_at,created_at,updated_at"
 
+// itemSelectColumnsNoBody is the same list for a database that has not added items.body yet.
+const itemSelectColumnsNoBody = "id,tray_id,sort_order,source_user_id,agent_session_id,title,status,due_date,snooze_until,decline_reason,completion_message,accepted_at,declined_at,completed_at,archived_at,snoozed_at,created_at,updated_at"
+
+func bodyColumnMissing(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "items.body")
+}
+
 // trayOwnerSelectPath is GET /rest/v1/trays for resolving the tray owner before Add.
 func trayOwnerSelectPath(trayID string) string {
 	q := url.Values{}
@@ -189,8 +202,12 @@ func itemsCreatePath() string {
 
 // itemsListPath is the GET /rest/v1/items path for List.
 func itemsListPath(q domain.ListItemsQuery) string {
+	return itemsListPathSelect(q, itemSelectColumns)
+}
+
+func itemsListPathSelect(q domain.ListItemsQuery, columns string) string {
 	u := url.Values{}
-	u.Set("select", itemSelectColumns)
+	u.Set("select", columns)
 	if strings.TrimSpace(q.ItemID) != "" {
 		u.Set("id", "eq."+strings.TrimSpace(q.ItemID))
 	}
@@ -219,8 +236,12 @@ func itemsListPath(q domain.ListItemsQuery) string {
 
 // itemsOutboxPath is the GET path for ListOutbox (items filed by viewer on others' trays).
 func itemsOutboxPath(userID string) string {
+	return itemsOutboxPathSelect(userID, itemSelectColumns)
+}
+
+func itemsOutboxPathSelect(userID, columns string) string {
 	u := url.Values{}
-	u.Set("select", itemSelectColumns+",trays(owner_id)")
+	u.Set("select", columns+",trays(owner_id)")
 	u.Set("source_user_id", "eq."+strings.TrimSpace(userID))
 	u.Set("order", "sort_order.asc,created_at.asc")
 	return "/rest/v1/items?" + u.Encode()

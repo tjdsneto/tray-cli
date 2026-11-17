@@ -27,6 +27,7 @@ docs/drafts/
 coverage.out
 coverage.html
 .superpowers/
+.visual-questions/
 .worktrees/
 
 desktop/node_modules/

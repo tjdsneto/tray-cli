@@ -30,30 +30,46 @@ type Section struct {
 }
 
 type Row struct {
-	Scope     string `json:"scope"`
-	TrayRef   string `json:"trayRef"`
-	ItemID    string `json:"itemId"`
-	Title     string `json:"title"`
-	Clipboard string `json:"clipboard"`
+	Scope     string    `json:"scope"`
+	TrayRef   string    `json:"trayRef"`
+	ItemID    string    `json:"itemId"`
+	Title     string    `json:"title"`
+	Clipboard string    `json:"clipboard"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type Tray struct {
 	Scope     string `json:"scope"`
+	Kind      string `json:"kind"`
 	Ref       string `json:"ref"`
 	Name      string `json:"name"`
+	Detail    string `json:"detail,omitempty"`
+	Owner     string `json:"owner,omitempty"`
 	OpenCount int    `json:"openCount"`
 }
 
 type Item struct {
-	ID          string     `json:"id"`
-	Scope       string     `json:"scope"`
-	TrayRef     string     `json:"trayRef"`
-	Title       string     `json:"title"`
-	Status      string     `json:"status"`
-	CreatedAt   time.Time  `json:"createdAt"`
-	SnoozeUntil *time.Time `json:"snoozeUntil,omitempty"`
-	Body        *string    `json:"body,omitempty"`
-	Actions     []string   `json:"actions"`
+	ID                string     `json:"id"`
+	Scope             string     `json:"scope"`
+	TrayRef           string     `json:"trayRef"`
+	Title             string     `json:"title"`
+	Status            string     `json:"status"`
+	CreatedAt         time.Time  `json:"createdAt"`
+	SourceUser        string     `json:"sourceUser,omitempty"`
+	AgentSessionID    *string    `json:"agentSessionId,omitempty"`
+	UpdatedAt         *time.Time `json:"updatedAt,omitempty"`
+	DueDate           *string    `json:"dueDate,omitempty"`
+	SnoozeUntil       *time.Time `json:"snoozeUntil,omitempty"`
+	DeclineReason     *string    `json:"declineReason,omitempty"`
+	CompletionMessage *string    `json:"completionMessage,omitempty"`
+	AcceptedAt        *time.Time `json:"acceptedAt,omitempty"`
+	DeclinedAt        *time.Time `json:"declinedAt,omitempty"`
+	CompletedAt       *time.Time `json:"completedAt,omitempty"`
+	ArchivedAt        *time.Time `json:"archivedAt,omitempty"`
+	DoneAt            *time.Time `json:"doneAt,omitempty"`
+	Body              *string    `json:"body,omitempty"`
+	Clipboard         string     `json:"clipboard,omitempty"`
+	Actions           []string   `json:"actions"`
 }
 
 type AddRequest struct {
@@ -97,6 +113,7 @@ func SnapshotFrom(s bar.Snapshot) Snapshot {
 				ItemID:    row.ItemID,
 				Title:     row.Title,
 				Clipboard: bar.ClipboardLine(row),
+				CreatedAt: row.CreatedAt,
 			})
 		}
 		out.Sections = append(out.Sections, apiSec)
