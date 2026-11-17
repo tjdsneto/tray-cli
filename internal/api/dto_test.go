@@ -60,8 +60,8 @@ func TestFilterOpenAndSortNewest(t *testing.T) {
 
 func TestValidateAdd(t *testing.T) {
 	t.Parallel()
-	require.Error(t, api.ValidateAdd("", "x"))
-	require.Error(t, api.ValidateAdd("inbox", ""))
-	require.Error(t, api.ValidateAdd("inbox", "   "))
-	require.NoError(t, api.ValidateAdd("inbox", "Hello"))
+	require.Error(t, api.ValidateAdd(api.AddRequest{Tray: "", Title: "x"}))
+	require.Error(t, api.ValidateAdd(api.AddRequest{Tray: "inbox", Title: ""}))
+	require.Error(t, api.ValidateAdd(api.AddRequest{Tray: "inbox", Title: "   "}))
+	require.NoError(t, api.ValidateAdd(api.AddRequest{Tray: "inbox", Title: "Hello"}))
 }

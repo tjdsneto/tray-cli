@@ -57,9 +57,9 @@ type Item struct {
 }
 
 type AddRequest struct {
-	Tray  string `json:"tray"`
-	Title string `json:"title"`
-	Body  string `json:"body"`
+	Tray  string  `json:"tray"`
+	Title string  `json:"title"`
+	Body  *string `json:"body,omitempty"`
 }
 
 type DeclineRequest struct {
@@ -67,7 +67,7 @@ type DeclineRequest struct {
 }
 
 type SnoozeRequest struct {
-	Until time.Time `json:"until"`
+	Until string `json:"until"`
 }
 
 type invalidError string
@@ -102,18 +102,18 @@ func SnapshotFrom(s bar.Snapshot) Snapshot {
 	return out
 }
 
-func ValidateAdd(tray, title string) error {
-	if strings.TrimSpace(tray) == "" {
+func ValidateAdd(r AddRequest) error {
+	if strings.TrimSpace(r.Tray) == "" {
 		return errInvalid("tray is required")
 	}
-	if strings.TrimSpace(title) == "" {
+	if strings.TrimSpace(r.Title) == "" {
 		return errInvalid("title is required")
 	}
 	return nil
 }
 
-func WriteError(w http.ResponseWriter, status int, message string) {
+func WriteError(w http.ResponseWriter, status int, code, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(ErrorBody{Error: "error", Message: message})
+	_ = json.NewEncoder(w).Encode(ErrorBody{Error: code, Message: message})
 }

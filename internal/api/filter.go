@@ -3,7 +3,7 @@ package api
 import "sort"
 
 func SelectItems(items []Item, filter string) []Item {
-	var out []Item
+	out := make([]Item, 0, len(items))
 	for _, it := range items {
 		if filter == "all" || openWork(it) {
 			out = append(out, it)
