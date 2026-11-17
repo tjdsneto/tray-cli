@@ -171,7 +171,6 @@ fn shutdown_api(app: &tauri::AppHandle) {
 
 #[cfg(target_os = "macos")]
 mod menu_bar {
-    use std::collections::HashMap;
     use std::thread;
     use std::time::Duration;
 
@@ -183,6 +182,8 @@ mod menu_bar {
     const TRAY_ICON: tauri::image::Image<'_> = tauri::include_image!("icons/icon.png");
     const REFRESH_INTERVAL: Duration = Duration::from_secs(30);
     const OPEN_ID: &str = "open";
+    /// Clipboard lines are `tray-ref item-id` and never start with U+0001.
+    const HEADER_PREFIX: char = '\u{1}';
 
     #[derive(Clone, serde::Deserialize)]
     struct Snapshot {
@@ -213,18 +214,6 @@ mod menu_bar {
         enabled: bool,
     }
 
-    pub struct MenuClipboard {
-        map: std::sync::Mutex<HashMap<String, String>>,
-    }
-
-    impl MenuClipboard {
-        pub fn new() -> Self {
-            Self {
-                map: std::sync::Mutex::new(HashMap::new()),
-            }
-        }
-    }
-
     #[derive(Debug)]
     enum MenuAction {
         OpenWindow,
@@ -238,46 +227,42 @@ mod menu_bar {
     }
 
     fn is_header_id(id: &str) -> bool {
-        id.starts_with("header-")
+        id.starts_with(HEADER_PREFIX)
     }
 
-    fn menu_entries(snapshot: &Snapshot) -> (Vec<MenuEntry>, HashMap<String, String>) {
+    fn menu_entries(snapshot: &Snapshot) -> Vec<MenuEntry> {
         let mut entries = vec![MenuEntry {
             id: OPEN_ID.to_string(),
             label: "Open".to_string(),
             enabled: true,
         }];
-        let mut clipboard = HashMap::new();
         for (section_index, section) in snapshot.sections.iter().enumerate() {
             entries.push(MenuEntry {
-                id: format!("header-{section_index}"),
+                id: format!("{HEADER_PREFIX}{section_index}"),
                 label: menu_label(&section.header),
                 enabled: false,
             });
-            for (row_index, row) in section.rows.iter().enumerate() {
-                let id = format!("row-{section_index}-{row_index}");
+            for row in &section.rows {
                 entries.push(MenuEntry {
-                    id: id.clone(),
+                    id: row.clipboard.clone(),
                     label: menu_label(&row.title),
                     enabled: true,
                 });
-                clipboard.insert(id, row.clipboard.clone());
             }
         }
-        (entries, clipboard)
+        entries
     }
 
-    fn menu_action(id: &str, clipboard: &HashMap<String, String>) -> MenuAction {
+    /// The row id is the clipboard line, so a click still copies the row that
+    /// was on the menu even if a refresh has already built a new one.
+    fn menu_action(id: &str) -> MenuAction {
         if id == OPEN_ID {
             return MenuAction::OpenWindow;
         }
         if is_header_id(id) {
             return MenuAction::Ignore;
         }
-        match clipboard.get(id) {
-            Some(text) => MenuAction::Copy(text.clone()),
-            None => MenuAction::Ignore,
-        }
+        MenuAction::Copy(id.to_string())
     }
 
     /// Badge 0: tooltip "Tray" and no title. A positive badge uses the count for both.
@@ -308,12 +293,7 @@ mod menu_bar {
     }
 
     fn handle_menu(app: &AppHandle, event: MenuEvent) {
-        let id = event.id().as_ref();
-        let clipboard = app
-            .try_state::<MenuClipboard>()
-            .and_then(|state| state.map.lock().ok().map(|guard| guard.clone()))
-            .unwrap_or_default();
-        match menu_action(id, &clipboard) {
+        match menu_action(event.id().as_ref()) {
             MenuAction::OpenWindow => show_main(app),
             MenuAction::Copy(text) => {
                 if let Ok(mut clipboard) = arboard::Clipboard::new() {
@@ -325,7 +305,7 @@ mod menu_bar {
     }
 
     fn apply_snapshot(app: &AppHandle, snapshot: &Snapshot) {
-        let (entries, clipboard) = menu_entries(snapshot);
+        let entries = menu_entries(snapshot);
         let Some(menu) = build_menu(app, &entries) else {
             return;
         };
@@ -338,11 +318,6 @@ mod menu_bar {
         let (title, tooltip) = badge_chrome(snapshot.badge);
         let _ = tray.set_title(title);
         let _ = tray.set_tooltip(Some(tooltip));
-        if let Some(state) = app.try_state::<MenuClipboard>() {
-            if let Ok(mut guard) = state.map.lock() {
-                *guard = clipboard;
-            }
-        }
     }
 
     fn build_menu(app: &AppHandle, entries: &[MenuEntry]) -> Option<tauri::menu::Menu<tauri::Wry>> {
@@ -402,7 +377,7 @@ mod menu_bar {
             remote_status: String::new(),
             sections: Vec::new(),
         };
-        let (entries, _) = menu_entries(&open_only);
+        let entries = menu_entries(&open_only);
         let Some(menu) = build_menu(app, &entries) else {
             eprintln!("tray menu: failed to build the initial menu");
             return Ok(());
@@ -447,41 +422,36 @@ mod menu_bar {
 
         #[test]
         fn menu_lists_open_then_disabled_headers_and_rows() {
-            let (entries, clipboard) = menu_entries(&sample());
+            let entries = menu_entries(&sample());
             assert_eq!(entries[0].id, "open");
             assert!(entries[0].enabled);
-            assert_eq!(entries[1].id, "header-0");
+            assert!(is_header_id(&entries[1].id));
             assert!(!entries[1].enabled);
             assert_eq!(entries[1].label, "Today");
-            assert_eq!(entries[2].id, "row-0-0");
+            assert_eq!(entries[2].id, "tray-a item-1");
             assert_eq!(entries[2].label, "Ship && tell");
-            assert_eq!(
-                clipboard.get("row-0-0").map(String::as_str),
-                Some("tray-a item-1")
-            );
-            assert_eq!(
-                clipboard.get("row-0-1").map(String::as_str),
-                Some("tray-b item-2")
-            );
-            assert!(!clipboard.contains_key("open"));
-            assert!(!clipboard.contains_key("header-0"));
+            assert_eq!(entries[3].id, "tray-b item-2");
+            assert!(!entries[2].id.starts_with(HEADER_PREFIX));
         }
 
         #[test]
         fn open_and_headers_are_not_copied() {
-            let mut clipboard = HashMap::new();
-            clipboard.insert("open".into(), "nope".into());
-            clipboard.insert("header-0".into(), "nope".into());
-            clipboard.insert("row-0-0".into(), "tray-a item-1".into());
-            assert!(matches!(
-                menu_action("open", &clipboard),
-                MenuAction::OpenWindow
-            ));
-            assert!(matches!(
-                menu_action("header-0", &clipboard),
-                MenuAction::Ignore
-            ));
-            match menu_action("row-0-0", &clipboard) {
+            let entries = menu_entries(&sample());
+            assert!(matches!(menu_action("open"), MenuAction::OpenWindow));
+            assert!(matches!(menu_action(&entries[1].id), MenuAction::Ignore));
+            match menu_action(&entries[2].id) {
+                MenuAction::Copy(text) => assert_eq!(text, "tray-a item-1"),
+                other => panic!("expected copy, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn click_copies_the_id_from_the_open_menu() {
+            let clicked = menu_entries(&sample())[2].id.clone();
+            let mut later = sample();
+            later.sections[0].rows[0].clipboard = "tray-z item-9".into();
+            let _refreshed = menu_entries(&later);
+            match menu_action(&clicked) {
                 MenuAction::Copy(text) => assert_eq!(text, "tray-a item-1"),
                 other => panic!("expected copy, got {other:?}"),
             }
@@ -533,11 +503,6 @@ fn main() {
             stop: AtomicBool::new(false),
         })
         .invoke_handler(tauri::generate_handler![restart_api]);
-
-    #[cfg(target_os = "macos")]
-    {
-        builder = builder.manage(menu_bar::MenuClipboard::new());
-    }
 
     if let Some(script) = script {
         builder = builder.append_invoke_initialization_script(script);
