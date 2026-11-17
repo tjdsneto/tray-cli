@@ -105,6 +105,8 @@ If you **own** a tray, items from teammates (and you) show up for you to handle.
 
 On **macOS**, **`tray bar`** shows a menu-bar badge for local open + remote pending items; click a row to copy **`tray-ref item-id`** for an agent handoff. See **[`docs/user/menu-bar.md`](docs/user/menu-bar.md)**.
 
+The desktop app is that window plus the menu bar. See **[`docs/user/desktop.md`](docs/user/desktop.md)**.
+
 ## Remote aliases
 
 **`join … <alias>`** or **`tray remote add <alias> <invite-url-or-token>`** saves `remotes.json`. **`tray remote rename <current> <new>`** renames an alias. **`tray remote ls`** / **`tray remote remove <alias>`** manage that file.

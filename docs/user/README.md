@@ -8,6 +8,7 @@ These pages are for **end users** of the `tray` binary: installing it, configuri
 - **[Local trays](local-trays.md)** — directory, branch, and global trays on this machine (no sign-in).
 - **[Listen hooks (`hooks.json`)](hooks.md)** — `tray listen`, events, `TRAY_*` environment variables, and recipes (notifications, sounds, logging).
 - **[macOS menu bar (`tray bar`)](menu-bar.md)** — badge for open/pending items, grouped menu, clipboard handoff to agents (macOS only).
+- **[Desktop app](desktop.md)** — window for your trays, and the macOS menu bar inside the app.
 
 ## See also
 
