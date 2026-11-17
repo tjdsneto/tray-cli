@@ -94,6 +94,26 @@ func TestItems_listOmitsBodyAndGetIncludesIt(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, missing.Code)
 }
 
+func TestRebuild_localStoreErrorKeepsSnapshot(t *testing.T) {
+	t.Parallel()
+	src := &fakeSource{local: []bar.Item{{
+		Scope: bar.ScopeLocal, TrayRef: "notes", TrayName: "notes", ItemID: "l1", Title: "L", CreatedAt: time.Unix(1, 0).UTC(),
+	}}}
+	h := api.NewHandler("secret", src, time.Hour)
+	h.Rebuild(t.Context())
+
+	src.local = nil
+	src.remote = nil
+	src.remoteErr = errors.New("disk")
+	h.Rebuild(t.Context())
+
+	snap := getAuth(h, "/v1/snapshot")
+	var body api.Snapshot
+	require.NoError(t, json.Unmarshal(snap.Body.Bytes(), &body))
+	require.Equal(t, 1, body.Badge)
+	require.Equal(t, "l1", body.Sections[0].Rows[0].ItemID)
+}
+
 func TestAct_failureDoesNotRebuildSnapshot(t *testing.T) {
 	t.Parallel()
 	src := &fakeSource{local: []bar.Item{{

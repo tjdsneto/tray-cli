@@ -373,6 +373,28 @@ func (s *Store) RemoveItem(itemID string) error {
 	return fmt.Errorf("no local item with id %q", itemID)
 }
 
+// FindItem returns an item and its tray record, including items that are already done.
+func (s *Store) FindItem(itemID string) (ItemWithTray, bool, error) {
+	idx, err := s.loadIndex()
+	if err != nil {
+		return ItemWithTray{}, false, err
+	}
+	localDir := s.localDir()
+	for i := range idx.Trays {
+		rec := idx.Trays[i]
+		items, err := readItems(localDir, rec)
+		if err != nil {
+			return ItemWithTray{}, false, err
+		}
+		for _, it := range items {
+			if it.ID == itemID {
+				return ItemWithTray{Item: it, Tray: rec}, true, nil
+			}
+		}
+	}
+	return ItemWithTray{}, false, nil
+}
+
 func (s *Store) updateItemStatus(itemID, status string) (Item, error) {
 	idx, err := s.loadIndex()
 	if err != nil {

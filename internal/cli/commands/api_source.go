@@ -84,6 +84,9 @@ func (s *apiSource) Items(ctx context.Context, trayRef string) ([]api.Item, erro
 }
 
 func (s *apiSource) Item(ctx context.Context, id string) (api.Item, error) {
+	if strings.TrimSpace(id) == "" {
+		return api.Item{}, api.ErrNotFound
+	}
 	row, ok, err := s.findLocalItem(id)
 	if err != nil {
 		return api.Item{}, err
@@ -282,20 +285,7 @@ func (s *apiSource) findLocal(ref string) (localtray.TrayRecord, bool, error) {
 }
 
 func (s *apiSource) findLocalItem(id string) (localtray.ItemWithTray, bool, error) {
-	idx, err := localtray.LoadIndex(localtray.LocalDir(s.configDir()))
-	if err != nil {
-		return localtray.ItemWithTray{}, false, err
-	}
-	rows, err := localtray.NewStore(s.configDir()).ListItemsForTrays(localtray.AllTrayIDs(idx))
-	if err != nil {
-		return localtray.ItemWithTray{}, false, err
-	}
-	for _, row := range rows {
-		if row.Item.ID == id {
-			return row, true, nil
-		}
-	}
-	return localtray.ItemWithTray{}, false, nil
+	return localtray.NewStore(s.configDir()).FindItem(id)
 }
 
 func fromLocal(item localtray.Item, rec localtray.TrayRecord) api.Item {

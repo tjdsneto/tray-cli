@@ -197,6 +197,9 @@ func (h *Handler) Rebuild(ctx Ctx) {
 	local, remote, remoteErr := h.src.Attention(ctx)
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if remoteErr != nil && !errors.Is(remoteErr, ErrRemote) {
+		return
+	}
 	if remoteErr != nil {
 		remote = bar.RemoteItemsFromSnapshot(h.snap)
 		h.snap = bar.BuildSnapshot(append(append([]bar.Item{}, local...), remote...), "remote unavailable")

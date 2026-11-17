@@ -32,6 +32,25 @@ func TestAPISource_localAddListAndComplete(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, api.SelectItems(items, "open"))
 
+	done, err := src.Item(context.Background(), item.ID)
+	require.NoError(t, err)
+	require.Equal(t, "local", done.Scope)
+	require.Equal(t, item.ID, done.ID)
+	require.Equal(t, "done", done.Status)
+
 	err = src.Act(context.Background(), item.ID, "accept", api.ActBody{})
-	require.Error(t, err)
+	require.ErrorContains(t, err, "local items only support complete")
+
+	err = src.Act(context.Background(), item.ID, "complete", api.ActBody{})
+	require.NoError(t, err)
+}
+
+func TestAPISource_blankItemID(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	src := newAPISource(func() string { return dir }, func() (domain.Services, domain.Session, error) {
+		return domain.Services{}, domain.Session{}, errors.New("signed out")
+	})
+	_, err := src.Item(context.Background(), " ")
+	require.ErrorIs(t, err, api.ErrNotFound)
 }
