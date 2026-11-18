@@ -39,7 +39,10 @@ func runAPI(cmd *cobra.Command, _ []string) error {
 	fmt.Fprintln(cmd.OutOrStdout(), handshakeLine(port, token))
 
 	h := api.NewHandler(token, newAPISource(cmdDeps.ConfigDir, cmdDeps.RequireAuth), 30*time.Second)
-	h.Rebuild(cmd.Context())
+	// Accept connections once local attention is published. Remote attention
+	// updates the snapshot after the window can already render.
+	h.RebuildLocal(cmd.Context())
+	go h.Rebuild(cmd.Context())
 	srv := &http.Server{Handler: h}
 	go h.Loop(cmd.Context())
 

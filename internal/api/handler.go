@@ -200,6 +200,19 @@ func writeSourceErr(w http.ResponseWriter, err error) {
 	}
 }
 
+// RebuildLocal publishes disk attention without waiting on remote.
+// The desktop window can render that snapshot while remote attention is still loading.
+func (h *Handler) RebuildLocal(ctx Ctx) {
+	local, err := h.src.LocalAttention(ctx)
+	if err != nil {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	remote := bar.RemoteItemsFromSnapshot(h.snap)
+	h.snap = bar.BuildSnapshot(append(append([]bar.Item{}, local...), remote...), h.snap.RemoteStatus)
+}
+
 func (h *Handler) Rebuild(ctx Ctx) {
 	local, remote, remoteErr := h.src.Attention(ctx)
 	h.mu.Lock()

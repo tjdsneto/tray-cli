@@ -79,15 +79,23 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
     const fail = (err: unknown) => {
       if (!cancelled) setError(messageOf(err));
     };
-    Promise.allSettled([
-      api.session().then((next) => { if (!cancelled) setSession(next); }),
-      api.snapshot().then((next) => { if (!cancelled) setSnapshot(next); }),
-      api.trays().then((next) => { if (!cancelled) setTrays(Array.isArray(next) ? next : []); }),
-    ]).then((results) => {
+    api.session().then((next) => { if (!cancelled) setSession(next); }).catch(fail);
+    const firstSnapshot = api.snapshot().then((next) => {
+      if (!cancelled) setSnapshot(next);
+    });
+    const firstTrays = api.trays().then((next) => {
+      if (!cancelled) setTrays(Array.isArray(next) ? next : []);
+    });
+    Promise.allSettled([firstSnapshot, firstTrays]).then((results) => {
       if (cancelled) return;
-      setBooted(true);
       const failed = results.find((result) => result.status === "rejected");
       if (failed?.status === "rejected") fail(failed.reason);
+      // Remote attention lands after the tray list. Refresh before the window leaves loading.
+      api.snapshot().then((next) => {
+        if (!cancelled) setSnapshot(next);
+      }).catch(() => {}).finally(() => {
+        if (!cancelled) setBooted(true);
+      });
     });
 
     const timer = setInterval(() => {
@@ -312,15 +320,6 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
     }
   }
 
-  if (!booted) {
-    return (
-      <div className="shell boot">
-        <p className="empty">Loading…</p>
-        <AppVersion />
-      </div>
-    );
-  }
-
   const readingFacts = reading ? [
     fact("Agent", reading.agentSessionId),
     fact("Updated", formatWhen(reading.updatedAt)),
@@ -334,27 +333,36 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
     fact("Note", reading.completionMessage),
   ].filter(Boolean) : [];
 
+  const listBusy = (selection.kind === "attention" && !booted) || trayPhase === "loading";
+  const stillLoading = !booted || trayPhase === "loading";
+
   return (
-    <div className={reading ? "shell with-reading" : "shell"}>
+    <div className={reading ? "shell with-reading" : "shell"} aria-busy={!booted}>
+      {stillLoading && <p className="sr-only" role="status">Loading</p>}
       <nav className="sidebar">
         <div className="sidebar-scroll">
         <button type="button" className="nav-row" aria-pressed={selection.kind === "attention"} onClick={chooseAttention}>
           <span>Attention</span>
           {snapshot && snapshot.badge > 0 && <span className="badge">{snapshot.badge}</span>}
         </button>
-        <TrayGroup label="Local" trays={groups.local} selection={selection} onSelect={chooseTray} />
-        <TrayGroup label="Directories" trays={groups.directories} selection={selection} onSelect={chooseTray} />
-        {session?.signedIn === false && <p className="note remote-note">Sign in with tray login</p>}
-        {session?.signedIn === true && snapshot?.remoteStatus === "remote unavailable" && (
-          <p className="note remote-note">Remote unavailable</p>
+        {!booted && <SkeletonNav />}
+        {booted && (
+          <>
+            <TrayGroup label="Local" trays={groups.local} selection={selection} onSelect={chooseTray} />
+            <TrayGroup label="Directories" trays={groups.directories} selection={selection} onSelect={chooseTray} />
+            {session?.signedIn === false && <p className="note remote-note">Sign in with tray login</p>}
+            {session?.signedIn === true && snapshot?.remoteStatus === "remote unavailable" && (
+              <p className="note remote-note">Remote unavailable</p>
+            )}
+            <TrayGroup label="Remote" trays={groups.remote} selection={selection} onSelect={chooseTray} />
+            <TrayGroup label="Joined" trays={groups.joined} selection={selection} onSelect={chooseTray} />
+          </>
         )}
-        <TrayGroup label="Remote" trays={groups.remote} selection={selection} onSelect={chooseTray} />
-        <TrayGroup label="Joined" trays={groups.joined} selection={selection} onSelect={chooseTray} />
         </div>
         <AppVersion />
       </nav>
 
-      <main className="list">
+      <main className="list" aria-busy={listBusy}>
         {error && !reading && <p className="alert list-alert" role="alert">{error}</p>}
         <div className="list-head">
           <h1>{trayName}</h1>
@@ -372,7 +380,8 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
             ))}
           </div>
         </div>
-        {selection.kind === "attention" && (
+        {selection.kind === "attention" && !booted && <SkeletonList />}
+        {selection.kind === "attention" && booted && (
           <BucketList
             buckets={attention}
             filter={statusFilter}
@@ -391,7 +400,7 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
         )}
         {selection.kind === "tray" && (
           <>
-            {trayPhase === "loading" && <p className="empty-list">Loading…</p>}
+            {trayPhase === "loading" && <SkeletonList />}
             {trayPhase === "ready" && (
             <BucketList
               buckets={buckets}
@@ -488,6 +497,41 @@ function TrayWindow({ base, token }: { base: string; token: string }) {
         </>
       </aside>
       )}
+    </div>
+  );
+}
+
+function SkeletonNav() {
+  const groups = [["68%", "46%", "74%"], ["52%", "40%"]];
+  return (
+    <div aria-hidden="true">
+      {groups.map((widths, group) => (
+        <div key={group}>
+          <span className="skeleton skeleton-label" />
+          {widths.map((width) => (
+            <div key={width} className="skeleton-nav">
+              <span className="skeleton skeleton-line" style={{ width }} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SkeletonList() {
+  const widths = ["52%", "74%", "40%", "63%"];
+  return (
+    <div className="item-list" aria-hidden="true">
+      {widths.map((width) => (
+        <div key={width} className="item skeleton-item">
+          <div className="item-line">
+            <span className="skeleton skeleton-pill" />
+            <span className="skeleton skeleton-line" style={{ width }} />
+          </div>
+          <span className="skeleton skeleton-meta" />
+        </div>
+      ))}
     </div>
   );
 }

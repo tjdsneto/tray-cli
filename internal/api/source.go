@@ -20,6 +20,8 @@ type ActBody struct {
 
 type Source interface {
 	SignedIn(ctx Ctx) (bool, error)
+	// LocalAttention is the disk-only half of Attention. It does not call remote.
+	LocalAttention(ctx Ctx) ([]bar.Item, error)
 	Attention(ctx Ctx) (local []bar.Item, remote []bar.Item, remoteErr error)
 	Trays(ctx Ctx) ([]Tray, error)
 	Items(ctx Ctx, trayRef string) ([]Item, error)

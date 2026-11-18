@@ -16,9 +16,22 @@ import (
 	"github.com/tjdsneto/tray-cli/internal/remotesfile"
 )
 
+// remoteBudget bounds remote calls that gate the desktop window.
+// A stalled Supabase connection returns local data instead of hanging the handler.
+const defaultRemoteBudget = 15 * time.Second
+
 type apiSource struct {
-	configDir func() string
-	auth      func() (domain.Services, domain.Session, error)
+	configDir    func() string
+	auth         func() (domain.Services, domain.Session, error)
+	remoteBudget time.Duration
+}
+
+func (s *apiSource) remoteCtx(ctx context.Context) (context.Context, context.CancelFunc) {
+	budget := s.remoteBudget
+	if budget <= 0 {
+		budget = defaultRemoteBudget
+	}
+	return context.WithTimeout(ctx, budget)
 }
 
 func newAPISource(configDir func() string, auth func() (domain.Services, domain.Session, error)) *apiSource {
@@ -30,22 +43,31 @@ func (s *apiSource) SignedIn(context.Context) (bool, error) {
 	return err == nil, nil
 }
 
-func (s *apiSource) Attention(ctx context.Context) ([]bar.Item, []bar.Item, error) {
+func (s *apiSource) LocalAttention(context.Context) ([]bar.Item, error) {
 	rows, err := localtray.NewStore(s.configDir()).AllOpenItems()
+	if err != nil {
+		return nil, err
+	}
+	return bar.ItemsFromLocal(rows), nil
+}
+
+func (s *apiSource) Attention(ctx context.Context) ([]bar.Item, []bar.Item, error) {
+	local, err := s.LocalAttention(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	local := bar.ItemsFromLocal(rows)
+	rctx, cancel := s.remoteCtx(ctx)
+	defer cancel()
 
 	svcs, sess, err := s.auth()
 	if err != nil {
 		return local, nil, nil
 	}
-	owned, err := svcs.Trays.ListOwned(ctx, sess)
+	owned, err := svcs.Trays.ListOwned(rctx, sess)
 	if err != nil {
 		return local, nil, api.ErrRemote
 	}
-	items, err := svcs.Items.List(ctx, sess, pendingOwnedQuery(owned))
+	items, err := svcs.Items.List(rctx, sess, pendingOwnedQuery(owned))
 	if err != nil {
 		return local, nil, api.ErrRemote
 	}
@@ -57,11 +79,13 @@ func (s *apiSource) Trays(ctx context.Context) ([]api.Tray, error) {
 	if err != nil {
 		return nil, err
 	}
+	rctx, cancel := s.remoteCtx(ctx)
+	defer cancel()
 	svcs, sess, err := s.auth()
 	if err != nil {
 		return local, nil
 	}
-	remote, err := s.remoteTrays(ctx, svcs, sess)
+	remote, err := s.remoteTrays(rctx, svcs, sess)
 	if err != nil {
 		return local, nil
 	}
@@ -296,15 +320,17 @@ func remoteTray(t domain.Tray, kind string, open int) api.Tray {
 }
 
 func (s *apiSource) remoteItems(ctx context.Context, trayRef string) ([]api.Item, error) {
+	rctx, cancel := s.remoteCtx(ctx)
+	defer cancel()
 	svcs, sess, err := s.auth()
 	if err != nil {
 		return nil, api.ErrSignedOut
 	}
-	tray, err := s.findRemoteTray(ctx, svcs, sess, trayRef)
+	tray, err := s.findRemoteTray(rctx, svcs, sess, trayRef)
 	if err != nil {
 		return nil, err
 	}
-	items, err := svcs.Items.List(ctx, sess, domain.ListItemsQuery{TrayID: tray.ID})
+	items, err := svcs.Items.List(rctx, sess, domain.ListItemsQuery{TrayID: tray.ID})
 	if err != nil {
 		return nil, api.ErrRemote
 	}
@@ -312,7 +338,7 @@ func (s *apiSource) remoteItems(ctx context.Context, trayRef string) ([]api.Item
 	if name == "" {
 		name = tray.ID
 	}
-	labels := profileDisplayMap(ctx, sess, svcs, sourceUserIDsFromItems(items))
+	labels := profileDisplayMap(rctx, sess, svcs, sourceUserIDsFromItems(items))
 	out := make([]api.Item, 0, len(items))
 	for _, it := range items {
 		out = append(out, withSourceUser(fromRemote(it, name), it, sess, labels))

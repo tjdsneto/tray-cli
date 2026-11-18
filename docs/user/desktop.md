@@ -10,7 +10,7 @@ The app runs the `tray` binary on your `PATH` and talks to it on this machine on
 
 ## Window
 
-The window shows Loading until the tray list arrives. The sidebar lists Attention, then local trays, directory and branch trays, remote trays you own, and trays you joined. A joined tray is listed by its local alias, with the owner's name under it. Attention is the badge set. A tray splits Pending, Open, and Completed, and the chips filter that list. Each row shows when it was created, its status, and the actions that apply. The open row is marked, and Close clears it. Copy ref copies `tray-ref item-id`. On a tray you joined, you see the items you added.
+On launch, placeholders stay up until the tray list and the attention list are both ready. Opening a tray later shows placeholders for that tray's rows only. A stalled remote call does not hold the window forever. The sidebar lists Attention, then local trays, directory and branch trays, remote trays you own, and trays you joined. A joined tray is listed by its local alias, with the owner's name under it. Attention is the badge set. A tray splits Pending, Open, and Completed, and the chips filter that list. Each row shows when it was created, its status, and the actions that apply. The open row is marked, and Close clears it. Copy ref copies `tray-ref item-id`. On a tray you joined, you see the items you added.
 
 ## Menu bar
 

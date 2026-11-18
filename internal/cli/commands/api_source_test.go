@@ -14,6 +14,57 @@ import (
 	"github.com/tjdsneto/tray-cli/internal/localtray"
 )
 
+type stallTrayService struct{ stubTrayService }
+
+func (s *stallTrayService) ListOwned(ctx context.Context, _ domain.Session) ([]domain.Tray, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func TestAPISource_traysReturnsLocalWhenRemoteStalls(t *testing.T) {
+	dir := t.TempDir()
+	stall := false
+	src := newAPISource(func() string { return dir }, func() (domain.Services, domain.Session, error) {
+		if !stall {
+			return domain.Services{}, domain.Session{}, errors.New("signed out")
+		}
+		return domain.Services{Trays: &stallTrayService{}}, domain.Session{UserID: "u"}, nil
+	})
+	_, err := src.Add(context.Background(), api.AddRequest{Tray: "notes", Title: "Draft"})
+	require.NoError(t, err)
+
+	stall = true
+	src.remoteBudget = 40 * time.Millisecond
+	start := time.Now()
+	trays, err := src.Trays(context.Background())
+	require.NoError(t, err)
+	require.Less(t, time.Since(start), time.Second)
+	require.Len(t, trays, 1)
+	require.Equal(t, "notes", trays[0].Name)
+}
+
+func TestAPISource_attentionReturnsLocalWhenRemoteStalls(t *testing.T) {
+	dir := t.TempDir()
+	stall := false
+	src := newAPISource(func() string { return dir }, func() (domain.Services, domain.Session, error) {
+		if !stall {
+			return domain.Services{}, domain.Session{}, errors.New("signed out")
+		}
+		return domain.Services{Trays: &stallTrayService{}}, domain.Session{UserID: "u"}, nil
+	})
+	_, err := src.Add(context.Background(), api.AddRequest{Tray: "notes", Title: "Draft"})
+	require.NoError(t, err)
+
+	stall = true
+	src.remoteBudget = 40 * time.Millisecond
+	start := time.Now()
+	local, remote, err := src.Attention(context.Background())
+	require.ErrorIs(t, err, api.ErrRemote)
+	require.Less(t, time.Since(start), time.Second)
+	require.Len(t, local, 1)
+	require.Empty(t, remote)
+}
+
 func TestAPISource_localAddListAndComplete(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

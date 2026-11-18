@@ -24,6 +24,7 @@ textarea {
 }
 
 .shell {
+  position: relative;
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
   height: 100%;
@@ -34,8 +35,90 @@ textarea {
 }
 
 .shell.boot {
-  display: grid;
-  place-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+}
+
+.shell.boot .empty,
+.shell.boot .app-version {
+  margin: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skeleton {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  background: #c3d0ca;
+  border-radius: 6px;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: translateX(-100%);
+  animation: skeleton-shimmer 1.3s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}
+
+.skeleton-label {
+  width: 52px;
+  height: 8px;
+  margin: 18px 10px 8px;
+}
+
+.skeleton-nav {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+}
+
+.skeleton-line {
+  height: 12px;
+  flex: none;
+}
+
+.skeleton-pill {
+  width: 52px;
+  height: 16px;
+  flex: none;
+  border-radius: 99px;
+}
+
+.skeleton-item {
+  cursor: default;
+}
+
+.skeleton-meta {
+  width: 72px;
+  height: 10px;
+  margin-top: 8px;
 }
 
 .sidebar,

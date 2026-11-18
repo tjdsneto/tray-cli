@@ -24,6 +24,9 @@ type fakeSource struct {
 }
 
 func (f *fakeSource) SignedIn(api.Ctx) (bool, error) { return f.signedIn, nil }
+func (f *fakeSource) LocalAttention(api.Ctx) ([]bar.Item, error) {
+	return f.local, nil
+}
 func (f *fakeSource) Attention(api.Ctx) ([]bar.Item, []bar.Item, error) {
 	return f.local, f.remote, f.remoteErr
 }
@@ -92,6 +95,22 @@ func TestItems_listOmitsBodyAndGetIncludesIt(t *testing.T) {
 
 	missing := getAuth(h, "/v1/items/nope")
 	require.Equal(t, http.StatusNotFound, missing.Code)
+}
+
+func TestRebuildLocal_publishesDiskItems(t *testing.T) {
+	t.Parallel()
+	src := &fakeSource{local: []bar.Item{{
+		Scope: bar.ScopeLocal, TrayRef: "notes", TrayName: "notes", ItemID: "l1", Title: "L", CreatedAt: time.Unix(1, 0).UTC(),
+	}}}
+	h := api.NewHandler("secret", src, time.Hour)
+	h.RebuildLocal(t.Context())
+
+	snap := getAuth(h, "/v1/snapshot")
+	var body api.Snapshot
+	require.NoError(t, json.Unmarshal(snap.Body.Bytes(), &body))
+	require.Equal(t, 1, body.Badge)
+	require.Equal(t, "l1", body.Sections[0].Rows[0].ItemID)
+	require.Empty(t, body.RemoteStatus)
 }
 
 func TestRebuild_localStoreErrorKeepsSnapshot(t *testing.T) {
