@@ -58,6 +58,5 @@ Help for **using** the shipped `tray` binary (not developing this repo) lives in
 
 ## Backlog
 
-`todos.md` at the repo root is my self-authored backlog of feature ideas (managed by the
-`app-backlog` skill). Read it when I ask to pick something to work on — don't surface it
+`.ana/todo.md` is my self-authored backlog of feature ideas. Read it when I ask to pick something to work on — don't surface it
 proactively.
