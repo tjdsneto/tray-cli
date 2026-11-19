@@ -435,7 +435,7 @@ mod menu_bar {
         };
         let _tray = TrayIconBuilder::with_id("main")
             .icon(TRAY_ICON.clone())
-            .icon_as_template(true)
+            .icon_as_template(false)
             .menu(&menu)
             .tooltip("Tray")
             .show_menu_on_left_click(true)
